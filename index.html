@@ -3541,6 +3541,21 @@
 
   <div id="view-dashboard" class="app-view">
       <div class="container">
+        <!-- Live heart rate for athlete-1, polled from the Athletrix engine backend (see README.md) -->
+        <div class="card" id="axLiveHr" style="margin-bottom:24px;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Live Heart Rate &middot; athlete-1</div>
+              <div class="card-sub">Polled once per second from the Athletrix engine API</div>
+            </div>
+            <span class="ax-badge" id="axLiveHrBadge" style="display:none;background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);">Simulated data</span>
+          </div>
+          <div class="vitals-grid" style="margin-bottom:12px;">
+            <div class="vital"><div class="vital-label">Heart Rate</div><div class="vital-value" id="axLiveHrValue">&mdash;</div></div>
+            <div class="vital"><div class="vital-label">Sample Time</div><div class="vital-value" id="axLiveHrTime">&mdash;</div></div>
+          </div>
+          <div class="card-sub" id="axLiveHrStatus">Connecting to backend&hellip;</div>
+        </div>
         <section id="homeView">
           <div id="emptyDashboard" class="empty-dashboard" style="display: none;">
             <h2>Welcome to Athletrix!</h2>
@@ -9880,6 +9895,77 @@ function initializePlayerFatigue(team) {
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", install);
   else install();
+})();
+</script>
+
+<script id="axLiveHeartRate">
+(function(){
+  "use strict";
+  // Polls the separate Athletrix engine backend for athlete-1's latest physiological sample.
+  // Override the backend address before this script runs with: window.ATHLETRIX_API_BASE = "http://host:port"
+  var API_BASE = window.ATHLETRIX_API_BASE || "http://127.0.0.1:8000";
+  var ATHLETE_ID = "athlete-1";
+  var POLL_MS = 1000;   // how often to poll
+  var STALE_MS = 5000;  // no new timestamp for this long = "stopped updating"
+  var URL = API_BASE + "/api/v1/athletes/" + ATHLETE_ID + "/physiological/latest";
+  var COLORS = { live: "#3b82f6", warn: "#d7960b", error: "#d43830", muted: "#9ca3af" };
+
+  var valueEl = document.getElementById("axLiveHrValue");
+  var timeEl = document.getElementById("axLiveHrTime");
+  var statusEl = document.getElementById("axLiveHrStatus");
+  var badgeEl = document.getElementById("axLiveHrBadge");
+  if (!valueEl || !timeEl || !statusEl || !badgeEl) return;
+
+  var lastTimestamp = null;
+  var lastChangeAt = 0;
+
+  function setStatus(text, color) { statusEl.textContent = text; statusEl.style.color = color; }
+
+  function clearSample() {
+    valueEl.textContent = "\u2014"; valueEl.title = "";
+    timeEl.textContent = "\u2014"; timeEl.title = "";
+    badgeEl.style.display = "none";
+    lastTimestamp = null;
+  }
+
+  function render(sample) {
+    // heart_rate_bpm is optional in the API; a null stays null and is shown as "not reported", never as 0.
+    var hr = sample.heart_rate_bpm;
+    var hrMissing = (hr === null || hr === undefined);
+    valueEl.textContent = hrMissing ? "\u2014" : Math.round(hr) + " bpm";
+    valueEl.title = hrMissing ? "heart_rate_bpm: null" : "heart_rate_bpm: " + hr;
+
+    var d = new Date(sample.timestamp);
+    timeEl.textContent = isNaN(d.getTime()) ? sample.timestamp : d.toLocaleTimeString();
+    timeEl.title = sample.timestamp;
+
+    badgeEl.style.display = sample.source === "simulated" ? "inline-block" : "none";
+
+    if (sample.timestamp !== lastTimestamp) { lastTimestamp = sample.timestamp; lastChangeAt = Date.now(); }
+    var secondsSinceChange = Math.round((Date.now() - lastChangeAt) / 1000);
+    if (Date.now() - lastChangeAt > STALE_MS) {
+      setStatus("Sample has stopped updating \u2014 no new data for " + secondsSinceChange + "s", COLORS.warn);
+    } else if (hrMissing) {
+      setStatus("Live \u00b7 heart rate not reported in this sample", COLORS.live);
+    } else {
+      setStatus("Live \u00b7 source: " + sample.source + " \u00b7 device: " + sample.device_id, COLORS.live);
+    }
+  }
+
+  function poll() {
+    var view = document.getElementById("view-dashboard");
+    if (!view || !view.classList.contains("active-view")) return; // only poll while the dashboard is visible
+    fetch(URL, { cache: "no-store" }).then(function(res) {
+      if (res.status === 404) { clearSample(); setStatus("No sample yet for " + ATHLETE_ID + ". Run the simulator to send data.", COLORS.muted); return; }
+      if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
+      return res.json().then(render);
+    }).catch(function() {
+      setStatus("Cannot reach backend at " + API_BASE + " \u2014 is it running?", COLORS.error);
+    });
+  }
+
+  poll();
+  setInterval(poll, POLL_MS);
 })();
 </script>
 
