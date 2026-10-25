@@ -3541,14 +3541,24 @@
 
   <div id="view-dashboard" class="app-view">
       <div class="container">
-        <!-- Live cards for athlete-1, polled from the Athletrix engine backend (see README.md).
-             Each card polls its own endpoint and tracks its own state; their timestamps are
-             shown separately because the two streams are not synchronized. -->
+        <!-- Backend-connected demo cards. One shared athlete selector (roster from GET /api/v1/athletes)
+             drives the live heart-rate, live tracking and 60-second summary cards. Each card polls its own
+             endpoint for the selected athlete and keeps its own state; timestamps are shown per stream
+             because the streams are not synchronized. See README.md. -->
+        <div class="card" id="axAthleteBar" style="margin-bottom:18px;padding:14px 24px;">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;">
+            <label for="axAthleteSelect" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-size:0.9rem;color:#fff;">Athlete</label>
+            <select id="axAthleteSelect" class="coach-select" style="min-width:220px;max-width:100%;" disabled></select>
+            <button type="button" id="axAthleteRefresh" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Refresh roster</button>
+            <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Fictional demo roster</span>
+            <div class="card-sub" id="axAthleteStatus" style="flex-basis:100%;margin-top:2px;">Loading roster&hellip;</div>
+          </div>
+        </div>
         <div id="axLiveCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;margin-bottom:24px;">
           <div class="card" id="axLiveHr">
             <div class="card-header">
               <div>
-                <div class="card-title">Live Heart Rate &middot; athlete-1</div>
+                <div class="card-title">Live Heart Rate &middot; <span id="axLiveHrWho">no athlete selected</span></div>
                 <div class="card-sub">Polled once per second from the Athletrix engine API</div>
               </div>
               <span class="ax-badge" id="axLiveHrBadge" style="display:none;background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);">Simulated data</span>
@@ -3557,12 +3567,12 @@
               <div class="vital"><div class="vital-label">Heart Rate</div><div class="vital-value" id="axLiveHrValue">&mdash;</div></div>
               <div class="vital"><div class="vital-label">Sample Time</div><div class="vital-value" id="axLiveHrTime">&mdash;</div></div>
             </div>
-            <div class="card-sub" id="axLiveHrStatus">Connecting to backend&hellip;</div>
+            <div class="card-sub" id="axLiveHrStatus">Waiting for roster&hellip;</div>
           </div>
           <div class="card" id="axLiveTrk">
             <div class="card-header">
               <div>
-                <div class="card-title">Live Tracking &middot; athlete-1</div>
+                <div class="card-title">Live Tracking &middot; <span id="axLiveTrkWho">no athlete selected</span></div>
                 <div class="card-sub">Polled once per second from the Athletrix engine API</div>
               </div>
               <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Simulated tracking demo</span>
@@ -3573,14 +3583,13 @@
               <div class="vital"><div class="vital-label">Tracking Confidence</div><div class="vital-value" id="axLiveTrkConf">&mdash;</div></div>
               <div class="vital"><div class="vital-label">Sample Time</div><div class="vital-value" id="axLiveTrkTime">&mdash;</div></div>
             </div>
-            <div class="card-sub" id="axLiveTrkStatus">Connecting to backend&hellip;</div>
+            <div class="card-sub" id="axLiveTrkStatus">Waiting for roster&hellip;</div>
           </div>
         </div>
-        <!-- Summary card: descriptive metrics over the last 60 s, refreshed every 5 s from the backend. -->
         <div class="card" id="axLiveSum" style="margin-bottom:24px;">
           <div class="card-header">
             <div>
-              <div class="card-title">Last 60 seconds &middot; athlete-1</div>
+              <div class="card-title">Last 60 seconds &middot; <span id="axLiveSumWho">no athlete selected</span></div>
               <div class="card-sub">Summary from the Athletrix engine API, refreshed every 5 seconds. Values describe recorded samples, not a live feed.</div>
             </div>
             <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Simulated demo</span>
@@ -3608,7 +3617,7 @@
               </div>
             </div>
           </div>
-          <div class="card-sub" id="axSumStatus">Connecting to backend&hellip;</div>
+          <div class="card-sub" id="axSumStatus">Waiting for roster&hellip;</div>
         </div>
         <section id="homeView">
           <div id="emptyDashboard" class="empty-dashboard" style="display: none;">
@@ -9955,56 +9964,133 @@ function initializePlayerFatigue(team) {
 <script id="axLiveHeartRate">
 (function(){
   "use strict";
-  // Polls the separate Athletrix engine backend for athlete-1's latest samples.
-  // Each card below is an independent poller with its own endpoint, state and messages.
+  // Backend-connected demo cards. The roster comes from the separate Athletrix engine backend; one shared
+  // selection drives three independent pollers. Each poller is created exactly once (one interval each), so
+  // switching athletes or navigating views never adds polling loops. Requests carry the selection
+  // generation they were made for; responses from an earlier generation are ignored.
   // Override the backend address before this script runs with: window.ATHLETRIX_API_BASE = "http://host:port"
   var API_BASE = window.ATHLETRIX_API_BASE || "http://127.0.0.1:8000";
-  var ATHLETE_ID = "athlete-1";
-  var POLL_MS = 1000;   // how often to poll
-  var STALE_MS = 5000;  // no new timestamp for this long = "stopped updating"
+  var POLL_MS = 1000;          // live cards
+  var STALE_MS = 5000;         // live cards: no new timestamp for this long = "stopped updating"
+  var SUMMARY_MS = 5000;       // summary card
+  var WINDOW_S = 60;           // summary window
+  var ROSTER_RETRY_MS = 10000; // auto-retry roster while it is empty or unreachable and the dashboard is visible
   var COLORS = { live: "#3b82f6", warn: "#d7960b", error: "#d43830", muted: "#9ca3af" };
-  var DASH = "—";
+  var DASH = "—", NA = "Not available";
+  var SETUP_HINT = "No athletes registered. From the backend folder run: python scripts/register_demo_roster.py, then click Refresh roster.";
 
   function isNum(v) { return typeof v === "number" && isFinite(v); } // 0 is a valid value, never treated as missing
   function byId(id) { return document.getElementById(id); }
   function dashboardVisible() { var v = byId("view-dashboard"); return !!v && v.classList.contains("active-view"); }
-  function formatTime(iso, el) {
-    var d = new Date(iso);
-    el.textContent = isNaN(d.getTime()) ? iso : d.toLocaleTimeString();
-    el.title = iso;
+  function formatTime(iso, el) { var d = new Date(iso); el.textContent = isNaN(d.getTime()) ? iso : d.toLocaleTimeString(); el.title = iso; }
+  function athleteUrl(id, suffix) { return API_BASE + "/api/v1/athletes/" + encodeURIComponent(id) + suffix; }
+  function athleteLabel(a) { return String(a.name) + " #" + String(a.jersey_number); } // rendered via textContent only
+
+  // ---- shared selection ----
+  var selection = { id: null, label: "", generation: 0 };
+  var cards = []; // { reset(), poll(), setWho(label) }
+  function selectAthlete(id, label) {
+    selection.generation += 1;            // invalidates every in-flight request for the previous athlete
+    selection.id = id; selection.label = label || "";
+    for (var i = 0; i < cards.length; i++) { cards[i].setWho(label || "no athlete selected"); cards[i].reset(); cards[i].poll(); }
   }
+  function noSelectionText() { return rosterState === "empty" ? "No athlete selected. " + SETUP_HINT : rosterState === "error" ? "No athlete selected. Roster could not be loaded." : "No athlete selected."; }
 
-  // cfg: { path, statusEl, timeEl, noSampleText, render(sample) -> status text while live, clear() }
+  // ---- roster ----
+  var selectEl = byId("axAthleteSelect"), refreshEl = byId("axAthleteRefresh"), rosterStatusEl = byId("axAthleteStatus");
+  if (!selectEl || !refreshEl || !rosterStatusEl) return;
+  var rosterState = "loading"; // loading | ready | empty | error
+  var rosterGeneration = 0;
+  var rosterById = {};
+  function setRosterStatus(text, color) { rosterStatusEl.textContent = text; rosterStatusEl.style.color = color; }
+  function renderOptions(list) {
+    selectEl.textContent = "";
+    for (var i = 0; i < list.length; i++) {
+      var o = document.createElement("option");
+      o.value = String(list[i].id);
+      o.textContent = athleteLabel(list[i]) + " · " + String(list[i].sport);
+      selectEl.appendChild(o);
+    }
+  }
+  function loadRoster() {
+    var gen = ++rosterGeneration;
+    rosterState = "loading"; refreshEl.disabled = true;
+    setRosterStatus("Loading roster…", COLORS.muted);
+    fetch(API_BASE + "/api/v1/athletes", { cache: "no-store" }).then(function(res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }).then(function(list) {
+      if (gen !== rosterGeneration) return;
+      refreshEl.disabled = false;
+      if (!Array.isArray(list)) throw new Error("unexpected roster shape");
+      rosterById = {};
+      for (var i = 0; i < list.length; i++) rosterById[String(list[i].id)] = list[i];
+      renderOptions(list);
+      if (!list.length) {
+        rosterState = "empty"; selectEl.disabled = true;
+        setRosterStatus(SETUP_HINT, COLORS.warn);
+        selectAthlete(null, "");
+        return;
+      }
+      rosterState = "ready"; selectEl.disabled = false;
+      var keepId = rosterById.hasOwnProperty(selection.id) ? selection.id : String(list[0].id); // preserve a still-valid selection
+      selectEl.value = keepId;
+      var label = athleteLabel(rosterById[keepId]);
+      setRosterStatus(list.length + (list.length === 1 ? " athlete" : " athletes") + " registered · fictional demo roster, in backend memory", COLORS.muted);
+      if (keepId !== selection.id) selectAthlete(keepId, label);
+      else { selection.label = label; for (var j = 0; j < cards.length; j++) cards[j].setWho(label); }
+    }).catch(function(err) {
+      if (gen !== rosterGeneration) return;
+      refreshEl.disabled = false; rosterState = "error";
+      setRosterStatus("Cannot load roster from " + API_BASE + " " + DASH + " is the backend running? (" + err.message + ")", COLORS.error);
+      // Existing options and selection are kept; the cards report their own connection state.
+      if (selection.id === null) for (var k = 0; k < cards.length; k++) cards[k].poll();
+    });
+  }
+  selectEl.addEventListener("change", function() {
+    var id = selectEl.value, a = rosterById[id];
+    if (a && id !== selection.id) selectAthlete(id, athleteLabel(a));
+  });
+  refreshEl.addEventListener("click", loadRoster);
+
+  // ---- live card poller (heart rate / tracking) ----
+  // cfg: { path, whoEl, statusEl, timeEl, noSampleText(label, id), render(sample) -> live status text, clear() }
   function startPoller(cfg) {
-    var statusEl = byId(cfg.statusEl), timeEl = byId(cfg.timeEl);
-    if (!statusEl || !timeEl) return;
-    var url = API_BASE + "/api/v1/athletes/" + ATHLETE_ID + cfg.path;
+    var statusEl = byId(cfg.statusEl), timeEl = byId(cfg.timeEl), whoEl = byId(cfg.whoEl);
+    if (!statusEl || !timeEl || !whoEl) return;
     var lastTimestamp = null, lastChangeAt = 0;
-
     function setStatus(text, color) { statusEl.textContent = text; statusEl.style.color = color; }
-
+    function clearView() { cfg.clear(); timeEl.textContent = DASH; timeEl.title = ""; lastTimestamp = null; lastChangeAt = 0; }
     function handle(sample) {
       var liveText = cfg.render(sample);
       formatTime(sample.timestamp, timeEl);
-      if (sample.timestamp !== lastTimestamp) { lastTimestamp = sample.timestamp; lastChangeAt = Date.now(); }
+      if (sample.timestamp !== lastTimestamp) {
+        // Count staleness from the sample's own timestamp when it is already old (e.g. right after switching
+        // athlete), never from when this card first saw it; otherwise an old sample would read "Live" for 5 s.
+        var sampleMs = new Date(sample.timestamp).getTime();
+        lastTimestamp = sample.timestamp;
+        lastChangeAt = isNaN(sampleMs) ? Date.now() : Math.min(Date.now(), sampleMs);
+      }
       var since = Math.round((Date.now() - lastChangeAt) / 1000);
       if (Date.now() - lastChangeAt > STALE_MS) setStatus("Sample has stopped updating " + DASH + " no new data for " + since + "s", COLORS.warn);
       else setStatus(liveText, COLORS.live);
     }
-
     function poll() {
       if (!dashboardVisible()) return; // only poll while the dashboard is visible
-      fetch(url, { cache: "no-store" }).then(function(res) {
-        if (res.status === 404) { cfg.clear(); timeEl.textContent = DASH; timeEl.title = ""; lastTimestamp = null; setStatus(cfg.noSampleText, COLORS.muted); return; }
+      if (selection.id === null) { setStatus(noSelectionText(), COLORS.muted); return; }
+      var gen = selection.generation, id = selection.id, label = selection.label;
+      fetch(athleteUrl(id, cfg.path), { cache: "no-store" }).then(function(res) {
+        if (gen !== selection.generation) return; // athlete changed while this request was in flight
+        if (res.status === 404) { clearView(); setStatus(cfg.noSampleText(label, id), COLORS.muted); return; }
         if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
-        return res.json().then(handle);
+        return res.json().then(function(sample) { if (gen === selection.generation) handle(sample); });
       }).catch(function() {
+        if (gen !== selection.generation) return;
         setStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running?", COLORS.error);
       });
     }
-
-    poll();
-    setInterval(poll, POLL_MS);
+    cards.push({ reset: function() { clearView(); setStatus("Loading…", COLORS.muted); }, poll: poll, setWho: function(l) { whoEl.textContent = l; } });
+    setInterval(poll, POLL_MS); // created once per card
   }
 
   // ---- Heart-rate card ----
@@ -10012,10 +10098,8 @@ function initializePlayerFatigue(team) {
     var valueEl = byId("axLiveHrValue"), badgeEl = byId("axLiveHrBadge");
     if (!valueEl || !badgeEl) return;
     startPoller({
-      path: "/physiological/latest",
-      statusEl: "axLiveHrStatus",
-      timeEl: "axLiveHrTime",
-      noSampleText: "No heart-rate sample yet for " + ATHLETE_ID + ". Run the simulator to send data.",
+      path: "/physiological/latest", whoEl: "axLiveHrWho", statusEl: "axLiveHrStatus", timeEl: "axLiveHrTime",
+      noSampleText: function(label, id) { return "No heart-rate sample yet for " + label + ". Run the simulator with --athlete-id " + id + "."; },
       clear: function() { valueEl.textContent = DASH; valueEl.title = ""; badgeEl.style.display = "none"; },
       render: function(sample) {
         // heart_rate_bpm is optional in the API; a null stays null and is shown as "not reported", never as 0.
@@ -10033,15 +10117,10 @@ function initializePlayerFatigue(team) {
   (function(){
     var speedEl = byId("axLiveTrkSpeed"), accelEl = byId("axLiveTrkAccel"), confEl = byId("axLiveTrkConf");
     if (!speedEl || !accelEl || !confEl) return;
-    function show(el, v, fmt, key) { // zero is a real reading and is displayed as such
-      el.textContent = isNum(v) ? fmt(v) : DASH;
-      el.title = key + ": " + (isNum(v) ? v : "null");
-    }
+    function show(el, v, fmt, key) { el.textContent = isNum(v) ? fmt(v) : DASH; el.title = key + ": " + (isNum(v) ? v : "null"); } // zero is a real reading
     startPoller({
-      path: "/tracking/latest",
-      statusEl: "axLiveTrkStatus",
-      timeEl: "axLiveTrkTime",
-      noSampleText: "No tracking sample yet for " + ATHLETE_ID + ". Run the simulator with --with-tracking.",
+      path: "/tracking/latest", whoEl: "axLiveTrkWho", statusEl: "axLiveTrkStatus", timeEl: "axLiveTrkTime",
+      noSampleText: function(label, id) { return "No tracking sample yet for " + label + ". Run the simulator with --athlete-id " + id + " --with-tracking."; },
       clear: function() { [speedEl, accelEl, confEl].forEach(function(el){ el.textContent = DASH; el.title = ""; }); },
       render: function(sample) {
         show(speedEl, sample.speed_mps, function(v){ return v.toFixed(1) + " m/s"; }, "speed_mps");
@@ -10054,29 +10133,19 @@ function initializePlayerFatigue(team) {
 
   // ---- Summary card (last 60 s, refreshed every 5 s) ----
   (function(){
-    var SUMMARY_MS = 5000, WINDOW_S = 60;
-    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus"];
+    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
-    var url = API_BASE + "/api/v1/athletes/" + ATHLETE_ID + "/summary?seconds=" + WINDOW_S;
-    var NA = "Not available";
-
-    // null -> "Not available"; a real 0 is formatted as a value.
-    function fmt(v, unit, digits) { return isNum(v) ? v.toFixed(digits) + (unit ? " " + unit : "") : NA; }
+    function fmt(v, unit, digits) { return isNum(v) ? v.toFixed(digits) + (unit ? " " + unit : "") : NA; } // null -> Not available; real 0 formatted
     function count(v) { return isNum(v) ? String(v) : NA; }
     function setStatus(text, color) { el.axSumStatus.textContent = text; el.axSumStatus.style.color = color; }
-    function clearAll() { ids.slice(0, 9).forEach(function(id){ el[id].textContent = DASH; }); }
-
+    function clearAll() { for (var j = 0; j < 9; j++) el[ids[j]].textContent = DASH; }
     function describeRecency(p, t) {
-      // Recency comes from the sample ages the backend reports against its own window end,
-      // not from the fact that this request succeeded.
-      var parts = [];
-      parts.push(isNum(p.latest_sample_age_seconds) ? "newest heart-rate sample " + p.latest_sample_age_seconds.toFixed(1) + " s before window end" : "no heart-rate samples in window");
-      parts.push(isNum(t.latest_sample_age_seconds) ? "newest tracking sample " + t.latest_sample_age_seconds.toFixed(1) + " s before window end" : "no tracking samples in window");
-      return parts.join("; ");
+      // Recency comes from the sample ages the backend reports against its own window end, not from this request succeeding.
+      return (isNum(p.latest_sample_age_seconds) ? "newest heart-rate sample " + p.latest_sample_age_seconds.toFixed(1) + " s before window end" : "no heart-rate samples in window")
+        + "; " + (isNum(t.latest_sample_age_seconds) ? "newest tracking sample " + t.latest_sample_age_seconds.toFixed(1) + " s before window end" : "no tracking samples in window");
     }
-
-    function render(sum) {
+    function render(sum, label) {
       var p = sum.physiological || {}, t = sum.tracking || {};
       el.axSumHrMean.textContent = fmt(p.heart_rate_mean_bpm, "bpm", 0);
       el.axSumHrPeak.textContent = fmt(p.heart_rate_peak_bpm, "bpm", 0);
@@ -10087,31 +10156,32 @@ function initializePlayerFatigue(team) {
       el.axSumTrkCount.textContent = count(t.sample_count);
       el.axSumTrkAge.textContent = fmt(t.latest_sample_age_seconds, "s", 1);
       el.axSumTrkGap.textContent = fmt(t.max_inter_sample_gap_seconds, "s", 1);
-
-      var endD = new Date(sum.window_end);
-      var endText = isNaN(endD.getTime()) ? sum.window_end : endD.toLocaleTimeString();
-      var empty = (p.sample_count === 0 || p.sample_count == null) && (t.sample_count === 0 || t.sample_count == null);
-      if (empty) {
-        setStatus("No samples recorded in the " + WINDOW_S + " s ending " + endText + ". Run the simulator to send data.", COLORS.muted);
-      } else {
-        setStatus("Summary window ended " + endText + " · " + describeRecency(p, t) + ".", COLORS.muted);
-      }
+      var endD = new Date(sum.window_end), endText = isNaN(endD.getTime()) ? sum.window_end : endD.toLocaleTimeString();
+      var empty = !(p.sample_count > 0) && !(t.sample_count > 0);
+      if (empty) setStatus("No samples recorded for " + label + " in the " + WINDOW_S + " s ending " + endText + ". Run the simulator to send data.", COLORS.muted);
+      else setStatus("Summary window ended " + endText + " · " + describeRecency(p, t) + ".", COLORS.muted);
     }
-
     function poll() {
       if (!dashboardVisible()) return;
-      fetch(url, { cache: "no-store" }).then(function(res) {
+      if (selection.id === null) { setStatus(noSelectionText(), COLORS.muted); return; }
+      var gen = selection.generation, id = selection.id, label = selection.label;
+      fetch(athleteUrl(id, "/summary?seconds=" + WINDOW_S), { cache: "no-store" }).then(function(res) {
+        if (gen !== selection.generation) return;
         if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
-        return res.json().then(render);
+        return res.json().then(function(sum) { if (gen === selection.generation) render(sum, label); });
       }).catch(function() {
+        if (gen !== selection.generation) return;
         clearAll();
         setStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running?", COLORS.error);
       });
     }
-
-    poll();
-    setInterval(poll, SUMMARY_MS);
+    cards.push({ reset: function() { clearAll(); setStatus("Loading…", COLORS.muted); }, poll: poll, setWho: function(l) { el.axLiveSumWho.textContent = l; } });
+    setInterval(poll, SUMMARY_MS); // created once
   })();
+
+  // ---- start ----
+  loadRoster();
+  setInterval(function() { if (dashboardVisible() && rosterState !== "ready" && rosterState !== "loading") loadRoster(); }, ROSTER_RETRY_MS);
 })();
 </script>
 
