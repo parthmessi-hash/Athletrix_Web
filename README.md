@@ -98,14 +98,17 @@ readings with their real age; run a simulator again for fresh values.
   unreachable. Athletes are never invented client-side and there is no silent
   fallback to `athlete-1`.
 - **Live Heart Rate**: heart rate and sample time of the most recent
-  physiological sample for the selected athlete, with a "Simulated data"
-  badge whenever the sample's `source` is `simulated`. A `null`
-  `heart_rate_bpm` is shown as "—", not 0.
-- **Live Tracking** (always labelled "Simulated tracking demo"): speed in
-  m/s, acceleration in m/s² (signed), tracking confidence as a percentage, and
-  sample time of the most recent tracking sample. Zero is a real reading and
-  is shown as `0.0 m/s`, never as missing.
-- **Last 60 seconds** (labelled "Simulated demo"): fetched every 5 seconds
+  physiological sample for the selected athlete, with a badge showing that
+  sample's own reported source ("Reported source: simulated", "Reported
+  source: wearable", or "Source not reported") and the device id in the
+  status line. A `null` `heart_rate_bpm` is shown as "—", not 0.
+- **Live Tracking**: speed in m/s, acceleration in m/s² (signed), tracking
+  confidence as a percentage, and sample time of the most recent tracking
+  sample, with the same kind of source badge taken from that sample. Tracking
+  samples recorded before the optional `source` field existed show "Source
+  not reported"; nothing is assumed. Zero is a real reading and is shown as
+  `0.0 m/s`, never as missing.
+- **Last 60 seconds**: fetched every 5 seconds
   from the backend summary endpoint. Shows mean and peak heart rate (bpm),
   peak speed (m/s), the heart-rate measurement count out of physiological
   samples, the tracking sample count, and for each stream the newest
@@ -173,6 +176,33 @@ response that arrives for the previously selected athlete, so a slow reply
 can never appear under another athlete's name. Each card shows its own
 sample timestamp; the streams are polled and timestamped separately, so
 showing them side by side does not mean they are synchronized.
+
+## Source labels on the engine-connected cards
+
+The engine-connected cards no longer carry fixed "Simulated" badges. Each
+card's badge is derived from the data it is showing:
+
+- The two latest-reading cards use the one sample they show: its `source`
+  and `device_id`, or "Source not reported" when the sample has none.
+- The summary and timeline cards use the `sources` breakdown the engine
+  returns with the summary and the window: per stream, how many samples
+  reported each source and how many reported none. The badge reads
+  "Reported source: simulated" when every sample says so, "Reported source:
+  wearable" for a single reported source, "Mixed sources: camera 1,
+  wearable 3, not reported 2" for a mixture, "Source not reported" when none
+  reported one, "No samples" for an empty window, and "Source information
+  unavailable" when the engine response has no breakdown. A line under the
+  header repeats the per-stream counts.
+- Badges are cleared whenever the athlete, the mode or the review time
+  changes, so a label never describes a previous selection.
+
+A source is a label supplied with the sample. The cards repeat it and never
+vouch for it: "Reported source: wearable" means the sender said so, not that
+the reading came from real hardware or is accurate, and fictional test values
+sent with a `wearable` label are still fictional. No live device or camera
+integration exists. The browser-generated demonstration panels (the game
+simulation, the demo load index and its notes) keep their explicit
+"Browser demo · fictional data" labels, which apply only to those panels.
 
 ## Live and Recorded review modes
 
@@ -275,7 +305,11 @@ windows, and returning to Live); and the Retained data block (fetched only
 on Find in Recorded mode, counts and UTC ranges shown, Review latest retained
 opening the review at the newest end across streams, empty and one-stream
 results, network and HTTP errors with retry, and clearing plus stale-response
-protection across athlete and mode changes). Expect "26 tests, 26 passed".
+protection across athlete and mode changes); and the source labels (latest
+sample's own source on the live cards, the breakdown-derived badge on the
+summary and timeline cards for simulated, single, mixed, not-reported, empty
+and unavailable cases, and clearing on athlete, mode and review-time
+changes). Expect "29 tests, 29 passed".
 
 ## Project handoff
 

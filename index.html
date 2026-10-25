@@ -3577,7 +3577,7 @@
             <select id="axAthleteSelect" class="coach-select" style="min-width:220px;max-width:100%;" disabled></select>
             <button type="button" id="axAthleteRefresh" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Refresh roster</button>
             <span class="ax-badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.5);white-space:nowrap;">Engine-connected</span>
-            <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Fictional demo roster</span>
+            <span class="ax-badge" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.5);white-space:nowrap;">Roster from the engine</span>
             <div class="card-sub" id="axAthleteStatus" style="flex-basis:100%;margin-top:2px;">Loading roster&hellip;</div>
           </div>
         </div>
@@ -3620,7 +3620,7 @@
                 <div class="card-title">Live Heart Rate &middot; <span id="axLiveHrWho">no athlete selected</span></div>
                 <div class="card-sub">Polled once per second from the Athletrix engine API</div>
               </div>
-              <span class="ax-badge" id="axLiveHrBadge" style="display:none;background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);">Simulated data</span>
+              <span class="ax-badge" id="axLiveHrBadge" style="display:none;white-space:nowrap;"></span>
             </div>
             <div class="vitals-grid" style="margin-bottom:12px;">
               <div class="vital"><div class="vital-label">Heart Rate</div><div class="vital-value" id="axLiveHrValue">&mdash;</div></div>
@@ -3634,7 +3634,7 @@
                 <div class="card-title">Live Tracking &middot; <span id="axLiveTrkWho">no athlete selected</span></div>
                 <div class="card-sub">Polled once per second from the Athletrix engine API</div>
               </div>
-              <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Simulated tracking demo</span>
+              <span class="ax-badge" id="axLiveTrkBadge" style="display:none;white-space:nowrap;"></span>
             </div>
             <div class="vitals-grid" style="margin-bottom:12px;">
               <div class="vital"><div class="vital-label">Speed</div><div class="vital-value" id="axLiveTrkSpeed">&mdash;</div></div>
@@ -3652,8 +3652,9 @@
               <div class="card-sub" id="axSumSub">Summary from the Athletrix engine API, refreshed every 5 seconds. Values describe recorded samples, not a live feed.</div>
             </div>
             <span class="ax-badge" id="axSumModeBadge" style="display:none;background:rgba(215,150,11,0.15);color:#f1d08a;border:1px solid rgba(215,150,11,0.5);white-space:nowrap;margin-right:8px;">Recorded-time review</span>
-            <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Simulated demo</span>
+            <span class="ax-badge" id="axSumSourceBadge" style="display:none;white-space:nowrap;"></span>
           </div>
+          <div class="card-sub" id="axSumSources" style="margin-bottom:10px;"></div>
           <div class="vitals-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:12px;">
             <div class="vital"><div class="vital-label">Mean Heart Rate</div><div class="vital-value" id="axSumHrMean">&mdash;</div></div>
             <div class="vital"><div class="vital-label">Peak Heart Rate</div><div class="vital-value" id="axSumHrPeak">&mdash;</div></div>
@@ -3691,8 +3692,9 @@
               <div class="card-sub" id="axTlSub">Last 60 s from the Athletrix engine window, refreshed every 5 seconds. Points are recorded samples on one shared time axis.</div>
             </div>
             <span class="ax-badge" id="axTlModeBadge" style="display:none;background:rgba(215,150,11,0.15);color:#f1d08a;border:1px solid rgba(215,150,11,0.5);white-space:nowrap;margin-right:8px;">Recorded-time review</span>
-            <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Simulated demo</span>
+            <span class="ax-badge" id="axTlSourceBadge" style="display:none;white-space:nowrap;"></span>
           </div>
+          <div class="card-sub" id="axTlSources" style="margin-bottom:6px;"></div>
           <div class="card-sub" id="axTlWindow" style="margin-bottom:8px;">&mdash;</div>
           <div style="display:grid;gap:10px;">
             <div>
@@ -10139,6 +10141,55 @@ function initializePlayerFatigue(team) {
     return "?" + q.toString();
   }
   function whenText(iso) { var d = new Date(iso); return isNaN(d.getTime()) ? String(iso) : (reviewing() ? d.toLocaleString() : d.toLocaleTimeString()); }
+  // ---- source labels ----
+  // A sample's `source` is metadata supplied by whoever sent it (wearable | camera | manual | simulated) and may be
+  // absent ("not reported"). Labels repeat what was reported and never claim authenticity or sensor accuracy.
+  // Latest-reading cards label the one sample they show; window cards label the engine's per-stream breakdown.
+  var BADGE_STYLES = {
+    simulated: "background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);",
+    reported: "background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.5);",
+    mixed: "background:rgba(215,150,11,0.15);color:#f1d08a;border:1px solid rgba(215,150,11,0.5);",
+    none: "background:rgba(156,163,175,0.15);color:#9ca3af;border:1px solid rgba(156,163,175,0.5);"
+  };
+  function isSourceName(v) { return typeof v === "string" && v.length > 0; }
+  // Combine one or more {reported:{source:count}, not_reported:n} blocks into {counts:{source:n}, notReported:n, total:n, valid}.
+  function tallySources(blocks) {
+    var counts = {}, notReported = 0, total = 0, valid = true;
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      if (!b || typeof b !== "object" || !b.reported || typeof b.reported !== "object" || !isNum(b.not_reported) || b.not_reported < 0) { valid = false; continue; }
+      for (var k in b.reported) { var n = b.reported[k]; if (!isNum(n) || n < 0) { valid = false; continue; } counts[k] = (counts[k] || 0) + n; total += n; }
+      notReported += b.not_reported; total += b.not_reported;
+    }
+    return { counts: counts, notReported: notReported, total: total, valid: valid };
+  }
+  // Label for one sample's own source (latest-reading cards).
+  function sampleSourceLabel(sample) {
+    if (!sample || !isSourceName(sample.source)) return { text: "Source not reported", style: "none", status: "source not reported" };
+    var dev = isSourceName(sample.device_id) ? " · device: " + sample.device_id : " · device not reported";
+    return { text: "Reported source: " + sample.source, style: sample.source === "simulated" ? "simulated" : "reported", status: "reported source: " + sample.source + dev };
+  }
+  // Label for a breakdown (window cards). Says what was reported, in words that do not vouch for it.
+  function breakdownLabel(tally) {
+    if (!tally.valid) return { text: "Source information unavailable", style: "none" };
+    if (tally.total === 0) return { text: "No samples", style: "none" };
+    var names = Object.keys(tally.counts).sort();
+    if (names.length === 0) return { text: "Source not reported", style: "none" };
+    if (names.length === 1 && tally.notReported === 0) return { text: "Reported source: " + names[0], style: names[0] === "simulated" ? "simulated" : "reported" };
+    var parts = names.map(function(n) { return n + " " + tally.counts[n]; });
+    if (tally.notReported > 0) parts.push("not reported " + tally.notReported);
+    return { text: "Mixed sources: " + parts.join(", "), style: "mixed" };
+  }
+  function breakdownText(block) { // one stream, for the per-stream detail line
+    var t = tallySources([block]);
+    if (!t.valid) return "source information unavailable";
+    if (t.total === 0) return "no samples";
+    var names = Object.keys(t.counts).sort(), parts = names.map(function(n) { return t.counts[n] + " " + n; });
+    if (t.notReported > 0) parts.push(t.notReported + " not reported");
+    return parts.join(", ");
+  }
+  function setBadge(el, label) { el.textContent = label.text; el.setAttribute("style", "display:inline-block;white-space:nowrap;" + BADGE_STYLES[label.style]); el.setAttribute("data-source-style", label.style); }
+  function hideBadge(el) { el.textContent = ""; el.style.display = "none"; el.removeAttribute("data-source-style"); }
   function rejectionText(res) { // a 422 carries the engine's reason (a string for the end check, a list for schema errors)
     return res.json().then(function(b) { var d = b && b.detail; return typeof d === "string" ? d : (Array.isArray(d) ? d.map(function(e){ return (e.loc || []).join(".") + ": " + e.msg; }).join("; ") : "HTTP " + res.status); })
       .catch(function() { return "HTTP " + res.status; });
@@ -10184,7 +10235,7 @@ function initializePlayerFatigue(team) {
       var keepId = rosterById.hasOwnProperty(selection.id) ? selection.id : String(list[0].id); // preserve a still-valid selection
       selectEl.value = keepId;
       var label = athleteLabel(rosterById[keepId]);
-      setRosterStatus(list.length + (list.length === 1 ? " athlete" : " athletes") + " registered · fictional demo roster, stored by the backend", COLORS.muted);
+      setRosterStatus(list.length + (list.length === 1 ? " athlete" : " athletes") + " registered in the engine (register_demo_roster.py adds the fictional demo athletes)", COLORS.muted);
       if (keepId !== selection.id) selectAthlete(keepId, label);
       else { selection.label = label; for (var j = 0; j < cards.length; j++) cards[j].setWho(label); }
     }).catch(function(err) {
@@ -10382,40 +10433,42 @@ function initializePlayerFatigue(team) {
     startPoller({
       path: "/physiological/latest", whoEl: "axLiveHrWho", statusEl: "axLiveHrStatus", timeEl: "axLiveHrTime",
       noSampleText: function(label, id) { return "No heart-rate sample yet for " + label + ". Run the simulator with --athlete-id " + id + "."; },
-      clear: function() { valueEl.textContent = DASH; valueEl.title = ""; badgeEl.style.display = "none"; },
+      clear: function() { valueEl.textContent = DASH; valueEl.title = ""; hideBadge(badgeEl); },
       render: function(sample) {
         // heart_rate_bpm is optional in the API; a null stays null and is shown as "not reported", never as 0.
         var hr = sample.heart_rate_bpm, missing = !isNum(hr);
         valueEl.textContent = missing ? DASH : Math.round(hr) + " bpm";
         valueEl.title = missing ? "heart_rate_bpm: null" : "heart_rate_bpm: " + hr;
-        badgeEl.style.display = sample.source === "simulated" ? "inline-block" : "none";
-        return missing ? "Live · heart rate not reported in this sample"
-                       : "Live · source: " + sample.source + " · device: " + sample.device_id;
+        var src = sampleSourceLabel(sample); // this sample's own reported source, whatever it is
+        setBadge(badgeEl, src);
+        return "Live · " + (missing ? "heart rate not reported in this sample · " : "") + src.status;
       }
     });
   })();
 
   // ---- Tracking card ----
   (function(){
-    var speedEl = byId("axLiveTrkSpeed"), accelEl = byId("axLiveTrkAccel"), confEl = byId("axLiveTrkConf");
-    if (!speedEl || !accelEl || !confEl) return;
+    var speedEl = byId("axLiveTrkSpeed"), accelEl = byId("axLiveTrkAccel"), confEl = byId("axLiveTrkConf"), trkBadgeEl = byId("axLiveTrkBadge");
+    if (!speedEl || !accelEl || !confEl || !trkBadgeEl) return;
     function show(el, v, fmt, key) { el.textContent = isNum(v) ? fmt(v) : DASH; el.title = key + ": " + (isNum(v) ? v : "null"); } // zero is a real reading
     startPoller({
       path: "/tracking/latest", whoEl: "axLiveTrkWho", statusEl: "axLiveTrkStatus", timeEl: "axLiveTrkTime",
       noSampleText: function(label, id) { return "No tracking sample yet for " + label + ". Run the simulator with --athlete-id " + id + " --with-tracking."; },
-      clear: function() { [speedEl, accelEl, confEl].forEach(function(el){ el.textContent = DASH; el.title = ""; }); },
+      clear: function() { [speedEl, accelEl, confEl].forEach(function(el){ el.textContent = DASH; el.title = ""; }); hideBadge(trkBadgeEl); },
       render: function(sample) {
         show(speedEl, sample.speed_mps, function(v){ return v.toFixed(1) + " m/s"; }, "speed_mps");
         show(accelEl, sample.acceleration_mps2, function(v){ return (v > 0 ? "+" : "") + v.toFixed(1) + " m/s²"; }, "acceleration_mps2");
         show(confEl, sample.tracking_confidence, function(v){ return Math.round(v * 100) + "%"; }, "tracking_confidence");
-        return "Live · simulated tracking demo · x " + (isNum(sample.x_position) ? sample.x_position.toFixed(1) : DASH) + " m, y " + (isNum(sample.y_position) ? sample.y_position.toFixed(1) : DASH) + " m";
+        var src = sampleSourceLabel(sample); // older tracking records carry no source: "not reported", never assumed
+        setBadge(trkBadgeEl, src);
+        return "Live · " + src.status + " · x " + (isNum(sample.x_position) ? sample.x_position.toFixed(1) : DASH) + " m, y " + (isNum(sample.y_position) ? sample.y_position.toFixed(1) : DASH) + " m";
       }
     });
   })();
 
   // ---- Summary card (last 60 s, refreshed every 5 s) ----
   (function(){
-    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho","axSumDistance","axSumDistanceBasis","axSumDistanceDetail","axSumDistanceRules","axSumHsTime","axSumHsTimeBasis","axSumHsDist","axSumHsDistBasis","axSumHsTimeLabel","axSumHsDistLabel","axSumTitle","axSumSub","axSumModeBadge","axSumHrAgeLabel","axSumTrkAgeLabel"];
+    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho","axSumDistance","axSumDistanceBasis","axSumDistanceDetail","axSumDistanceRules","axSumHsTime","axSumHsTimeBasis","axSumHsDist","axSumHsDistBasis","axSumHsTimeLabel","axSumHsDistLabel","axSumTitle","axSumSub","axSumModeBadge","axSumHrAgeLabel","axSumTrkAgeLabel","axSumSourceBadge","axSumSources"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     function fmt(v, unit, digits) { return isNum(v) ? v.toFixed(digits) + (unit ? " " + unit : "") : NA; } // null -> Not available; real 0 formatted
@@ -10426,6 +10479,12 @@ function initializePlayerFatigue(team) {
       el.axSumDistance.textContent = DASH; el.axSumDistanceBasis.textContent = ""; el.axSumDistanceDetail.textContent = DASH; el.axSumDistanceRules.textContent = "";
       el.axSumHsTime.textContent = DASH; el.axSumHsDist.textContent = DASH; el.axSumHsTimeBasis.textContent = ""; el.axSumHsDistBasis.textContent = "";
       el.axSumHsTimeLabel.textContent = "Time at or above threshold"; el.axSumHsDistLabel.textContent = "Distance at or above threshold";
+      hideBadge(el.axSumSourceBadge); el.axSumSources.textContent = "";
+    }
+    function renderSources(p, t) { // the engine's own per-stream breakdown of the summarised samples; nothing is inferred here
+      var pb = p.sources, tb = t.sources;
+      setBadge(el.axSumSourceBadge, breakdownLabel(tallySources([pb, tb])));
+      el.axSumSources.textContent = "Reported sources · heart rate: " + breakdownText(pb) + " · tracking: " + breakdownText(tb) + ". A source is a label supplied with the sample, not a check of where it came from.";
     }
     function renderHighSpeed(t, dur, frac) {
       // Same eligible intervals and linear-speed assumption as the distance estimate; threshold comes from the response.
@@ -10478,6 +10537,7 @@ function initializePlayerFatigue(team) {
       el.axSumTrkAge.textContent = fmt(t.latest_sample_age_seconds, "s", 1);
       el.axSumTrkGap.textContent = fmt(t.max_inter_sample_gap_seconds, "s", 1);
       renderDistance(t, WINDOW_S);
+      renderSources(p, t);
       var rec = reviewing(), endText = whenText(sum.window_end);
       var empty = !(p.sample_count > 0) && !(t.sample_count > 0);
       if (rec) {
@@ -10520,7 +10580,7 @@ function initializePlayerFatigue(team) {
   // ---- Timeline card (window of 60 s, refreshed every 5 s; two SVG charts on one time axis) ----
   (function(){
     var TL_MS = 5000, TL_WINDOW_S = 60, DISPLAY_GAP_S = 3;  // DISPLAY_GAP_S: lines are not drawn across longer gaps (display rule only)
-    var ids = ["axLiveTlWho","axTlWindow","axTlHrSvg","axTlSpSvg","axTlHrNote","axTlSpNote","axTlStatus","axTlSub","axTlModeBadge"];
+    var ids = ["axLiveTlWho","axTlWindow","axTlHrSvg","axTlSpSvg","axTlHrNote","axTlSpNote","axTlStatus","axTlSub","axTlModeBadge","axTlSourceBadge","axTlSources"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     var W = 640, H = 120, PAD = { l: 44, r: 10, t: 8, b: 18 };
@@ -10543,7 +10603,7 @@ function initializePlayerFatigue(team) {
       return n;
     }
     function message(svg, text) { clearSvg(svg); svg.appendChild(node("text", { x: W / 2, y: H / 2 + 4, "text-anchor": "middle", fill: "#8a9097", "font-size": "12", "font-family": "Inter, sans-serif" }, text)); }
-    function clearAll() { message(el.axTlHrSvg, "—"); message(el.axTlSpSvg, "—"); el.axTlWindow.textContent = DASH; el.axTlHrNote.textContent = ""; el.axTlSpNote.textContent = ""; }
+    function clearAll() { message(el.axTlHrSvg, "—"); message(el.axTlSpSvg, "—"); el.axTlWindow.textContent = DASH; el.axTlHrNote.textContent = ""; el.axTlSpNote.textContent = ""; hideBadge(el.axTlSourceBadge); el.axTlSources.textContent = ""; }
     function ms(iso) { var v = new Date(iso).getTime(); return isNaN(v) ? null : v; }
 
     // Draw one stream. pts: [{t: ms, v: number|null, usable: bool, unclassified: bool}] sorted by t.
@@ -10600,6 +10660,9 @@ function initializePlayerFatigue(team) {
       var spMax = spVals.length ? Math.max(2, Math.ceil(Math.max.apply(null, spVals) * 1.1 * 2) / 2) : 2;
       draw(el.axTlHrSvg, phys, t0, t1, hrMin, hrMax, "#ff4e1b", "bpm", "No physiological samples in this window");
       draw(el.axTlSpSvg, track, t0, t1, 0, spMax, "#3b82f6", "m/s", "No tracking samples in this window");
+      var ws = win.sources && typeof win.sources === "object" ? win.sources : {}; // the window's own breakdown of the samples drawn
+      setBadge(el.axTlSourceBadge, breakdownLabel(tallySources([ws.physiological, ws.tracking])));
+      el.axTlSources.textContent = "Reported sources · heart rate: " + breakdownText(ws.physiological) + " · tracking: " + breakdownText(ws.tracking) + ".";
       var hrMissing = phys.length - hrVals.length;
       var spLow = track.filter(function(p){ return !p.usable && !p.unclassified && isNum(p.v); }).length;
       var spUnclassified = track.filter(function(p){ return p.unclassified; }).length;

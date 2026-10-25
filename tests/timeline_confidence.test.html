@@ -52,6 +52,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     get firstChild() { return this.children[0] || null; }
     setAttribute(k, v) { this.attrs[k] = String(v); }
     getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
+    removeAttribute(k) { delete this.attrs[k]; }
     appendChild(c) { this.children.push(c); return c; }
     removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); return c; }
     addEventListener(type, fn) { (this.listeners[type] || (this.listeners[type] = [])).push(fn); }
@@ -73,6 +74,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axSumTitle", "axSumSub", "axSumModeBadge", "axSumHrAgeLabel", "axSumTrkAgeLabel", "axTlSub", "axTlModeBadge",
     "axReviewBar", "axModeLive", "axModeRecorded", "axReviewForm", "axReviewEnd", "axReviewGo", "axReviewRefresh", "axReviewStatus", "axReviewBanner", "axReviewBounds",
     "axRetainedBlock", "axRetainedFind", "axRetainedLatest", "axRetainedStatus", "axRetainedList", "axRetainedPhys", "axRetainedTrk", "axRetainedCap",
+    "axLiveTrkBadge", "axSumSourceBadge", "axSumSources", "axTlSourceBadge", "axTlSources",
   ];
 
   function boot(opts) {
@@ -107,13 +109,20 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     o = o || {};
     const w = { athlete_id: o.athlete || "a1", window_start: iso(-60), window_end: iso(0), physiological_samples: o.physiological || [], tracking_samples: o.tracking || [] };
     if (!("rules" in o)) w.tracking_rules = { min_confidence: 0.5 }; else if (o.rules !== undefined) w.tracking_rules = o.rules;
+    if (!("sources" in o)) w.sources = { physiological: breakdown(w.physiological_samples), tracking: breakdown(w.tracking_samples) }; else if (o.sources !== undefined) w.sources = o.sources;
     return w;
+  }
+  function breakdown(samples) { // what the engine would report for these samples
+    const reported = {}; let not_reported = 0;
+    for (const s of samples) { if (typeof s.source === "string" && s.source) reported[s.source] = (reported[s.source] || 0) + 1; else not_reported += 1; }
+    return { reported, not_reported };
   }
   const R0 = Date.UTC(2026, 9, 20, 10, 0, 2); // a recorded window end, five days before T0
   const riso = s => new Date(R0 + s * 1000).toISOString();
   function rwin(o) { // a window response for the recorded end R0 (samples placed relative to it)
     o = o || {};
     const w = { athlete_id: o.athlete || "a1", window_start: riso(-60), window_end: riso(0), physiological_samples: o.physiological || [], tracking_samples: o.tracking || [], tracking_rules: { min_confidence: 0.5 } };
+    w.sources = o.sources || { physiological: breakdown(w.physiological_samples), tracking: breakdown(w.tracking_samples) };
     return w;
   }
   const rtrk = (s, speed, conf) => ({ athlete_id: "a1", timestamp: riso(s), x_position: 0, y_position: 0, speed_mps: speed, acceleration_mps2: 0, tracking_confidence: conf });
@@ -121,8 +130,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     o = o || {};
     return {
       athlete_id: o.athlete || "a1", window_start: o.start || riso(-60), window_end: o.end || riso(0),
-      physiological: Object.assign({ sample_count: 0, heart_rate_count: 0, heart_rate_mean_bpm: null, heart_rate_peak_bpm: null, first_sample_at: null, last_sample_at: null, latest_sample_age_seconds: null, max_inter_sample_gap_seconds: null }, o.physiological || {}),
-      tracking: Object.assign({ sample_count: 0, speed_peak_mps: null, first_sample_at: null, last_sample_at: null, latest_sample_age_seconds: null, max_inter_sample_gap_seconds: null, estimated_distance_m: null, included_duration_seconds: 0, included_window_fraction: 0, excluded_interval_count: 0, high_speed_duration_seconds: null, high_speed_distance_m: null, distance_rules: { max_gap_seconds: 3, min_confidence: 0.5, high_speed_threshold_mps: 5 } }, o.tracking || {}),
+      physiological: Object.assign({ sample_count: 0, heart_rate_count: 0, heart_rate_mean_bpm: null, heart_rate_peak_bpm: null, first_sample_at: null, last_sample_at: null, latest_sample_age_seconds: null, max_inter_sample_gap_seconds: null, sources: { reported: {}, not_reported: 0 } }, o.physiological || {}),
+      tracking: Object.assign({ sample_count: 0, speed_peak_mps: null, first_sample_at: null, last_sample_at: null, latest_sample_age_seconds: null, max_inter_sample_gap_seconds: null, estimated_distance_m: null, included_duration_seconds: 0, included_window_fraction: 0, excluded_interval_count: 0, high_speed_duration_seconds: null, high_speed_distance_m: null, distance_rules: { max_gap_seconds: 3, min_confidence: 0.5, high_speed_threshold_mps: 5 }, sources: { reported: {}, not_reported: 0 } }, o.tracking || {}),
     };
   }
   const END = "2026-10-20T10:00:02Z", END_Q = "end=2026-10-20T10%3A00%3A02Z";
@@ -523,6 +532,92 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axRetainedList.style.display, "none", "superseded lookup dropped");
     await ctx.resolveLate(r5, retainedBody({ athlete_id: "a2", tracking: stream(2, "2026-10-21T08:00:00Z", "2026-10-21T08:00:01Z") }));
     assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 2 retained · 2026-10-21T08:00:00Z → 2026-10-21T08:00:01Z UTC");
+  });
+
+  // ---- source labels ------------------------------------------------------------------------------------
+
+  const badge = el => ({ text: el.textContent, style: el.getAttribute("data-source-style") });
+  const srcs = (reported, not_reported) => ({ reported, not_reported: not_reported || 0 });
+  const ptrk = (s, source, device) => Object.assign(trk(s, 1, 0.9), source === undefined ? {} : { source, device_id: device });
+
+  test("latest-reading cards label each sample's own reported source: simulated, a reported source, or not reported", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.equal(ctx.els.axLiveHrBadge.style.display, "none", "no badge before a sample");
+    const now = () => new Date().toISOString(); // a fresh timestamp: the card otherwise reports the sample as stopped
+    await ctx.respond("/physiological/latest", Object.assign(phys(0, 150), { timestamp: now() }));
+    assert.deepEqual(badge(ctx.els.axLiveHrBadge), { text: "Reported source: simulated", style: "simulated" });
+    assert.match(ctx.els.axLiveHrStatus.textContent, /^Live · reported source: simulated · device: sim$/);
+    await ctx.respond("/tracking/latest", { athlete_id: "a1", timestamp: now(), x_position: 1, y_position: 2, speed_mps: 3, acceleration_mps2: 0, tracking_confidence: 0.9 });
+    assert.deepEqual(badge(ctx.els.axLiveTrkBadge), { text: "Source not reported", style: "none" }, "an older tracking record without a source is not assumed to be anything");
+    assert.match(ctx.els.axLiveTrkStatus.textContent, /^Live · source not reported · x 1\.0 m, y 2\.0 m$/);
+    await ctx.tick();
+    await ctx.respond("/tracking/latest", { athlete_id: "a1", timestamp: now(), x_position: 1, y_position: 2, speed_mps: 3, acceleration_mps2: 0, tracking_confidence: 0.9, source: "camera", device_id: "cam-3" });
+    assert.deepEqual(badge(ctx.els.axLiveTrkBadge), { text: "Reported source: camera", style: "reported" });
+    assert.match(ctx.els.axLiveTrkStatus.textContent, /^Live · reported source: camera · device: cam-3 · x/);
+    await ctx.respond("/physiological/latest", Object.assign(phys(0, null), { timestamp: now(), source: "wearable", device_id: "unit-9" }));
+    assert.deepEqual(badge(ctx.els.axLiveHrBadge), { text: "Reported source: wearable", style: "reported" });
+    assert.match(ctx.els.axLiveHrStatus.textContent, /^Live · heart rate not reported in this sample · reported source: wearable · device: unit-9$/);
+    assert.ok(!/real|verified|authentic/i.test(ctx.els.axLiveHrStatus.textContent + ctx.els.axLiveHrBadge.textContent), "never vouches for the data");
+  });
+
+  test("summary card labels come from the engine's per-stream breakdown: simulated, single source, mixed, not reported, empty, unavailable", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/summary", sum({ physiological: { sample_count: 3, sources: srcs({ simulated: 3 }) }, tracking: { sample_count: 2, sources: srcs({ simulated: 2 }) } }));
+    assert.deepEqual(badge(ctx.els.axSumSourceBadge), { text: "Reported source: simulated", style: "simulated" });
+    assert.match(ctx.els.axSumSources.textContent, /^Reported sources · heart rate: 3 simulated · tracking: 2 simulated\. A source is a label supplied with the sample, not a check of where it came from\.$/);
+    await ctx.tick();
+    await ctx.respond("/summary", sum({ physiological: { sample_count: 4, heart_rate_count: 3, sources: srcs({ wearable: 4 }) }, tracking: { sample_count: 0 } }));
+    assert.deepEqual(badge(ctx.els.axSumSourceBadge), { text: "Reported source: wearable", style: "reported" }, "null heart rates still count under their source; an empty stream adds nothing");
+    assert.match(ctx.els.axSumSources.textContent, /heart rate: 4 wearable · tracking: no samples\./);
+    await ctx.tick();
+    await ctx.respond("/summary", sum({ physiological: { sample_count: 3, sources: srcs({ wearable: 3 }) }, tracking: { sample_count: 5, sources: srcs({ camera: 2, simulated: 1 }, 2) } }));
+    assert.deepEqual(badge(ctx.els.axSumSourceBadge), { text: "Mixed sources: camera 2, simulated 1, wearable 3, not reported 2", style: "mixed" });
+    assert.match(ctx.els.axSumSources.textContent, /heart rate: 3 wearable · tracking: 2 camera, 1 simulated, 2 not reported\./);
+    await ctx.tick();
+    await ctx.respond("/summary", sum({ physiological: { sample_count: 0 }, tracking: { sample_count: 2, sources: srcs({}, 2) } }));
+    assert.deepEqual(badge(ctx.els.axSumSourceBadge), { text: "Source not reported", style: "none" });
+    await ctx.tick();
+    await ctx.respond("/summary", sum());
+    assert.deepEqual(badge(ctx.els.axSumSourceBadge), { text: "No samples", style: "none" });
+    await ctx.tick();
+    const noBlocks = sum(); delete noBlocks.physiological.sources; delete noBlocks.tracking.sources;
+    await ctx.respond("/summary", noBlocks);
+    assert.deepEqual(badge(ctx.els.axSumSourceBadge), { text: "Source information unavailable", style: "none" }, "an engine without the breakdown is not guessed about");
+  });
+
+  test("timeline card labels come from the window's own breakdown and are cleared on athlete, mode and review-time changes", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/window", win({ physiological: [phys(-2, 120), phys(-1, null)], tracking: [ptrk(-1, "camera", "c"), ptrk(0)] }));
+    assert.deepEqual(badge(ctx.els.axTlSourceBadge), { text: "Mixed sources: camera 1, simulated 2, not reported 1", style: "mixed" });
+    assert.equal(ctx.els.axTlSources.textContent, "Reported sources · heart rate: 2 simulated · tracking: 1 camera, 1 not reported.");
+    await select(ctx, "a2");
+    assert.equal(ctx.els.axTlSourceBadge.style.display, "none", "cleared on athlete change");
+    assert.equal(ctx.els.axTlSourceBadge.getAttribute("data-source-style"), null);
+    assert.equal(ctx.els.axTlSources.textContent, "");
+    await ctx.respond("/a2/window", win({ athlete: "a2", tracking: [ptrk(0, "wearable", "w")] }));
+    assert.deepEqual(badge(ctx.els.axTlSourceBadge), { text: "Reported source: wearable", style: "reported" });
+    await ctx.respond("/a2/summary", sum({ tracking: { sample_count: 1, sources: srcs({ wearable: 1 }) } }));
+    assert.deepEqual(badge(ctx.els.axSumSourceBadge), { text: "Reported source: wearable", style: "reported" });
+    await click(ctx, "axModeRecorded");
+    assert.equal(ctx.els.axTlSourceBadge.style.display, "none", "cleared on mode change");
+    assert.equal(ctx.els.axSumSourceBadge.style.display, "none");
+    assert.equal(ctx.els.axSumSources.textContent, "");
+    await reviewAt(ctx, END);
+    await ctx.respond("/a2/window?seconds=60&" + END_Q, rwin({ athlete: "a2", tracking: [rtrk(0, 1, 1)] }));
+    assert.deepEqual(badge(ctx.els.axTlSourceBadge), { text: "Source not reported", style: "none" });
+    await reviewAt(ctx, "2026-10-20T10:00:01Z");
+    assert.equal(ctx.els.axTlSourceBadge.style.display, "none", "cleared on review-time change");
+    const missing = rwin({ athlete: "a2", tracking: [rtrk(0, 1, 1)] }); delete missing.sources;
+    await ctx.respond("/a2/window?seconds=60&end=2026-10-20T10%3A00%3A01Z", missing);
+    assert.deepEqual(badge(ctx.els.axTlSourceBadge), { text: "Source information unavailable", style: "none" });
+    await ctx.respond("/a2/window?seconds=60&end=2026-10-20T10%3A00%3A01Z", rwin({ athlete: "a2" })).catch(() => {}); // no second pending request: ignored
+    await click(ctx, "axModeLive");
+    assert.equal(ctx.els.axTlSourceBadge.style.display, "none", "cleared when returning to Live");
+    await ctx.respond("/a2/window?seconds=60", win({ athlete: "a2" }));
+    assert.deepEqual(badge(ctx.els.axTlSourceBadge), { text: "No samples", style: "none" });
   });
 
   // ---- run --------------------------------------------------------------------------------------------
