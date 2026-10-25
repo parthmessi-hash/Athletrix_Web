@@ -70,6 +70,8 @@ python scripts/register_demo_roster.py
 # 3. Simulators, one per athlete (fictional data)
 python scripts/simulate_athlete.py --athlete-id athlete-1 --device-id simulator-1 --with-tracking
 python scripts/simulate_athlete.py --athlete-id athlete-2 --device-id simulator-2 --with-tracking
+#    For a repeating effort/rest cycle with a delayed toy heart-rate response (fictional, shows timing on the charts):
+python scripts/simulate_athlete.py --profile effort-rest --with-tracking --seconds 120
 
 # 4. Frontend (this folder)
 python3 -m http.server 3000
@@ -131,8 +133,24 @@ readings with their real age; run a simulator again for fresh values.
   descriptive numbers only, not a guaranteed full-window distance or an
   athlete-condition score.
 
-The two live cards poll once per second and the summary card every 5
-seconds, only while the dashboard is visible, and each reports its own state:
+- **Recent movement and heart rate**: two small SVG charts (no external
+  libraries, so engine mode works offline) drawn from the engine's
+  60-second window endpoint every 5 seconds, sharing one time axis taken
+  from the backend's returned window bounds. Heart rate (bpm) is on top,
+  speed (m/s) below. Filled points are recorded samples; a hollow marker on
+  the heart-rate baseline is a sample with no heart rate; a hollow marker on
+  the speed chart is a tracking sample below the engine's applied confidence
+  rule. Lines join consecutive samples only when both are usable and they
+  are at most 3 s apart (a display rule); nothing is drawn across gaps or
+  removed points, and neither stream is shifted to line peaks up. Each chart
+  shows an explicit message when its stream is empty, and the card states
+  that the charts group recorded timestamps only, without correcting device
+  clocks or implying a physiological relationship. The window is bounded by
+  the engine's 300-sample history cap per stream.
+
+The two live cards poll once per second and the summary and timeline cards
+every 5 seconds, only while the dashboard is visible, and each reports its
+own state:
 
 - **No sample yet** / **No samples recorded** if the backend has nothing
   stored for the selected athlete on that stream or in that window.

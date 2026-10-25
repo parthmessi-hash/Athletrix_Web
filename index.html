@@ -3651,6 +3651,28 @@
           <div class="card-sub" id="axSumStatus">Waiting for roster&hellip;</div>
           <div class="card-sub" id="axSumDistanceRules" style="margin-top:6px;font-size:0.76rem;color:#8a9097;"></div>
         </div>
+        <div class="card" id="axLiveTl" style="margin-bottom:24px;border-left:4px solid #3b82f6;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Recent movement and heart rate &middot; <span id="axLiveTlWho">no athlete selected</span></div>
+              <div class="card-sub">Last 60 s from the Athletrix engine window, refreshed every 5 seconds. Points are recorded samples on one shared time axis.</div>
+            </div>
+            <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Simulated demo</span>
+          </div>
+          <div class="card-sub" id="axTlWindow" style="margin-bottom:8px;">&mdash;</div>
+          <div style="display:grid;gap:10px;">
+            <div>
+              <div class="vital-label" style="margin-bottom:4px;">Heart rate (bpm) &middot; <span id="axTlHrNote" style="color:#8a9097;"></span></div>
+              <svg id="axTlHrSvg" viewBox="0 0 640 120" preserveAspectRatio="none" style="width:100%;height:120px;display:block;background:#020617;border:1px solid #111827;border-radius:8px;" role="img" aria-label="Heart rate over the last 60 seconds"></svg>
+            </div>
+            <div>
+              <div class="vital-label" style="margin-bottom:4px;">Speed (m/s) &middot; <span id="axTlSpNote" style="color:#8a9097;"></span></div>
+              <svg id="axTlSpSvg" viewBox="0 0 640 120" preserveAspectRatio="none" style="width:100%;height:120px;display:block;background:#020617;border:1px solid #111827;border-radius:8px;" role="img" aria-label="Speed over the last 60 seconds"></svg>
+            </div>
+          </div>
+          <div class="card-sub" id="axTlStatus" style="margin-top:8px;">Waiting for roster&hellip;</div>
+          <div class="card-sub" id="axTlRules" style="margin-top:6px;font-size:0.76rem;color:#8a9097;">Display rules: filled points are recorded samples; a hollow marker on the heart-rate baseline is a sample with no heart rate; a hollow marker on the speed chart is a tracking sample below the engine's confidence rule. Lines connect consecutive samples only when both are usable and they are no more than 3 s apart (a display rule); nothing is drawn across gaps or removed points. The two charts group recorded timestamps on one time axis; they do not correct device clocks or establish any physiological relationship.</div>
+        </div>
         <section id="homeView">
           <div id="emptyDashboard" class="empty-dashboard" style="display: none;">
             <h2>Welcome to Athletrix!</h2>
@@ -10051,7 +10073,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axLiveCards", "axLiveSum"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axLiveCards", "axLiveSum", "axLiveTl"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -10288,6 +10310,106 @@ function initializePlayerFatigue(team) {
     }
     cards.push({ reset: function() { clearAll(); setStatus("Loading…", COLORS.muted); }, poll: poll, setWho: function(l) { el.axLiveSumWho.textContent = l; } });
     setInterval(poll, SUMMARY_MS); // created once
+  })();
+
+  // ---- Timeline card (window of 60 s, refreshed every 5 s; two SVG charts on one time axis) ----
+  (function(){
+    var TL_MS = 5000, TL_WINDOW_S = 60, DISPLAY_GAP_S = 3;  // DISPLAY_GAP_S: lines are not drawn across longer gaps (display rule only)
+    var ids = ["axLiveTlWho","axTlWindow","axTlHrSvg","axTlSpSvg","axTlHrNote","axTlSpNote","axTlStatus"];
+    var el = {};
+    for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
+    var W = 640, H = 120, PAD = { l: 44, r: 10, t: 8, b: 18 };
+    var SVG_NS = "http://www.w3.org/2000/svg";
+    var minConfidence = null; // the engine's applied tracking-confidence rule, taken from its summary response
+
+    function setStatus(text, color) { el.axTlStatus.textContent = text; el.axTlStatus.style.color = color; }
+    function clearSvg(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+    function node(tag, attrs, text) {
+      var n = document.createElementNS(SVG_NS, tag);
+      for (var k in attrs) n.setAttribute(k, attrs[k]);
+      if (text != null) n.textContent = text;
+      return n;
+    }
+    function message(svg, text) { clearSvg(svg); svg.appendChild(node("text", { x: W / 2, y: H / 2 + 4, "text-anchor": "middle", fill: "#8a9097", "font-size": "12", "font-family": "Inter, sans-serif" }, text)); }
+    function clearAll() { message(el.axTlHrSvg, "—"); message(el.axTlSpSvg, "—"); el.axTlWindow.textContent = DASH; el.axTlHrNote.textContent = ""; el.axTlSpNote.textContent = ""; }
+    function ms(iso) { var v = new Date(iso).getTime(); return isNaN(v) ? null : v; }
+
+    // Draw one stream. pts: [{t: ms, v: number|null, usable: bool}] sorted by t. Unusable points get a hollow marker and break the line.
+    function draw(svg, pts, t0, t1, yMin, yMax, color, unit, emptyText) {
+      clearSvg(svg);
+      if (!pts.length) { message(svg, emptyText); return; }
+      var x = function(t) { return PAD.l + (t - t0) / Math.max(1, t1 - t0) * (W - PAD.l - PAD.r); };
+      var y = function(v) { return PAD.t + (1 - (v - yMin) / Math.max(1e-9, yMax - yMin)) * (H - PAD.t - PAD.b); };
+      var yBase = H - PAD.b;
+      // axes and labels
+      svg.appendChild(node("line", { x1: PAD.l, y1: PAD.t, x2: PAD.l, y2: yBase, stroke: "#1f2937" }));
+      svg.appendChild(node("line", { x1: PAD.l, y1: yBase, x2: W - PAD.r, y2: yBase, stroke: "#1f2937" }));
+      svg.appendChild(node("text", { x: PAD.l - 4, y: PAD.t + 10, "text-anchor": "end", fill: "#8a9097", "font-size": "10" }, yMax.toFixed(unit === "bpm" ? 0 : 1)));
+      svg.appendChild(node("text", { x: PAD.l - 4, y: yBase, "text-anchor": "end", fill: "#8a9097", "font-size": "10" }, yMin.toFixed(unit === "bpm" ? 0 : 1)));
+      svg.appendChild(node("text", { x: PAD.l, y: H - 4, fill: "#8a9097", "font-size": "10" }, new Date(t0).toLocaleTimeString()));
+      svg.appendChild(node("text", { x: W - PAD.r, y: H - 4, "text-anchor": "end", fill: "#8a9097", "font-size": "10" }, new Date(t1).toLocaleTimeString()));
+      // line segments: only between consecutive usable points within the display gap
+      var d = "";
+      for (var i = 1; i < pts.length; i++) {
+        var a = pts[i - 1], b = pts[i];
+        if (a.usable && b.usable && (b.t - a.t) <= DISPLAY_GAP_S * 1000) d += "M" + x(a.t).toFixed(1) + "," + y(a.v).toFixed(1) + "L" + x(b.t).toFixed(1) + "," + y(b.v).toFixed(1);
+      }
+      if (d) svg.appendChild(node("path", { d: d, fill: "none", stroke: color, "stroke-width": "1.5", "vector-effect": "non-scaling-stroke" }));
+      // points: filled when usable, hollow marker (on the baseline if there is no value) when not
+      for (var j = 0; j < pts.length; j++) {
+        var p = pts[j];
+        if (p.usable) svg.appendChild(node("circle", { cx: x(p.t), cy: y(p.v), r: 2.4, fill: color }));
+        else svg.appendChild(node("circle", { cx: x(p.t), cy: isNum(p.v) ? y(p.v) : yBase - 3, r: 3, fill: "none", stroke: "#d7960b", "stroke-width": "1.5", "vector-effect": "non-scaling-stroke" }));
+      }
+    }
+
+    function render(win) {
+      var t0 = ms(win.window_start), t1 = ms(win.window_end);
+      if (t0 === null || t1 === null) { setStatus("Window bounds missing from response", COLORS.error); return; }
+      el.axTlWindow.textContent = "Window " + new Date(t0).toLocaleTimeString() + " – " + new Date(t1).toLocaleTimeString() + " (" + Math.round((t1 - t0) / 1000) + " s, engine time)";
+      var phys = (win.physiological_samples || []).map(function(s) { return { t: ms(s.timestamp), v: isNum(s.heart_rate_bpm) ? s.heart_rate_bpm : null, usable: isNum(s.heart_rate_bpm) }; }).filter(function(p) { return p.t !== null; });
+      var track = (win.tracking_samples || []).map(function(s) { var ok = isNum(s.speed_mps) && (minConfidence === null ? true : (isNum(s.tracking_confidence) && s.tracking_confidence >= minConfidence)); return { t: ms(s.timestamp), v: isNum(s.speed_mps) ? s.speed_mps : null, usable: ok }; }).filter(function(p) { return p.t !== null; });
+      var hrVals = phys.filter(function(p){ return p.usable; }).map(function(p){ return p.v; });
+      var hrMin = hrVals.length ? Math.min(60, Math.floor(Math.min.apply(null, hrVals) / 10) * 10) : 60;
+      var hrMax = hrVals.length ? Math.max(120, Math.ceil(Math.max.apply(null, hrVals) / 10) * 10) : 120;
+      var spVals = track.map(function(p){ return p.v; }).filter(isNum);
+      var spMax = spVals.length ? Math.max(2, Math.ceil(Math.max.apply(null, spVals) * 1.1 * 2) / 2) : 2;
+      draw(el.axTlHrSvg, phys, t0, t1, hrMin, hrMax, "#ff4e1b", "bpm", "No physiological samples in this window");
+      draw(el.axTlSpSvg, track, t0, t1, 0, spMax, "#3b82f6", "m/s", "No tracking samples in this window");
+      var hrMissing = phys.length - hrVals.length, spLow = track.filter(function(p){ return !p.usable; }).length;
+      el.axTlHrNote.textContent = phys.length + " samples" + (hrMissing ? ", " + hrMissing + " without heart rate" : "");
+      el.axTlSpNote.textContent = track.length + " samples" + (spLow ? ", " + spLow + " below confidence " + minConfidence : "") + (minConfidence === null ? " (confidence rule not yet received)" : "");
+      setStatus("Recorded timestamps only · " + (phys.length || track.length ? "newest sample " + Math.max(0, (t1 - Math.max(phys.length ? phys[phys.length - 1].t : 0, track.length ? track[track.length - 1].t : 0)) / 1000).toFixed(1) + " s before window end" : "no samples in window") + ".", COLORS.muted);
+    }
+
+    function fetchRulesIfNeeded(id, gen) {
+      if (minConfidence !== null) return Promise.resolve();
+      return fetch(athleteUrl(id, "/summary?seconds=" + TL_WINDOW_S), { cache: "no-store" }).then(function(r) { return r.ok ? r.json() : null; }).then(function(sum) {
+        if (gen !== selection.generation || !sum) return;
+        var rules = sum.tracking && sum.tracking.distance_rules;
+        if (rules && isNum(rules.min_confidence)) minConfidence = rules.min_confidence;
+      }).catch(function(){});
+    }
+
+    function poll() {
+      if (!dashboardVisible()) return;
+      if (selection.id === null) { setStatus(noSelectionText(), COLORS.muted); return; }
+      var gen = selection.generation, id = selection.id;
+      fetchRulesIfNeeded(id, gen).then(function() {
+        return fetch(athleteUrl(id, "/window?seconds=" + TL_WINDOW_S), { cache: "no-store" });
+      }).then(function(res) {
+        if (gen !== selection.generation) return; // athlete changed while in flight: drop this response
+        if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
+        return res.json().then(function(win) { if (gen === selection.generation) render(win); });
+      }).catch(function() {
+        if (gen !== selection.generation) return;
+        clearAll();
+        setStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running?", COLORS.error);
+      });
+    }
+
+    cards.push({ reset: function() { clearAll(); setStatus("Loading…", COLORS.muted); }, poll: poll, setWho: function(l) { el.axLiveTlWho.textContent = l; } });
+    setInterval(poll, TL_MS); // created once
   })();
 
   // ---- start ----
