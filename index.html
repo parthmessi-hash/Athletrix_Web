@@ -3596,6 +3596,19 @@
             </div>
             <div class="card-sub" id="axReviewStatus" style="flex-basis:100%;margin-top:2px;">Live: the cards poll the engine for the current readings and the last 60 seconds.</div>
           </div>
+          <div id="axRetainedBlock" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.08);font-size:0.85rem;line-height:1.5;">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;">
+              <b style="color:#fff;">Retained data</b>
+              <button type="button" id="axRetainedFind" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Find retained data</button>
+              <button type="button" id="axRetainedLatest" class="btn btn-primary" disabled style="padding:5px 12px;font-size:0.8rem;">Review latest retained</button>
+              <span class="card-sub" id="axRetainedStatus" style="margin:0;flex-basis:100%;">Click Find retained data to see what the engine still stores for this athlete.</span>
+            </div>
+            <ul id="axRetainedList" style="display:none;list-style:none;margin:6px 0 0;padding:0;font-family:monospace;font-size:0.8rem;color:#e5e7eb;">
+              <li id="axRetainedPhys"></li>
+              <li id="axRetainedTrk"></li>
+            </ul>
+            <div class="card-sub" id="axRetainedNote" style="margin:6px 0 0;">Times are UTC. Counts and ranges describe the records the engine currently retains (newest <span id="axRetainedCap">300</span> per stream), not continuous coverage or a full archive; an empty stream does not show whether data was never sent or has since been removed. The two streams may cover different times, so the latest 60 s window may contain only one of them.</div>
+          </div>
           <div id="axReviewBanner" role="status" style="display:none;margin-top:10px;padding:8px 12px;border:1px solid rgba(215,150,11,0.5);background:rgba(215,150,11,0.12);color:#f1d08a;font-size:0.85rem;line-height:1.5;">
             <b>Recorded-time review</b> &middot; <span id="axReviewBounds">enter a window end and click Review</span>. Shows only the samples the engine still retains (newest 300 per athlete per stream); older records may already have been removed. Not a live feed.
           </div>
@@ -10111,6 +10124,8 @@ function initializePlayerFatigue(team) {
     bumpGeneration();                     // invalidates every in-flight request for the previous athlete
     selection.id = id; selection.label = label || "";
     for (var i = 0; i < cards.length; i++) cards[i].setWho(label || "no athlete selected");
+    clearRetained();                      // retained-data metadata belongs to one athlete; never shown under another
+    if (reviewing() && selection.reviewEnd !== null) setReviewStatus("Reviewing the 60 s ending " + selection.reviewEnd + " for " + (label || "the selected athlete") + ".", COLORS.muted);
     refreshCards();
   }
   function noSelectionText() { return rosterState === "empty" ? "No athlete selected. " + SETUP_HINT : rosterState === "error" ? "No athlete selected. Roster could not be loaded." : "No athlete selected."; }
@@ -10193,7 +10208,10 @@ function initializePlayerFatigue(team) {
   var modeLiveEl = byId("axModeLive"), modeRecEl = byId("axModeRecorded"), reviewFormEl = byId("axReviewForm"), reviewEndEl = byId("axReviewEnd");
   var reviewGoEl = byId("axReviewGo"), reviewRefreshEl = byId("axReviewRefresh"), reviewStatusEl = byId("axReviewStatus"), reviewBannerEl = byId("axReviewBanner"), reviewBoundsEl = byId("axReviewBounds");
   var liveCardsEl = byId("axLiveCards");
+  var retainedBlockEl = byId("axRetainedBlock"), retainedFindEl = byId("axRetainedFind"), retainedLatestEl = byId("axRetainedLatest"), retainedStatusEl = byId("axRetainedStatus");
+  var retainedListEl = byId("axRetainedList"), retainedPhysEl = byId("axRetainedPhys"), retainedTrkEl = byId("axRetainedTrk"), retainedCapEl = byId("axRetainedCap");
   if (!modeLiveEl || !modeRecEl || !reviewFormEl || !reviewEndEl || !reviewGoEl || !reviewRefreshEl || !reviewStatusEl || !reviewBannerEl || !reviewBoundsEl || !liveCardsEl) return;
+  if (!retainedBlockEl || !retainedFindEl || !retainedLatestEl || !retainedStatusEl || !retainedListEl || !retainedPhysEl || !retainedTrkEl || !retainedCapEl) return;
   var ISO_WITH_TZ = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})$/;
   var FORMAT_HINT = "Use an ISO 8601 timestamp with a timezone, for example 2026-10-20T10:00:02Z or 2026-10-20T12:00:02+02:00.";
   function setReviewStatus(text, color) { reviewStatusEl.textContent = text; reviewStatusEl.style.color = color; }
@@ -10211,12 +10229,14 @@ function initializePlayerFatigue(team) {
     modeLiveEl.className = rec ? "btn btn-ghost" : "btn btn-primary"; modeRecEl.className = rec ? "btn btn-primary" : "btn btn-ghost";
     reviewFormEl.style.display = rec ? "flex" : "none";
     reviewBannerEl.style.display = rec ? "block" : "none";
+    retainedBlockEl.style.display = rec ? "block" : "none"; // retained-data lookup exists only for recorded review
     liveCardsEl.style.display = rec ? "none" : "grid"; // current-reading cards are hidden while reviewing recordings
   }
   function setMode(mode) {
     if (mode === selection.mode) return;
     bumpGeneration();                       // responses for the previous mode (or its review time) are dropped
     selection.mode = mode; selection.reviewEnd = null;
+    clearRetained();                        // metadata found in the previous mode is not carried over
     applyModeUi();
     if (mode === "recorded") { setReviewBounds("enter a window end and click Review"); setReviewStatus("Recorded: " + FORMAT_HINT + " The summary and timeline will cover the 60 s ending there.", COLORS.muted); }
     else setReviewStatus("Live: the cards poll the engine for the current readings and the last 60 seconds.", COLORS.muted);
@@ -10236,6 +10256,82 @@ function initializePlayerFatigue(team) {
   reviewGoEl.addEventListener("click", review);
   reviewEndEl.addEventListener("keydown", function(e) { if (e.key === "Enter") review(); });
   reviewRefreshEl.addEventListener("click", function() { if (awaitingReviewTime()) { setReviewStatus(AWAITING_TEXT, COLORS.warn); return; } bumpGeneration(); refreshCards(); });
+
+  // ---- retained data (Recorded mode only) ----
+  // "Find retained data" asks the engine what it still stores for the selected athlete: per stream, the count and the
+  // UTC recorded timestamps of the oldest and newest retained rows. It is fetched only on that click, never on a
+  // timer and never in public mode. "Review latest retained" opens the existing 60 s recorded review ending at the
+  // newest timestamp across the non-empty streams, using the engine's exact UTC text as the window end. The result
+  // describes retained rows (newest 300 per stream), not coverage or an archive, and it is cleared whenever the
+  // athlete or the mode changes; a late response for an earlier athlete, mode or lookup is dropped unseen.
+  var retained = { seq: 0, data: null }; // seq: lookup counter; data: the last response shown, or null
+  var STREAMS = [["physiological", "Heart rate (physiological)", retainedPhysEl], ["tracking", "Tracking", retainedTrkEl]];
+  var RETAINED_IDLE = "Click Find retained data to see what the engine still stores for this athlete.";
+  function setRetainedStatus(text, color) { retainedStatusEl.textContent = text; retainedStatusEl.style.color = color; }
+  function retainedStream(data, key) { var s = data && data[key]; return s && typeof s === "object" ? s : null; }
+  function retainedLatestEnd(data) { // newest latest_timestamp across the streams that retain anything, as the engine wrote it; null if none
+    var best = null, bestMs = -Infinity;
+    for (var i = 0; i < STREAMS.length; i++) {
+      var s = retainedStream(data, STREAMS[i][0]);
+      if (!s || !(s.sample_count > 0) || typeof s.latest_timestamp !== "string") continue;
+      var ms = new Date(s.latest_timestamp).getTime();
+      if (!isNaN(ms) && ms > bestMs) { bestMs = ms; best = s.latest_timestamp; }
+    }
+    return best;
+  }
+  function clearRetained() {
+    if (!retainedStatusEl) return;          // called from selectAthlete before this section ran (never the case after load)
+    retained.seq += 1; retained.data = null;
+    retainedListEl.style.display = "none"; retainedPhysEl.textContent = ""; retainedTrkEl.textContent = "";
+    retainedLatestEl.disabled = true; retainedFindEl.disabled = false;
+    setRetainedStatus(RETAINED_IDLE, COLORS.muted);
+  }
+  function showRetained(data) {
+    retained.data = data;
+    var nonEmpty = 0;
+    for (var i = 0; i < STREAMS.length; i++) {
+      var s = retainedStream(data, STREAMS[i][0]), el = STREAMS[i][2];
+      if (!s || !(s.sample_count > 0)) { el.textContent = STREAMS[i][1] + ": none retained"; continue; }
+      nonEmpty += 1;
+      el.textContent = STREAMS[i][1] + ": " + s.sample_count + " retained · " + String(s.latest_timestamp === s.earliest_timestamp ? s.latest_timestamp : s.earliest_timestamp + " → " + s.latest_timestamp) + " UTC";
+    }
+    if (typeof data.max_samples_per_stream === "number") retainedCapEl.textContent = String(data.max_samples_per_stream);
+    retainedListEl.style.display = "block";
+    var end = retainedLatestEnd(data);
+    retainedLatestEl.disabled = end === null;
+    if (end === null) setRetainedStatus("No retained samples for " + (selection.label || "this athlete") + " in either stream. This does not show whether data was never sent or has since been removed.", COLORS.warn);
+    else if (nonEmpty === 1) setRetainedStatus("One stream has retained samples. Review latest retained opens the 60 s ending " + end + " (UTC); the other stream will be empty there.", COLORS.muted);
+    else setRetainedStatus("Review latest retained opens the 60 s ending " + end + " (UTC), the newest retained sample across both streams. The streams may cover different times, so that window may hold only one of them.", COLORS.muted);
+  }
+  function findRetained() {
+    if (!reviewing()) return;               // the block is hidden in Live mode; nothing is fetched there
+    if (selection.id === null) { setRetainedStatus(noSelectionText(), COLORS.warn); return; }
+    var seq = ++retained.seq, id = selection.id, mode = selection.mode;
+    retained.data = null; retainedLatestEl.disabled = true; retainedFindEl.disabled = true; retainedListEl.style.display = "none";
+    setRetainedStatus("Looking up what the engine retains for " + (selection.label || id) + "…", COLORS.muted);
+    var stale = function() { return seq !== retained.seq || id !== selection.id || mode !== selection.mode; };
+    fetch(API_BASE + "/api/v1/athletes/" + encodeURIComponent(id) + "/retained-data", { cache: "no-store" }).then(function(res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }).then(function(data) {
+      if (stale()) return;                  // an earlier athlete, mode or lookup: dropped unseen
+      retainedFindEl.disabled = false;
+      if (!data || typeof data !== "object" || !retainedStream(data, "physiological") || !retainedStream(data, "tracking")) throw new Error("unexpected response shape");
+      showRetained(data);
+    }).catch(function(err) {
+      if (stale()) return;
+      retainedFindEl.disabled = false; retained.data = null; retainedLatestEl.disabled = true;
+      setRetainedStatus("Cannot read retained data from " + API_BASE + " (" + err.message + "). Click Find retained data to try again.", COLORS.error);
+    });
+  }
+  function reviewLatestRetained() {
+    var end = retainedLatestEnd(retained.data);
+    if (end === null) { setRetainedStatus("Find retained data first; nothing is retained to review yet.", COLORS.warn); return; }
+    reviewEndEl.value = end;                // the exact UTC text the engine reported; the manual field shows what is being reviewed
+    review();
+  }
+  retainedFindEl.addEventListener("click", findRetained);
+  retainedLatestEl.addEventListener("click", reviewLatestRetained);
   applyModeUi();
 
   // ---- live card poller (heart rate / tracking) ----

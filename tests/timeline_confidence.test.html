@@ -72,6 +72,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axLiveTlWho", "axTlWindow", "axTlHrSvg", "axTlSpSvg", "axTlHrNote", "axTlSpNote", "axTlStatus",
     "axSumTitle", "axSumSub", "axSumModeBadge", "axSumHrAgeLabel", "axSumTrkAgeLabel", "axTlSub", "axTlModeBadge",
     "axReviewBar", "axModeLive", "axModeRecorded", "axReviewForm", "axReviewEnd", "axReviewGo", "axReviewRefresh", "axReviewStatus", "axReviewBanner", "axReviewBounds",
+    "axRetainedBlock", "axRetainedFind", "axRetainedLatest", "axRetainedStatus", "axRetainedList", "axRetainedPhys", "axRetainedTrk", "axRetainedCap",
   ];
 
   function boot(opts) {
@@ -348,6 +349,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const s2 = ctx.pending.find(p => p.url.includes("/a1/summary") && p.url.includes("10%3A00%3A01Z"));
     await select(ctx, "a2");
     assert.ok(urls(ctx).slice(-2).every(u => u.includes("/a2/") && u.includes("10%3A00%3A01Z")));
+    assert.match(ctx.els.axReviewStatus.textContent, /ending 2026-10-20T10:00:01Z for Sam Sample #9\.$/, "review status names the newly selected athlete");
     assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0, "cleared immediately on athlete change");
     await ctx.resolveLate(s2, sum({ physiological: { sample_count: 9, heart_rate_count: 9, heart_rate_mean_bpm: 150 } }));
     assert.equal(ctx.els.axSumHrMean.textContent, "—", "late summary for a1 dropped");
@@ -383,6 +385,144 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.match(ctx.els.axTlStatus.textContent, /Cannot reach backend/);
     await ctx.respond("/summary?seconds=60&" + END_Q, {}, 500);
     assert.match(ctx.els.axSumStatus.textContent, /HTTP 500/);
+  });
+
+  // ---- retained data -------------------------------------------------------------------------------------
+
+  const stream = (n, lo, hi) => ({ sample_count: n, earliest_timestamp: lo || null, latest_timestamp: hi || null });
+  const retainedBody = (o) => Object.assign({ athlete_id: "a1", physiological: stream(0), tracking: stream(0), max_samples_per_stream: 300 }, o || {});
+  const retainedUrls = ctx => urls(ctx).filter(u => u.includes("retained-data"));
+
+  test("retained data: fetched only on Find in Recorded mode; counts and UTC ranges shown; Review latest retained opens the review at the newest end across streams", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.equal(ctx.els.axRetainedBlock.style.display, "none", "hidden in Live mode");
+    await click(ctx, "axModeRecorded");
+    assert.equal(ctx.els.axRetainedBlock.style.display, "block");
+    assert.equal(retainedUrls(ctx).length, 0, "nothing fetched until Find is clicked");
+    assert.equal(ctx.els.axRetainedLatest.disabled, true);
+    await ctx.tick();
+    assert.equal(retainedUrls(ctx).length, 0, "never fetched by a timer");
+    await click(ctx, "axRetainedFind");
+    assert.deepEqual(retainedUrls(ctx).map(u => u.replace(/^.*\/athletes\//, "")), ["a1/retained-data"]);
+    assert.equal(ctx.els.axRetainedFind.disabled, true, "no second lookup while one is loading");
+    assert.match(ctx.els.axRetainedStatus.textContent, /^Looking up what the engine retains for Alex Example #7/);
+    await ctx.respond("/a1/retained-data", retainedBody({ physiological: stream(5, "2026-10-20T10:00:00Z", "2026-10-20T10:00:04Z"), tracking: stream(7, "2026-10-20T10:00:00Z", "2026-10-20T10:00:06Z"), max_samples_per_stream: 300 }));
+    assert.equal(ctx.els.axRetainedFind.disabled, false);
+    assert.equal(ctx.els.axRetainedList.style.display, "block");
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): 5 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:04Z UTC");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 7 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:06Z UTC");
+    assert.equal(ctx.els.axRetainedCap.textContent, "300");
+    assert.match(ctx.els.axRetainedStatus.textContent, /ending 2026-10-20T10:00:06Z \(UTC\), the newest retained sample across both streams\. The streams may cover different times/);
+    assert.equal(ctx.els.axRetainedLatest.disabled, false);
+    const before = ctx.pending.length;
+    await click(ctx, "axRetainedLatest");
+    assert.equal(ctx.els.axReviewEnd.value, "2026-10-20T10:00:06Z", "the exact engine text becomes the manual window end");
+    const fresh = urls(ctx).slice(before).map(u => u.replace(/^.*\/athletes\//, "")).sort();
+    assert.deepEqual(fresh, ["a1/summary?seconds=60&end=2026-10-20T10%3A00%3A06Z", "a1/window?seconds=60&end=2026-10-20T10%3A00%3A06Z"]);
+    assert.match(ctx.els.axReviewStatus.textContent, /Reviewing the 60 s ending 2026-10-20T10:00:06Z/);
+    assert.equal(ctx.els.axRetainedList.style.display, "block", "the retained display stays while the review loads");
+    assert.equal(ctx.els.axLiveCards.style.display, "none", "still a recorded review; nothing is shown as live");
+    await ctx.respond("/a1/window?seconds=60&end=2026-10-20T10%3A00%3A06Z", { athlete_id: "a1", window_start: "2026-10-20T09:59:06Z", window_end: "2026-10-20T10:00:06Z", physiological_samples: [], tracking_samples: [{ athlete_id: "a1", timestamp: "2026-10-20T10:00:06Z", x_position: 0, y_position: 0, speed_mps: 1, acceleration_mps2: 0, tracking_confidence: 0.9 }], tracking_rules: { min_confidence: 0.5 } });
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable"]);
+    assert.match(ctx.els.axTlWindow.textContent, /^Recorded window /);
+    // manual entry still works afterwards and leaves the retained display alone
+    await reviewAt(ctx, "2026-10-20T10:00:04Z");
+    assert.ok(urls(ctx).slice(-2).every(u => u.includes("end=2026-10-20T10%3A00%3A04Z")));
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 7 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:06Z UTC");
+  });
+
+  test("retained data: empty result disables Review latest retained and says what the emptiness does not show", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await click(ctx, "axRetainedFind");
+    await ctx.respond("/a1/retained-data", retainedBody());
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): none retained");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: none retained");
+    assert.equal(ctx.els.axRetainedLatest.disabled, true);
+    assert.match(ctx.els.axRetainedStatus.textContent, /^No retained samples for Alex Example #7 in either stream\. This does not show whether data was never sent or has since been removed\./);
+    const n = ctx.pending.length;
+    await click(ctx, "axRetainedLatest");
+    assert.equal(ctx.pending.length, n, "nothing to review: no request");
+    assert.equal(ctx.els.axReviewEnd.value, "", "manual field untouched");
+  });
+
+  test("retained data: one stream only uses that stream's latest timestamp and says the other will be empty", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await click(ctx, "axRetainedFind");
+    await ctx.respond("/a1/retained-data", retainedBody({ tracking: stream(1, "2026-10-20T10:00:04Z", "2026-10-20T10:00:04Z") }));
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): none retained");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 1 retained · 2026-10-20T10:00:04Z UTC", "a single retained row shows one timestamp");
+    assert.match(ctx.els.axRetainedStatus.textContent, /^One stream has retained samples\. Review latest retained opens the 60 s ending 2026-10-20T10:00:04Z \(UTC\); the other stream will be empty there\./);
+    assert.equal(ctx.els.axRetainedLatest.disabled, false);
+    await click(ctx, "axRetainedLatest");
+    assert.equal(ctx.els.axReviewEnd.value, "2026-10-20T10:00:04Z");
+    assert.ok(urls(ctx).slice(-2).every(u => u.includes("end=2026-10-20T10%3A00%3A04Z")));
+  });
+
+  test("retained data: network and HTTP errors are reported and Find can be retried", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await click(ctx, "axRetainedFind");
+    await ctx.fail("/a1/retained-data");
+    assert.match(ctx.els.axRetainedStatus.textContent, /^Cannot read retained data from .*\(network\)\. Click Find retained data to try again\./);
+    assert.equal(ctx.els.axRetainedFind.disabled, false);
+    assert.equal(ctx.els.axRetainedLatest.disabled, true);
+    assert.equal(ctx.els.axRetainedList.style.display, "none");
+    await click(ctx, "axRetainedFind");
+    await ctx.respond("/a1/retained-data", {}, 500);
+    assert.match(ctx.els.axRetainedStatus.textContent, /HTTP 500/);
+    await click(ctx, "axRetainedFind");
+    await ctx.respond("/a1/retained-data", { unexpected: true });
+    assert.match(ctx.els.axRetainedStatus.textContent, /unexpected response shape/);
+    await click(ctx, "axRetainedFind");
+    await ctx.respond("/a1/retained-data", retainedBody({ physiological: stream(2, "2026-10-20T10:00:00Z", "2026-10-20T10:00:01Z") }));
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): 2 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:01Z UTC");
+    assert.equal(ctx.els.axRetainedLatest.disabled, false);
+  });
+
+  test("retained data: cleared on athlete and mode changes; late responses for an earlier athlete, mode or lookup are dropped", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await click(ctx, "axRetainedFind");
+    const r1 = ctx.pending.find(p => p.url.includes("/a1/retained-data"));
+    await select(ctx, "a2");
+    assert.match(ctx.els.axRetainedStatus.textContent, /^Click Find retained data/, "cleared on athlete change");
+    assert.equal(ctx.els.axRetainedFind.disabled, false);
+    await ctx.resolveLate(r1, retainedBody({ physiological: stream(5, "2026-10-20T10:00:00Z", "2026-10-20T10:00:04Z") }));
+    assert.equal(ctx.els.axRetainedList.style.display, "none", "a1's late answer never shown under a2");
+    assert.equal(ctx.els.axRetainedLatest.disabled, true);
+    await click(ctx, "axRetainedFind");
+    assert.ok(retainedUrls(ctx).slice(-1)[0].includes("/a2/retained-data"));
+    await ctx.respond("/a2/retained-data", retainedBody({ athlete_id: "a2", tracking: stream(3, "2026-10-21T08:00:00Z", "2026-10-21T08:00:02Z") }));
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 3 retained · 2026-10-21T08:00:00Z → 2026-10-21T08:00:02Z UTC");
+    // mode change clears it; a lookup left pending when leaving Recorded is dropped when it answers
+    await click(ctx, "axRetainedFind");
+    const r3 = ctx.pending.find(p => p.url.includes("/a2/retained-data") && p !== r1);
+    await click(ctx, "axModeLive");
+    assert.equal(ctx.els.axRetainedBlock.style.display, "none");
+    assert.equal(ctx.els.axLiveCards.style.display, "grid", "return to Live unaffected");
+    await ctx.resolveLate(r3, retainedBody({ athlete_id: "a2", tracking: stream(9, "2026-10-21T08:00:00Z", "2026-10-21T08:00:08Z") }));
+    await click(ctx, "axModeRecorded");
+    assert.match(ctx.els.axRetainedStatus.textContent, /^Click Find retained data/, "nothing carried over from the previous mode");
+    assert.equal(ctx.els.axRetainedList.style.display, "none");
+    assert.equal(ctx.els.axRetainedLatest.disabled, true);
+    // two lookups in a row: only the newest answer counts
+    await click(ctx, "axRetainedFind");
+    const r4 = ctx.pending.find(p => p.url.includes("/a2/retained-data") && p !== r1 && p !== r3);
+    ctx.els.axRetainedFind.disabled = false; // the button is disabled while loading; force a second click as a rapid retry would
+    await click(ctx, "axRetainedFind");
+    const r5 = ctx.pending.filter(p => p.url.includes("/a2/retained-data")).slice(-1)[0];
+    assert.ok(r5 && r5 !== r4);
+    await ctx.resolveLate(r4, retainedBody({ athlete_id: "a2", tracking: stream(1, "2026-10-21T08:00:00Z", "2026-10-21T08:00:00Z") }));
+    assert.equal(ctx.els.axRetainedList.style.display, "none", "superseded lookup dropped");
+    await ctx.resolveLate(r5, retainedBody({ athlete_id: "a2", tracking: stream(2, "2026-10-21T08:00:00Z", "2026-10-21T08:00:01Z") }));
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 2 retained · 2026-10-21T08:00:00Z → 2026-10-21T08:00:01Z UTC");
   });
 
   // ---- run --------------------------------------------------------------------------------------------

@@ -210,6 +210,40 @@ engine keeps only the newest 300 samples per athlete per stream, so a window
 can only show what is still stored; older records may already have been
 removed, and an empty review window says so.
 
+### Finding retained data
+
+Typing a window end by hand needs you to know when a recording was made. In
+Recorded mode a **Retained data** block under the controls removes the
+guesswork:
+
+- **Find retained data** asks the engine (`GET /api/v1/athletes/{id}/retained-data`)
+  what it currently stores for the selected athlete and shows, per stream,
+  the count of retained samples and the recorded timestamps of the oldest
+  and newest, in UTC (for example
+  `Tracking: 5 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:04Z UTC`),
+  together with the retention cap. It is fetched only when you click, never
+  by a timer, and only in engine mode; public mode still makes no engine
+  request.
+- **Review latest retained** takes the newest timestamp across the streams
+  that retain anything, puts that exact UTC text into the window-end field
+  and runs the normal 60 s recorded review ending there. Manual entry,
+  Review, Refresh and Live keep working exactly as before, and nothing about
+  the recorded timestamps changes: the review is still historical and is
+  never shown as live.
+
+While the lookup is loading the button is disabled and the status says so; a
+network or HTTP error is shown with the engine address and the button is
+re-enabled for a retry. An athlete or mode change clears the block at once,
+and a late answer for an earlier athlete, mode or lookup is dropped unseen.
+
+**Counts and ranges describe retained records only.** They are not a session
+list, do not show continuous coverage between the bounds, and are not a full
+archive: nothing is inferred about gaps or about rows the newest-300 rule has
+removed, and an empty stream does not establish whether data was never
+collected or has since been removed. The two streams are independent and may
+cover different times, so the latest 60 s window may contain only one of
+them; the block says which case applies.
+
 To review the fictional replay example from the engine repository: replay it
 (`python scripts/replay_samples.py scripts/examples/fictional_replay.jsonl`),
 switch to **Recorded**, enter `2026-10-20T10:00:02Z` and click **Review**;
@@ -237,7 +271,11 @@ no engine request; and the Recorded review mode (hidden live cards, requests
 only on Review/athlete change/Refresh with the encoded `end`, timers never
 advancing the window, invalid input refused on the page, engine 422 messages
 shown, late responses across time/athlete/mode changes dropped, empty
-windows, and returning to Live).
+windows, and returning to Live); and the Retained data block (fetched only
+on Find in Recorded mode, counts and UTC ranges shown, Review latest retained
+opening the review at the newest end across streams, empty and one-stream
+results, network and HTTP errors with retry, and clearing plus stale-response
+protection across athlete and mode changes). Expect "26 tests, 26 passed".
 
 ## Project handoff
 
