@@ -137,16 +137,26 @@ readings with their real age; run a simulator again for fresh values.
   libraries, so engine mode works offline) drawn from the engine's
   60-second window endpoint every 5 seconds, sharing one time axis taken
   from the backend's returned window bounds. Heart rate (bpm) is on top,
-  speed (m/s) below. Filled points are recorded samples; a hollow marker on
-  the heart-rate baseline is a sample with no heart rate; a hollow marker on
-  the speed chart is a tracking sample below the engine's applied confidence
-  rule. Lines join consecutive samples only when both are usable and they
-  are at most 3 s apart (a display rule); nothing is drawn across gaps or
-  removed points, and neither stream is shifted to line peaks up. Each chart
-  shows an explicit message when its stream is empty, and the card states
-  that the charts group recorded timestamps only, without correcting device
-  clocks or implying a physiological relationship. The window is bounded by
-  the engine's 300-sample history cap per stream.
+  speed (m/s) below. Filled points are recorded samples; a hollow amber
+  marker on the heart-rate baseline is a sample with no heart rate; a hollow
+  amber marker on the speed chart is a tracking sample below the engine's
+  applied confidence rule. That rule is read from the **same window
+  response** as the samples (`tracking_rules.min_confidence`, the engine's
+  `DISTANCE_MIN_CONFIDENCE`), so the very first render classifies points
+  correctly and the card never depends on the summary request. If the rule
+  is missing or invalid (not a number between 0 and 1), the card says that
+  confidence filtering is unavailable: every speed point is drawn as a dashed
+  grey *unclassified* marker at its recorded value, no point is assumed
+  usable, and no line is drawn. Lines join consecutive samples only when
+  both are usable and they are at most 3 s apart (a display rule); nothing
+  is drawn across gaps or removed points, and neither stream is shifted to
+  line peaks up. Confidence filtering compares each sample's reported
+  tracking confidence with the engine's rule; it does not validate the
+  accuracy of the underlying speed measurement. Each chart shows an
+  explicit message when its stream is empty, and the card states that the
+  charts group recorded timestamps only, without correcting device clocks
+  or implying a physiological relationship. The window is bounded by the
+  engine's 300-sample history cap per stream.
 
 The two live cards poll once per second and the summary and timeline cards
 every 5 seconds, only while the dashboard is visible, and each reports its
@@ -163,6 +173,30 @@ response that arrives for the previously selected athlete, so a slow reply
 can never appear under another athlete's name. Each card shows its own
 sample timestamp; the streams are polled and timestamped separately, so
 showing them side by side does not mean they are synchronized.
+
+## Tests
+
+The timeline card has behaviour tests in `tests/timeline_confidence.test.html`:
+a static page that runs the real engine-connected script from `index.html`
+inside a small in-page DOM stub with a controllable `fetch`, so it needs no
+test framework, no Node runtime and no running engine (every request the
+script makes is captured and answered by the test; all data is fictional).
+With the folder served as above, open
+
+    http://localhost:3000/tests/timeline_confidence.test.html
+
+and read the pass/fail list (also logged to the console and exposed as
+`window.__results`). It covers: the rule being taken from the window response
+with the summary delayed or failed; points below, exactly at and above the
+rule; missing or invalid rules; null markers and display-gap breaks; rapid
+athlete switching with late responses; backend errors; and public mode making
+no engine request.
+
+## Project handoff
+
+The concise cross-repository handoff (purpose, commands, endpoints,
+calculations, limitations, next milestone) lives in the engine repository:
+`Athletrix_Vision_Synopsis_2026/PROJECT_STATUS.md`.
 
 ## Pointing at a different backend
 

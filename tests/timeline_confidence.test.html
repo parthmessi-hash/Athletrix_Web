@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Athletrix timeline tests</title>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; background: #020617; color: #e5e7eb; margin: 0; padding: 16px; }
+  h1 { font-size: 1.1rem; margin: 0 0 8px; }
+  p { color: #9ca3af; font-size: 0.85rem; max-width: 70ch; }
+  #summary { font-weight: 600; margin: 12px 0; }
+  li { margin: 4px 0; font-size: 0.9rem; }
+  .pass { color: #4ade80; } .fail { color: #f87171; } pre { color: #fca5a5; white-space: pre-wrap; font-size: 0.8rem; margin: 4px 0 0 20px; }
+</style>
+</head>
+<body>
+<h1>Engine-connected timeline: behaviour tests</h1>
+<p>Runs the real <code>axLiveHeartRate</code> script from <code>index.html</code> inside a tiny in-page DOM stub with a
+controllable fetch. No engine is contacted: every request the page script makes is captured and answered by the test.
+Serve this folder (for example <code>python3 -m http.server 3000</code>) and open
+<code>http://localhost:3000/tests/timeline_confidence.test.html</code>. Results are also logged to the console and
+exposed as <code>window.__results</code>. All sample data is fictional.</p>
+<div id="summary">Running…</div>
+<ul id="results"></ul>
+<script>
+(async function () {
+  "use strict";
+
+  // ---- tiny runner --------------------------------------------------------------------------------
+  const results = [];
+  const tests = [];
+  const test = (name, fn) => tests.push({ name, fn });
+  const assert = {
+    ok(v, msg) { if (!v) throw new Error(msg || "expected truthy"); },
+    equal(a, b, msg) { if (a !== b) throw new Error((msg ? msg + ": " : "") + "expected " + JSON.stringify(b) + ", got " + JSON.stringify(a)); },
+    deepEqual(a, b, msg) { const x = JSON.stringify(a), y = JSON.stringify(b); if (x !== y) throw new Error((msg ? msg + ": " : "") + "expected " + y + ", got " + x); },
+    match(s, re, msg) { if (!re.test(String(s))) throw new Error((msg ? msg + ": " : "") + "expected " + JSON.stringify(s) + " to match " + re); },
+  };
+
+  // ---- the script under test, taken from index.html --------------------------------------------------
+  const html = await (await fetch("../index.html", { cache: "no-store" })).text();
+  const SRC = html.match(/<script id="axLiveHeartRate">([\s\S]*?)<\/script>/)[1];
+
+  // ---- minimal DOM ----------------------------------------------------------------------------------
+  class El {
+    constructor(tag) {
+      this.tag = tag; this.children = []; this.attrs = {}; this.style = {}; this.classes = new Set(); this.listeners = {};
+      this.textContent = ""; this.title = ""; this.value = ""; this.disabled = false;
+      const self = this;
+      this.classList = { contains: c => self.classes.has(c), add: c => self.classes.add(c), remove: c => self.classes.delete(c) };
+    }
+    get firstChild() { return this.children[0] || null; }
+    setAttribute(k, v) { this.attrs[k] = String(v); }
+    getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
+    appendChild(c) { this.children.push(c); return c; }
+    removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); return c; }
+    addEventListener(type, fn) { (this.listeners[type] || (this.listeners[type] = [])).push(fn); }
+    dispatch(type) { for (const fn of this.listeners[type] || []) fn({ target: this }); }
+    querySelector() { return null; }
+    querySelectorAll() { return []; }
+    byTag(tag) { return this.children.filter(c => c.tag === tag); }
+  }
+
+  const IDS = [
+    "axDemoBanner", "axEngineNotice", "axAthleteBar", "axLiveCards", "axLiveSum", "axLiveTl", "view-dashboard",
+    "axAthleteSelect", "axAthleteRefresh", "axAthleteStatus",
+    "axLiveHrValue", "axLiveHrBadge", "axLiveHrWho", "axLiveHrStatus", "axLiveHrTime",
+    "axLiveTrkSpeed", "axLiveTrkAccel", "axLiveTrkConf", "axLiveTrkWho", "axLiveTrkStatus", "axLiveTrkTime",
+    "axSumHrMean", "axSumHrPeak", "axSumSpeedPeak", "axSumHrCount", "axSumHrAge", "axSumHrGap", "axSumTrkCount", "axSumTrkAge", "axSumTrkGap",
+    "axSumStatus", "axLiveSumWho", "axSumDistance", "axSumDistanceBasis", "axSumDistanceDetail", "axSumDistanceRules",
+    "axSumHsTime", "axSumHsTimeBasis", "axSumHsDist", "axSumHsDistBasis", "axSumHsTimeLabel", "axSumHsDistLabel",
+    "axLiveTlWho", "axTlWindow", "axTlHrSvg", "axTlSpSvg", "axTlHrNote", "axTlSpNote", "axTlStatus",
+  ];
+
+  function boot(opts) {
+    const hostname = (opts && opts.hostname) || "localhost";
+    const els = {};
+    for (const id of IDS) els[id] = new El("div");
+    els["view-dashboard"].classes.add("active-view");
+    const pending = []; // every request the page script makes, oldest first: { url, resolve, reject }
+    const doc = { getElementById: id => els[id] || null, createElement: tag => new El(tag), createElementNS: (_ns, tag) => new El(tag), querySelector: () => null };
+    const sandbox = {}; // stands in for `window`
+    const fetchStub = url => new Promise((resolve, reject) => pending.push({ url: String(url), resolve, reject }));
+    const intervalStub = () => 0; // pollers are created but never ticked by a timer; polls are driven by athlete selection
+    // Shadow the globals the script uses, so it runs against the stub rather than this page.
+    new Function("window", "document", "location", "fetch", "setInterval", SRC)(sandbox, doc, { hostname, search: "" }, fetchStub, intervalStub);
+    const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)); };
+    const take = part => { const i = pending.findIndex(p => p.url.includes(part)); assert.ok(i >= 0, "expected a pending request containing " + part + ", have: " + pending.map(p => p.url).join(", ")); return pending.splice(i, 1)[0]; };
+    const respond = async (part, body, status) => { status = status || 200; take(part).resolve({ ok: status < 400, status, json: async () => body }); await flush(); };
+    const fail = async part => { take(part).reject(new Error("network")); await flush(); };
+    const resolveLate = async (req, body) => { pending.splice(pending.indexOf(req), 1); req.resolve({ ok: true, status: 200, json: async () => body }); await flush(); };
+    return { els, pending, sandbox, flush, respond, fail, resolveLate };
+  }
+
+  // ---- fictional data helpers ------------------------------------------------------------------------
+  const T0 = Date.UTC(2026, 9, 24, 12, 0, 0); // window end; samples are placed relative to it
+  const iso = s => new Date(T0 + s * 1000).toISOString();
+  const ROSTER = [{ id: "a1", name: "Alex Example", jersey_number: 7, sport: "football" }, { id: "a2", name: "Sam Sample", jersey_number: 9, sport: "basketball" }];
+  const trk = (s, speed, conf) => ({ athlete_id: "a1", timestamp: iso(s), x_position: 0, y_position: 0, speed_mps: speed, acceleration_mps2: 0, tracking_confidence: conf });
+  const phys = (s, hr) => ({ athlete_id: "a1", timestamp: iso(s), source: "simulated", device_id: "sim", heart_rate_bpm: hr });
+  function win(o) {
+    o = o || {};
+    const w = { athlete_id: o.athlete || "a1", window_start: iso(-60), window_end: iso(0), physiological_samples: o.physiological || [], tracking_samples: o.tracking || [] };
+    if (!("rules" in o)) w.tracking_rules = { min_confidence: 0.5 }; else if (o.rules !== undefined) w.tracking_rules = o.rules;
+    return w;
+  }
+  const states = svg => svg.byTag("circle").map(c => c.getAttribute("data-state"));
+  const segments = svg => svg.byTag("path").reduce((n, p) => n + (p.getAttribute("d").match(/M/g) || []).length, 0);
+  const start = ctx => ctx.respond("/api/v1/athletes", ROSTER); // roster -> a1 selected -> every card polls once
+  const select = async (ctx, id) => { ctx.els.axAthleteSelect.value = id; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush(); };
+
+  // ---- tests ------------------------------------------------------------------------------------------
+
+  test("public mode makes no engine request", async () => {
+    const ctx = boot({ hostname: "assistantcoachai.net" });
+    await ctx.flush();
+    assert.equal(ctx.pending.length, 0);
+    assert.equal(ctx.sandbox.ATHLETRIX_ENGINE_MODE, "public");
+    assert.equal(ctx.els.axEngineNotice.style.display, "block");
+    assert.equal(ctx.els.axLiveTl.style.display, "none");
+  });
+
+  test("timeline needs only the window response and ignores a delayed or failed summary", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.equal(ctx.pending.filter(p => p.url.includes("/summary")).length, 1, "only the summary card requests the summary");
+    assert.equal(ctx.pending.filter(p => p.url.includes("/window")).length, 1);
+    await ctx.respond("/window", win({ tracking: [trk(-3, 2, 0.9), trk(-2, 3, 0.2), trk(-1, 4, 0.9), trk(0, 5, 0.9)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable", "below-confidence", "usable", "usable"], "rule applied on first render while the summary is still pending");
+    assert.equal(segments(ctx.els.axTlSpSvg), 1, "only -1 -> 0 is joined; nothing bridges the low point");
+    assert.match(ctx.els.axTlSpNote.textContent, /4 samples, 1 below confidence 0\.5/);
+    const before = JSON.stringify(ctx.els.axTlSpSvg.children.map(c => c.attrs));
+    await ctx.fail("/summary");
+    assert.equal(JSON.stringify(ctx.els.axTlSpSvg.children.map(c => c.attrs)), before, "summary failure leaves the timeline untouched");
+    assert.equal(ctx.pending.filter(p => p.url.includes("/summary")).length, 0);
+  });
+
+  test("points below, exactly at and above the rule; custom rule from the response is applied as-is", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/window", win({ rules: { min_confidence: 0.5 }, tracking: [trk(-2, 1, 0.49), trk(-1, 1, 0.5), trk(0, 1, 0.51)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["below-confidence", "usable", "usable"]);
+    assert.equal(segments(ctx.els.axTlSpSvg), 1, "at and above are joined; below is not");
+    assert.match(ctx.els.axTlSpNote.textContent, /1 below confidence 0\.5/);
+    await select(ctx, "a2");
+    await ctx.respond("/a2/window", win({ athlete: "a2", rules: { min_confidence: 0.8 }, tracking: [trk(-1, 1, 0.79), trk(0, 1, 0.8)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["below-confidence", "usable"]);
+    assert.match(ctx.els.axTlSpNote.textContent, /below confidence 0\.8/);
+  });
+
+  const BAD_RULES = [["missing block", undefined], ["null block", null], ["empty block", {}], ["above 1", { min_confidence: 1.5 }], ["negative", { min_confidence: -0.1 }], ["string", { min_confidence: "0.5" }], ["null value", { min_confidence: null }], ["NaN", { min_confidence: NaN }]];
+  for (const [label, rules] of BAD_RULES) {
+    test("rule " + label + ": filtering unavailable, nothing assumed usable, no line", async () => {
+      const ctx = boot();
+      await start(ctx);
+      await ctx.respond("/window", win({ rules, tracking: [trk(-2, 1, 0.9), trk(-1, 2, 0.1), trk(0, 3, 0.9)] }));
+      assert.deepEqual(states(ctx.els.axTlSpSvg), ["unclassified", "unclassified", "unclassified"]);
+      assert.equal(segments(ctx.els.axTlSpSvg), 0, "no line drawn");
+      assert.match(ctx.els.axTlSpNote.textContent, /confidence filtering unavailable/);
+      assert.match(ctx.els.axTlSpNote.textContent, /3 unclassified/);
+      const cys = ctx.els.axTlSpSvg.byTag("circle").map(c => Number(c.getAttribute("cy")));
+      assert.ok(cys[0] > cys[1] && cys[1] > cys[2], "unclassified markers follow recorded speeds: " + cys);
+    });
+  }
+
+  test("rule is taken per response: a valid rule never carries over to a later response without one", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/window", win({ tracking: [trk(0, 1, 0.9)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable"]);
+    await select(ctx, "a2");
+    await select(ctx, "a1"); // back to a1: a new generation, a new window request
+    const windows = ctx.pending.filter(p => p.url.includes("/window"));
+    assert.equal(windows.length, 2);
+    await ctx.resolveLate(windows[windows.length - 1], win({ rules: undefined, tracking: [trk(0, 1, 0.9)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["unclassified"], "no stale 0.5 applied");
+    assert.match(ctx.els.axTlSpNote.textContent, /confidence filtering unavailable/);
+  });
+
+  test("null heart-rate markers and display-gap breaks are preserved", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/window", win({
+      physiological: [phys(-10, 120), phys(-9, null), phys(-8, 125), phys(-7, 126), phys(-2, 130), phys(-1, 131)],
+      tracking: [trk(-10, 2, 1), trk(-9, 2, 1), trk(-5, 2, 1), trk(-4, 2, 1)],
+    }));
+    assert.deepEqual(states(ctx.els.axTlHrSvg), ["usable", "no-value", "usable", "usable", "usable", "usable"]);
+    assert.equal(segments(ctx.els.axTlHrSvg), 2, "-8/-7 and -2/-1 only: the null breaks -10/-8 and the 5 s gap breaks -7/-2");
+    assert.match(ctx.els.axTlHrNote.textContent, /6 samples, 1 without heart rate/);
+    assert.equal(segments(ctx.els.axTlSpSvg), 2, "the 4 s gap between -9 and -5 is not bridged (3 s display rule)");
+    assert.match(ctx.els.axTlSpNote.textContent, /all at or above confidence 0\.5/);
+    assert.match(ctx.els.axTlWindow.textContent, /60 s, engine time/);
+  });
+
+  test("rapid athlete switching: late responses for the previous athlete are dropped", async () => {
+    const ctx = boot();
+    await start(ctx);
+    const first = ctx.pending.find(p => p.url.includes("/a1/window"));
+    await select(ctx, "a2");
+    assert.equal(ctx.els.axLiveTlWho.textContent, "Sam Sample #9");
+    await ctx.resolveLate(first, win({ tracking: [trk(0, 1, 0.9), trk(-1, 1, 0.9), trk(-2, 1, 0.9)] }));
+    assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0, "late a1 response not rendered under a2");
+    assert.equal(ctx.els.axTlSpSvg.byTag("text")[0].textContent, "—", "still the cleared placeholder");
+    await ctx.respond("/a2/window", win({ athlete: "a2", tracking: [trk(0, 1, 0.9)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable"]);
+    await select(ctx, "a1");
+    const a1 = ctx.pending.find(p => p.url.includes("/a1/window"));
+    await select(ctx, "a2");
+    const a2 = ctx.pending.find(p => p.url.includes("/a2/window"));
+    await ctx.resolveLate(a2, win({ athlete: "a2", tracking: [trk(0, 1, 0.9), trk(-1, 1, 0.9)] }));
+    await ctx.resolveLate(a1, win({ tracking: [trk(0, 1, 0.1), trk(-1, 1, 0.1), trk(-2, 1, 0.1), trk(-3, 1, 0.1), trk(-4, 1, 0.1)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable", "usable"], "a2's two points, not a1's five");
+  });
+
+  test("backend unreachable or HTTP error is reported, not drawn", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.fail("/window");
+    assert.match(ctx.els.axTlStatus.textContent, /Cannot reach backend/);
+    assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0);
+    await select(ctx, "a2");
+    await ctx.respond("/a2/window", {}, 500);
+    assert.match(ctx.els.axTlStatus.textContent, /HTTP 500/);
+    assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0);
+  });
+
+  // ---- run --------------------------------------------------------------------------------------------
+  const list = document.getElementById("results");
+  for (const t of tests) {
+    const li = document.createElement("li");
+    try { await t.fn(); results.push({ name: t.name, ok: true }); li.className = "pass"; li.textContent = "PASS " + t.name; }
+    catch (e) { results.push({ name: t.name, ok: false, error: String(e && e.message || e) }); li.className = "fail"; li.textContent = "FAIL " + t.name; const pre = document.createElement("pre"); pre.textContent = String(e && e.stack || e); li.appendChild(pre); }
+    list.appendChild(li);
+  }
+  const failed = results.filter(r => !r.ok).length;
+  const summary = results.length + " tests, " + (results.length - failed) + " passed, " + failed + " failed";
+  document.getElementById("summary").textContent = summary;
+  document.getElementById("summary").className = failed ? "fail" : "pass";
+  console.log("[timeline tests] " + summary);
+  window.__results = results;
+})();
+</script>
+</body>
+</html>
