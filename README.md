@@ -117,7 +117,14 @@ readings with their real age; run a simulator again for fresh values.
   ends, assuming speed changes linearly between samples; excluded intervals
   are never bridged, so it covers only the eligible part of the window.
   "Not available" means no interval qualified; `0.0 m` means the eligible
-  intervals were stationary. `null` values are shown as "Not available"; real
+  intervals were stationary. Two more tiles show **time and distance at or
+  above the backend's speed threshold** (labelled with the actual threshold
+  from the response, e.g. "Time at or above 5.0 m/s"), computed over the
+  same eligible intervals with the same linear-speed assumption and
+  interpolated crossings; each carries the eligible-duration and window
+  percentage it is based on, so partial data cannot read as full-window
+  activity. They are descriptive workload estimates, not detected sprints,
+  fatigue classification or substitution advice. `null` values are shown as "Not available"; real
   zeros are shown as zeros. A successful fetch does not mean the data is
   live: the status line reports how old the newest samples were relative to
   the summary's window end, and an empty window says so. These are

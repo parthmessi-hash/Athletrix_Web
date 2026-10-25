@@ -3626,6 +3626,8 @@
             <div class="vital"><div class="vital-label">Peak Heart Rate</div><div class="vital-value" id="axSumHrPeak">&mdash;</div></div>
             <div class="vital"><div class="vital-label">Peak Speed</div><div class="vital-value" id="axSumSpeedPeak">&mdash;</div></div>
             <div class="vital"><div class="vital-label">Estimated Distance</div><div class="vital-value" id="axSumDistance">&mdash;</div><div class="vital-label" id="axSumDistanceBasis" style="margin:4px 0 0;"></div></div>
+            <div class="vital"><div class="vital-label" id="axSumHsTimeLabel">Time at or above threshold</div><div class="vital-value" id="axSumHsTime">&mdash;</div><div class="vital-label" id="axSumHsTimeBasis" style="margin:4px 0 0;"></div></div>
+            <div class="vital"><div class="vital-label" id="axSumHsDistLabel">Distance at or above threshold</div><div class="vital-value" id="axSumHsDist">&mdash;</div><div class="vital-label" id="axSumHsDistBasis" style="margin:4px 0 0;"></div></div>
           </div>
           <div class="vitals-grid" style="margin-bottom:12px;">
             <div class="vital" style="text-align:left;">
@@ -10202,7 +10204,7 @@ function initializePlayerFatigue(team) {
 
   // ---- Summary card (last 60 s, refreshed every 5 s) ----
   (function(){
-    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho","axSumDistance","axSumDistanceBasis","axSumDistanceDetail","axSumDistanceRules"];
+    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho","axSumDistance","axSumDistanceBasis","axSumDistanceDetail","axSumDistanceRules","axSumHsTime","axSumHsTimeBasis","axSumHsDist","axSumHsDistBasis","axSumHsTimeLabel","axSumHsDistLabel"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     function fmt(v, unit, digits) { return isNum(v) ? v.toFixed(digits) + (unit ? " " + unit : "") : NA; } // null -> Not available; real 0 formatted
@@ -10211,6 +10213,21 @@ function initializePlayerFatigue(team) {
     function clearAll() {
       for (var j = 0; j < 9; j++) el[ids[j]].textContent = DASH;
       el.axSumDistance.textContent = DASH; el.axSumDistanceBasis.textContent = ""; el.axSumDistanceDetail.textContent = DASH; el.axSumDistanceRules.textContent = "";
+      el.axSumHsTime.textContent = DASH; el.axSumHsDist.textContent = DASH; el.axSumHsTimeBasis.textContent = ""; el.axSumHsDistBasis.textContent = "";
+      el.axSumHsTimeLabel.textContent = "Time at or above threshold"; el.axSumHsDistLabel.textContent = "Distance at or above threshold";
+    }
+    function renderHighSpeed(t, dur, frac) {
+      // Same eligible intervals and linear-speed assumption as the distance estimate; threshold comes from the response.
+      var rules = t.distance_rules || {}, thr = rules.high_speed_threshold_mps;
+      var thrText = isNum(thr) ? thr.toFixed(1) + " m/s" : "threshold";
+      el.axSumHsTimeLabel.textContent = "Time at or above " + thrText;
+      el.axSumHsDistLabel.textContent = "Distance at or above " + thrText;
+      var hsT = t.high_speed_duration_seconds, hsD = t.high_speed_distance_m;
+      var basis = (isNum(dur) && isNum(frac)) ? "within " + dur.toFixed(1) + " s eligible \u00b7 " + Math.round(frac * 100) + "% of window" : "";
+      if (isNum(hsT)) { el.axSumHsTime.textContent = hsT.toFixed(1) + " s"; el.axSumHsTimeBasis.textContent = basis; }
+      else { el.axSumHsTime.textContent = NA; el.axSumHsTimeBasis.textContent = "no eligible interval"; }
+      if (isNum(hsD)) { el.axSumHsDist.textContent = hsD.toFixed(1) + " m"; el.axSumHsDistBasis.textContent = basis; }
+      else { el.axSumHsDist.textContent = NA; el.axSumHsDistBasis.textContent = "no eligible interval"; }
     }
     function renderDistance(t, windowS) {
       // Estimate over eligible consecutive intervals only; null means no interval qualified, 0.0 means eligible intervals were stationary.
@@ -10227,8 +10244,11 @@ function initializePlayerFatigue(team) {
       if (isNum(excl)) detail += " \u00b7 " + excl + " interval" + (excl === 1 ? "" : "s") + " excluded";
       el.axSumDistanceDetail.textContent = detail;
       el.axSumDistanceRules.textContent = (isNum(rules.max_gap_seconds) && isNum(rules.min_confidence))
-        ? "Distance estimate: sums consecutive tracking intervals no more than " + rules.max_gap_seconds + " s apart with confidence \u2265 " + rules.min_confidence + " at both ends, assuming speed changes linearly between samples (trapezoidal rule). Excluded intervals are not bridged and nothing is extrapolated, so this covers only the eligible part of the window. Rules are adjustable engine defaults, not sport standards."
+        ? "Distance estimate: sums consecutive tracking intervals no more than " + rules.max_gap_seconds + " s apart with confidence \u2265 " + rules.min_confidence + " at both ends, assuming speed changes linearly between samples (trapezoidal rule). Excluded intervals are not bridged and nothing is extrapolated, so this covers only the eligible part of the window."
+          + (isNum(rules.high_speed_threshold_mps) ? " Time and distance at or above " + rules.high_speed_threshold_mps.toFixed(1) + " m/s use the same eligible intervals and assumption; threshold crossings are interpolated. These are descriptive workload estimates, not sprint detection or a condition score." : "")
+          + " Rules are adjustable engine defaults, not sport standards."
         : "";
+      renderHighSpeed(t, dur, frac);
     }
     function describeRecency(p, t) {
       // Recency comes from the sample ages the backend reports against its own window end, not from this request succeeding.
