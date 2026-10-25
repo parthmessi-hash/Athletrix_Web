@@ -2878,6 +2878,10 @@
     </div>
   </nav>
 
+  <div id="axDemoBanner" role="note" style="display:none;background:rgba(215,150,11,0.12);border-top:1px solid rgba(215,150,11,0.5);border-bottom:1px solid rgba(215,150,11,0.5);color:#f1d08a;font-size:0.82rem;line-height:1.5;padding:8px 16px;text-align:center;">
+    <b style="font-family:'Barlow Condensed',sans-serif;letter-spacing:0.12em;text-transform:uppercase;color:#d7960b;">Browser demo &middot; fictional data</b>
+    &nbsp;Players, vitals, load indexes and rotation notes in this demo are generated in your browser for illustration. They do not measure fatigue or decide substitutions. Only cards marked <span style="color:#3b82f6;font-weight:600;">Engine-connected</span> read from the Athletrix engine.
+  </div>
   <div id="view-home" class="app-view">
 
     <header class="mk-hero">
@@ -3267,7 +3271,7 @@
           </div>
           <div class="mk-faq-item mk-reveal">
             <h4>Can we try it before buying?</h4>
-            <p>Yes — the live demo is open to everyone, no account needed. It runs a complete game with two example teams so you can see the fatigue engine and substitution calls exactly as a coach would.</p>
+            <p>Yes — the live demo is open to everyone, no account needed. It runs a complete game with two example teams using fictional, browser-generated data so you can see how the dashboard reads. The demo's numbers are illustrative; they do not measure fatigue or decide substitutions.</p>
           </div>
           <div class="mk-faq-item mk-reveal">
             <h4>What counts as a season?</h4>
@@ -3545,17 +3549,40 @@
              drives the live heart-rate, live tracking and 60-second summary cards. Each card polls its own
              endpoint for the selected athlete and keeps its own state; timestamps are shown per stream
              because the streams are not synchronized. See README.md. -->
-        <div class="card" id="axAthleteBar" style="margin-bottom:18px;padding:14px 24px;">
+        <div class="card" id="axEngineNotice" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Athletrix Engine dashboard &middot; runs on the sideline computer</div>
+              <div class="card-sub">Live heart-rate, tracking and 60-second summary cards for registered athletes</div>
+            </div>
+            <span class="ax-badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.5);white-space:nowrap;">Engine-connected</span>
+          </div>
+          <p class="card-sub" style="font-size:0.9rem;line-height:1.6;margin:0 0 14px;">
+            The engine-connected cards read from the Athletrix engine, a local service that runs on the sideline computer next to its simulators. This public page does not contact that computer, so those cards appear only on the local dashboard.
+          </p>
+          <ol class="card-sub" style="font-size:0.88rem;line-height:1.9;margin:0 0 16px 20px;padding:0;">
+            <li>On the sideline computer, start the engine backend from the engine repository: <code style="color:#fff;">uvicorn app.main:app --reload</code></li>
+            <li>Register the fictional demo roster: <code style="color:#fff;">python scripts/register_demo_roster.py</code></li>
+            <li>Feed fictional readings: <code style="color:#fff;">python scripts/simulate_athlete.py --with-tracking</code></li>
+            <li>Serve this site locally from the Athletrix_Web folder: <code style="color:#fff;">python3 -m http.server 3000</code></li>
+          </ol>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+            <a class="btn btn-primary" href="http://localhost:3000/#demo" target="_blank" rel="noopener" style="text-decoration:none;">Open local dashboard</a>
+            <span class="card-sub" style="font-size:0.8rem;max-width:560px;">The link only works on a computer where the local demo has been started. Hosting the engine somewhere else? See the configuration section of the README.</span>
+          </div>
+        </div>
+        <div class="card" id="axAthleteBar" style="margin-bottom:18px;padding:14px 24px;border-left:4px solid #3b82f6;">
           <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;">
             <label for="axAthleteSelect" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-size:0.9rem;color:#fff;">Athlete</label>
             <select id="axAthleteSelect" class="coach-select" style="min-width:220px;max-width:100%;" disabled></select>
             <button type="button" id="axAthleteRefresh" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Refresh roster</button>
+            <span class="ax-badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.5);white-space:nowrap;">Engine-connected</span>
             <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Fictional demo roster</span>
             <div class="card-sub" id="axAthleteStatus" style="flex-basis:100%;margin-top:2px;">Loading roster&hellip;</div>
           </div>
         </div>
         <div id="axLiveCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;margin-bottom:24px;">
-          <div class="card" id="axLiveHr">
+          <div class="card" id="axLiveHr" style="border-left:4px solid #3b82f6;">
             <div class="card-header">
               <div>
                 <div class="card-title">Live Heart Rate &middot; <span id="axLiveHrWho">no athlete selected</span></div>
@@ -3569,7 +3596,7 @@
             </div>
             <div class="card-sub" id="axLiveHrStatus">Waiting for roster&hellip;</div>
           </div>
-          <div class="card" id="axLiveTrk">
+          <div class="card" id="axLiveTrk" style="border-left:4px solid #3b82f6;">
             <div class="card-header">
               <div>
                 <div class="card-title">Live Tracking &middot; <span id="axLiveTrkWho">no athlete selected</span></div>
@@ -3586,7 +3613,7 @@
             <div class="card-sub" id="axLiveTrkStatus">Waiting for roster&hellip;</div>
           </div>
         </div>
-        <div class="card" id="axLiveSum" style="margin-bottom:24px;">
+        <div class="card" id="axLiveSum" style="margin-bottom:24px;border-left:4px solid #3b82f6;">
           <div class="card-header">
             <div>
               <div class="card-title">Last 60 seconds &middot; <span id="axLiveSumWho">no athlete selected</span></div>
@@ -3628,11 +3655,11 @@
           <div id="guestWelcome" style="display: none; padding: 48px 20px 8px; text-align: center;">
             <div class="demo-kicker">Live Demo</div>
             <h2 class="demo-title">Coach a full game. Right now.</h2>
-            <p class="demo-sub">Every athlete gets one fatigue score, and the AI calls substitutions in plain language. If you can read a shot clock, you can read this dashboard — no medical background required.</p>
+            <p class="demo-sub">Every athlete in this browser demo gets a fictional 0–100 load index, and a rule-based assistant writes example rotation notes in plain language. The numbers are generated in your browser for illustration; they do not measure fatigue or decide substitutions.</p>
             <div class="demo-legend">
-              <div class="dl"><i style="background:#3b82f6;"></i><div><b>0–33 · FRESH</b><span>Play on.</span></div></div>
-              <div class="dl"><i style="background:#d7960b;"></i><div><b>34–66 · MONITOR</b><span>Plan the swap.</span></div></div>
-              <div class="dl"><i style="background:#d43830;"></i><div><b>67–100 · ROTATE</b><span>Sub now.</span></div></div>
+              <div class="dl"><i style="background:#3b82f6;"></i><div><b>0–33 · LOW</b><span>Illustrative band</span></div></div>
+              <div class="dl"><i style="background:#d7960b;"></i><div><b>34–66 · MEDIUM</b><span>Illustrative band</span></div></div>
+              <div class="dl"><i style="background:#d43830;"></i><div><b>67–100 · HIGH</b><span>Illustrative band</span></div></div>
             </div>
             <button class="add-team-btn" onclick="startSignup()">Sign Up to Add Your Team</button>
           </div>
@@ -3777,7 +3804,7 @@
                 
                 <div class="card-header" style="margin-top: 8px; margin-bottom: 20px;">
                   <div class="card-title">On‑Floor Players & Bench</div>
-                  <div class="card-sub">Fatigue Index from 0–100; ring color indicates live load.</div>
+                  <div class="card-sub">Demo load index 0–100, generated in this browser (fictional).</div>
                 </div>
                 <div class="search-container" style="margin-bottom: 16px;">
                     <span class="search-icon">🔍</span>
@@ -3820,7 +3847,7 @@
                 <div class="card" style="margin-top: 10px;">
                   <div class="card-header">
                     <div class="card-title">Bench</div>
-                    <div class="card-sub">Prepared substitutes with fatigue score.</div>
+                    <div class="card-sub">Bench players with demo load index (fictional).</div>
                   </div>
                   <div class="bench-list" id="benchList"></div>
                 </div>
@@ -6321,7 +6348,7 @@ function initializePlayerFatigue(team) {
         aiPanel.innerHTML = `
           <div class="ai-title">Pre‑Game Overview</div>
           <p class="ai-text">
-            All sensors synced. Fatigue Index from sleep, HRV, and recovery. Cameras will track game state,
+            Demo data ready. The demo load index is generated in your browser from fictional inputs. Cameras will track game state,
             opponent strategy, and individual performance.
           </p>
           <ul class="ai-list">
@@ -6367,7 +6394,7 @@ function initializePlayerFatigue(team) {
         } else {
           const p = risky[0];
           aiPanel.innerHTML = `
-            <div class="ai-title">Substitution Recommendation</div>
+            <div class="ai-title">Example rotation note (demo)</div>
             <p class="ai-text">
               Take #${p.num} ${p.name} (Fatigue ${Math.round(p.fatigue)}) out and put
               #${benchFresh.num} ${benchFresh.name} in (Fatigue ${Math.round(benchFresh.fatigue)}) to boost performance.
@@ -6706,7 +6733,7 @@ function initializePlayerFatigue(team) {
       const bestBench = bench.reduce((m, p) => p.ps > m.ps ? p : m, bench[0]);
       selectedStarterId = mostTired.id;
       selectedBenchId = bestBench.id;
-      slideSectionLabelTop.textContent = "AI Suggested Substitution";
+      slideSectionLabelTop.textContent = "Demo rotation suggestion";
       slideList.innerHTML = "";
       const suggested = document.createElement("div");
       suggested.className = "slide-item selected";
@@ -8587,7 +8614,7 @@ function initializePlayerFatigue(team) {
     let tutorialStep = 0;
     const tutorialSteps = [
         { title: 'Welcome!', content: 'Athletrix helps you track player fatigue and performance in real-time.' },
-        { title: 'Dashboard', content: 'Monitor player vitals, fatigue levels, and get AI-powered substitution recommendations.' },
+        { title: 'Dashboard', content: 'Browse fictional player vitals and a demo load index with example rotation notes. Demonstration data only; cards marked Engine-connected read from the local Athletrix engine.' },
         { title: 'Camera Sync', content: 'Track live game data and sync with wearable devices for real-time metrics.' },
         { title: 'Game History', content: 'Review past games and track player performance trends over time.' }
     ];
@@ -9026,7 +9053,7 @@ function initializePlayerFatigue(team) {
       const r = recs[0];
       const L = loadLearnings()[r.p.id];
       html += `<div class="ax-ai-sub">
-        <span class="ax-ai-tag rec">Substitution — Act Now</span>
+        <span class="ax-ai-tag rec">Example rotation note</span>
         <div class="swap">Pull <b>#${r.p.num} ${r.p.name}</b> (fatigue ${Math.round(r.p.fatigue)}, performance ${Math.round(r.a.cur)} ↓ proj ${Math.round(r.a.proj)}) for <b>#${r.a.recIn.num} ${r.a.recIn.name}</b> (fresh, exp ${Math.round(r.a.rep.exp)}).</div>
         <div class="swap ax-muted" style="margin-top:8px;">Net performance gain ~<b style="color:#f0674f">+${Math.max(1,Math.round(r.a.net))}</b> after weighing how costly ${r.p.name} is to lose. ${L? `History: ${r.p.name} ${L.note}.`:'Correlation learned live this game.'}</div>
       </div>`;
@@ -9961,6 +9988,15 @@ function initializePlayerFatigue(team) {
 })();
 </script>
 
+<script id="axEngineConfig">
+  // Athletrix engine connection settings (see README, "Engine mode and configuration").
+  //   engineMode: "auto"   -> engine-connected cards on localhost / 127.0.0.1 only; public explanation everywhere else (default)
+  //               "engine" -> always show the engine-connected cards and poll apiBase
+  //               "public" -> never contact the engine
+  //   apiBase:    base URL of the Athletrix engine API
+  // For one page load, the URL query ?engine=1 or ?engine=0 overrides engineMode.
+  window.ATHLETRIX_CONFIG = window.ATHLETRIX_CONFIG || { engineMode: "auto", apiBase: "http://127.0.0.1:8000" };
+</script>
 <script id="axLiveHeartRate">
 (function(){
   "use strict";
@@ -9969,7 +10005,8 @@ function initializePlayerFatigue(team) {
   // switching athletes or navigating views never adds polling loops. Requests carry the selection
   // generation they were made for; responses from an earlier generation are ignored.
   // Override the backend address before this script runs with: window.ATHLETRIX_API_BASE = "http://host:port"
-  var API_BASE = window.ATHLETRIX_API_BASE || "http://127.0.0.1:8000";
+  var CONFIG = window.ATHLETRIX_CONFIG || {};
+  var API_BASE = String(CONFIG.apiBase || window.ATHLETRIX_API_BASE || "http://127.0.0.1:8000").replace(/\/+$/, "");
   var POLL_MS = 1000;          // live cards
   var STALE_MS = 5000;         // live cards: no new timestamp for this long = "stopped updating"
   var SUMMARY_MS = 5000;       // summary card
@@ -9985,6 +10022,35 @@ function initializePlayerFatigue(team) {
   function formatTime(iso, el) { var d = new Date(iso); el.textContent = isNaN(d.getTime()) ? iso : d.toLocaleTimeString(); el.title = iso; }
   function athleteUrl(id, suffix) { return API_BASE + "/api/v1/athletes/" + encodeURIComponent(id) + suffix; }
   function athleteLabel(a) { return String(a.name) + " #" + String(a.jersey_number); } // rendered via textContent only
+
+  // ---- engine mode ----
+  // "engine": show the engine-connected cards and poll the engine. "public": show the explanation card and make no engine requests.
+  function resolveEngineMode() {
+    var q = null; try { q = new URLSearchParams(location.search).get("engine"); } catch (e) {}
+    if (q === "1" || q === "on") return "engine";
+    if (q === "0" || q === "off") return "public";
+    var m = String(CONFIG.engineMode || "auto").toLowerCase();
+    if (m === "engine" || m === "public") return m;
+    var h = location.hostname;
+    return (h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h === "::1" || /\.localhost$/.test(h)) ? "engine" : "public";
+  }
+  var ENGINE_MODE = resolveEngineMode();
+  window.ATHLETRIX_ENGINE_MODE = ENGINE_MODE; // read-only, for inspection
+
+  // The fictional-data banner follows the in-app navigation (shown in the demo, hidden on marketing pages).
+  (function(){
+    var nav = document.querySelector(".athletrix-nav"), banner = byId("axDemoBanner");
+    if (!nav || !banner) return;
+    function sync() { banner.style.display = getComputedStyle(nav).display === "none" ? "none" : "block"; }
+    sync(); setInterval(sync, 500);
+  })();
+
+  if (ENGINE_MODE !== "engine") {
+    ["axAthleteBar", "axLiveCards", "axLiveSum"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
+    return; // public mode: no roster load, no pollers, no requests to the engine
+  }
+  var notice2 = byId("axEngineNotice"); if (notice2) notice2.style.display = "none";
 
   // ---- shared selection ----
   var selection = { id: null, label: "", generation: 0 };
