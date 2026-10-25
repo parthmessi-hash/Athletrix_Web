@@ -4,9 +4,9 @@ Marketing site and live demo dashboard for Athletrix. A single static page
 (`index.html`) with no build step.
 
 The backend/engine lives in the separate `Athletrix_Vision_Synopsis_2026`
-repository. The dashboard's **Live Heart Rate** and **Live Tracking** cards
-poll that backend for `athlete-1`; everything else on the page is
-self-contained demo data.
+repository. The dashboard's **Live Heart Rate**, **Live Tracking** and
+**Last 60 seconds** cards poll that backend for `athlete-1`; everything else
+on the page is self-contained demo data.
 
 ## Run the frontend
 
@@ -19,7 +19,7 @@ python3 -m http.server 3000
 ```
 
 Open http://localhost:3000 and click **Open the Live Demo** to reach the
-dashboard. The two live cards are at the top of the dashboard.
+dashboard. The live cards and the summary card are at the top of the dashboard.
 
 ## Run with the backend and simulator
 
@@ -48,13 +48,25 @@ What the cards show:
   sample time of the most recent tracking sample. Zero is a real reading and
   is shown as `0.0 m/s`, never as missing.
 
-Each card polls its own endpoint once per second while the dashboard is
-visible and reports its own state independently:
+- **Last 60 seconds** (labelled "Simulated demo"): fetched every 5 seconds
+  from the backend summary endpoint. Shows mean and peak heart rate (bpm),
+  peak speed (m/s), the heart-rate measurement count out of physiological
+  samples, the tracking sample count, and for each stream the newest
+  sample's age and the largest gap between consecutive samples, in seconds.
+  `null` values are shown as "Not available"; real zeros are shown as zeros.
+  A successful fetch does not mean the data is live: the status line reports
+  how old the newest samples were relative to the summary's window end, and
+  an empty window says so. These are descriptive numbers only.
 
-- **No sample yet** if the backend has nothing for `athlete-1` on that stream.
+The two live cards poll their endpoints once per second and the summary card
+every 5 seconds, all only while the dashboard is visible, and each reports
+its own state independently:
+
+- **No sample yet** / **No samples recorded** if the backend has nothing for
+  `athlete-1` on that stream or in that window.
 - **Cannot reach backend** if the backend is not running on `127.0.0.1:8000`.
-- **Stopped updating** if no new sample has arrived on that stream for 5
-  seconds (e.g. the simulator finished).
+- **Stopped updating** (live cards) if no new sample has arrived on that
+  stream for 5 seconds (e.g. the simulator finished).
 
 Each card shows its own sample timestamp. The two streams are polled and
 timestamped separately; showing them side by side does not mean they are
