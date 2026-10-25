@@ -108,10 +108,21 @@ readings with their real age; run a simulator again for fresh values.
   peak speed (m/s), the heart-rate measurement count out of physiological
   samples, the tracking sample count, and for each stream the newest
   sample's age and the largest gap between consecutive samples, in seconds.
-  `null` values are shown as "Not available"; real zeros are shown as zeros.
-  A successful fetch does not mean the data is live: the status line reports
-  how old the newest samples were relative to the summary's window end, and
-  an empty window says so. These are descriptive numbers only.
+  It also shows the backend's **estimated distance** in metres with the
+  eligible duration and percentage of the window it is based on, a
+  "Distance basis" line with the excluded-interval count, and a footnote
+  stating the gap and confidence rules the backend applied (values come from
+  the response, not the page). The estimate sums consecutive tracking
+  intervals that are close enough together and confident enough at both
+  ends, assuming speed changes linearly between samples; excluded intervals
+  are never bridged, so it covers only the eligible part of the window.
+  "Not available" means no interval qualified; `0.0 m` means the eligible
+  intervals were stationary. `null` values are shown as "Not available"; real
+  zeros are shown as zeros. A successful fetch does not mean the data is
+  live: the status line reports how old the newest samples were relative to
+  the summary's window end, and an empty window says so. These are
+  descriptive numbers only, not a guaranteed full-window distance or an
+  athlete-condition score.
 
 The two live cards poll once per second and the summary card every 5
 seconds, only while the dashboard is visible, and each reports its own state:

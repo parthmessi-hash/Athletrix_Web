@@ -3621,10 +3621,11 @@
             </div>
             <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Simulated demo</span>
           </div>
-          <div class="vitals-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:12px;">
+          <div class="vitals-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:12px;">
             <div class="vital"><div class="vital-label">Mean Heart Rate</div><div class="vital-value" id="axSumHrMean">&mdash;</div></div>
             <div class="vital"><div class="vital-label">Peak Heart Rate</div><div class="vital-value" id="axSumHrPeak">&mdash;</div></div>
             <div class="vital"><div class="vital-label">Peak Speed</div><div class="vital-value" id="axSumSpeedPeak">&mdash;</div></div>
+            <div class="vital"><div class="vital-label">Estimated Distance</div><div class="vital-value" id="axSumDistance">&mdash;</div><div class="vital-label" id="axSumDistanceBasis" style="margin:4px 0 0;"></div></div>
           </div>
           <div class="vitals-grid" style="margin-bottom:12px;">
             <div class="vital" style="text-align:left;">
@@ -3641,10 +3642,12 @@
                 <div>Samples: <b id="axSumTrkCount">&mdash;</b></div>
                 <div>Latest sample age: <b id="axSumTrkAge">&mdash;</b></div>
                 <div>Max gap between samples: <b id="axSumTrkGap">&mdash;</b></div>
+                <div>Distance basis: <b id="axSumDistanceDetail">&mdash;</b></div>
               </div>
             </div>
           </div>
           <div class="card-sub" id="axSumStatus">Waiting for roster&hellip;</div>
+          <div class="card-sub" id="axSumDistanceRules" style="margin-top:6px;font-size:0.76rem;color:#8a9097;"></div>
         </div>
         <section id="homeView">
           <div id="emptyDashboard" class="empty-dashboard" style="display: none;">
@@ -10199,13 +10202,34 @@ function initializePlayerFatigue(team) {
 
   // ---- Summary card (last 60 s, refreshed every 5 s) ----
   (function(){
-    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho"];
+    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho","axSumDistance","axSumDistanceBasis","axSumDistanceDetail","axSumDistanceRules"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     function fmt(v, unit, digits) { return isNum(v) ? v.toFixed(digits) + (unit ? " " + unit : "") : NA; } // null -> Not available; real 0 formatted
     function count(v) { return isNum(v) ? String(v) : NA; }
     function setStatus(text, color) { el.axSumStatus.textContent = text; el.axSumStatus.style.color = color; }
-    function clearAll() { for (var j = 0; j < 9; j++) el[ids[j]].textContent = DASH; }
+    function clearAll() {
+      for (var j = 0; j < 9; j++) el[ids[j]].textContent = DASH;
+      el.axSumDistance.textContent = DASH; el.axSumDistanceBasis.textContent = ""; el.axSumDistanceDetail.textContent = DASH; el.axSumDistanceRules.textContent = "";
+    }
+    function renderDistance(t, windowS) {
+      // Estimate over eligible consecutive intervals only; null means no interval qualified, 0.0 means eligible intervals were stationary.
+      var dist = t.estimated_distance_m, dur = t.included_duration_seconds, frac = t.included_window_fraction, excl = t.excluded_interval_count, rules = t.distance_rules || {};
+      var haveBasis = isNum(dur) && isNum(frac);
+      if (isNum(dist)) {
+        el.axSumDistance.textContent = dist.toFixed(1) + " m";
+        el.axSumDistanceBasis.textContent = haveBasis ? "over " + dur.toFixed(1) + " s \u00b7 " + Math.round(frac * 100) + "% of window" : "";
+      } else {
+        el.axSumDistance.textContent = NA;
+        el.axSumDistanceBasis.textContent = "no eligible interval";
+      }
+      var detail = haveBasis ? dur.toFixed(1) + " s of " + windowS + " s (" + Math.round(frac * 100) + "%) eligible" : NA;
+      if (isNum(excl)) detail += " \u00b7 " + excl + " interval" + (excl === 1 ? "" : "s") + " excluded";
+      el.axSumDistanceDetail.textContent = detail;
+      el.axSumDistanceRules.textContent = (isNum(rules.max_gap_seconds) && isNum(rules.min_confidence))
+        ? "Distance estimate: sums consecutive tracking intervals no more than " + rules.max_gap_seconds + " s apart with confidence \u2265 " + rules.min_confidence + " at both ends, assuming speed changes linearly between samples (trapezoidal rule). Excluded intervals are not bridged and nothing is extrapolated, so this covers only the eligible part of the window. Rules are adjustable engine defaults, not sport standards."
+        : "";
+    }
     function describeRecency(p, t) {
       // Recency comes from the sample ages the backend reports against its own window end, not from this request succeeding.
       return (isNum(p.latest_sample_age_seconds) ? "newest heart-rate sample " + p.latest_sample_age_seconds.toFixed(1) + " s before window end" : "no heart-rate samples in window")
@@ -10222,6 +10246,7 @@ function initializePlayerFatigue(team) {
       el.axSumTrkCount.textContent = count(t.sample_count);
       el.axSumTrkAge.textContent = fmt(t.latest_sample_age_seconds, "s", 1);
       el.axSumTrkGap.textContent = fmt(t.max_inter_sample_gap_seconds, "s", 1);
+      renderDistance(t, WINDOW_S);
       var endD = new Date(sum.window_end), endText = isNaN(endD.getTime()) ? sum.window_end : endD.toLocaleTimeString();
       var empty = !(p.sample_count > 0) && !(t.sample_count > 0);
       if (empty) setStatus("No samples recorded for " + label + " in the " + WINDOW_S + " s ending " + endText + ". Run the simulator to send data.", COLORS.muted);
