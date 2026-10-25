@@ -10102,7 +10102,7 @@ function initializePlayerFatigue(team) {
       var keepId = rosterById.hasOwnProperty(selection.id) ? selection.id : String(list[0].id); // preserve a still-valid selection
       selectEl.value = keepId;
       var label = athleteLabel(rosterById[keepId]);
-      setRosterStatus(list.length + (list.length === 1 ? " athlete" : " athletes") + " registered · fictional demo roster, in backend memory", COLORS.muted);
+      setRosterStatus(list.length + (list.length === 1 ? " athlete" : " athletes") + " registered · fictional demo roster, stored by the backend", COLORS.muted);
       if (keepId !== selection.id) selectAthlete(keepId, label);
       else { selection.label = label; for (var j = 0; j < cards.length; j++) cards[j].setWho(label); }
     }).catch(function(err) {

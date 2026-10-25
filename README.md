@@ -80,10 +80,12 @@ navigation, then pick an athlete in the **Athlete** dropdown above the cards.
 All three cards switch together. **Refresh roster** reloads the athlete list
 from the backend and keeps your current selection when it is still present.
 
-Everything in the backend is process memory: the athlete registry and all
-readings clear when the backend restarts, so rerun the roster script (and
-the simulators) afterwards. The dashboard will show the empty-roster message
-until you do.
+The backend persists the athlete registry, device statuses and the newest
+300 samples per athlete per stream in a local SQLite file (`data/athletrix.db`
+in the engine repository by default), so they survive backend restarts. The
+roster script is a one-time step per database file and is safe to rerun.
+After a restart the dashboard reconnects on its own and shows the retained
+readings with their real age; run a simulator again for fresh values.
 
 ## What the cards show
 
@@ -114,8 +116,8 @@ until you do.
 The two live cards poll once per second and the summary card every 5
 seconds, only while the dashboard is visible, and each reports its own state:
 
-- **No sample yet** / **No samples recorded** if the backend has nothing for
-  the selected athlete on that stream or in that window.
+- **No sample yet** / **No samples recorded** if the backend has nothing
+  stored for the selected athlete on that stream or in that window.
 - **Cannot reach backend** if the backend is not running on `127.0.0.1:8000`.
 - **Stopped updating** (live cards) if no new sample has arrived on that
   stream for 5 seconds (e.g. the simulator finished).
