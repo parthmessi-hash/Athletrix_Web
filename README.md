@@ -174,6 +174,49 @@ can never appear under another athlete's name. Each card shows its own
 sample timestamp; the streams are polled and timestamped separately, so
 showing them side by side does not mean they are synchronized.
 
+## Live and Recorded review modes
+
+Above the engine-connected cards a **Review** bar switches between two modes.
+It is hidden in public mode like the other engine-connected elements.
+
+- **Live** (default): the current-reading cards poll once per second and the
+  summary and timeline cards refresh every 5 seconds over the last 60 s of
+  engine time. This is the behaviour described above.
+- **Recorded**: review the 60 s ending at a time you choose. Enter a window
+  end as an ISO 8601 timestamp **with a timezone** (for example
+  `2026-10-20T10:00:02Z` or `2026-10-20T12:00:02+02:00`; the hint under the
+  control shows the format) and click **Review**. The page asks the engine
+  for the summary and the window with `end=<your time>` and the usual 60 s
+  duration, using proper query encoding, and shows an amber
+  **Recorded-time review** banner with the window bounds the engine returned.
+  The summary and timeline are fetched only when you click Review, change
+  athlete, or click **Refresh**; no timer advances the window. The live
+  current-reading cards are hidden while reviewing, the summary and timeline
+  are badged "Recorded-time review", the sample-age rows read "Newest sample
+  before selected window end", and a review is never labelled "Live".
+  Clicking **Live** restores the cards and polling immediately.
+
+A late response from an earlier athlete, review time or mode can never
+overwrite the current display: every request carries the selection generation
+it was made for, and a change of athlete, mode or review time bumps it and
+clears the cards at once. Null markers, zero values, confidence markers, gap
+breaks and the mobile layout behave exactly as in Live mode. An invalid or
+timezone-less time is refused on the page with the format hint; a time the
+engine refuses (for example one in the future) is shown as
+"Engine rejected the request: ..." with the engine's reason.
+
+**Recorded review shows retained samples, not a recording archive.** The
+engine keeps only the newest 300 samples per athlete per stream, so a window
+can only show what is still stored; older records may already have been
+removed, and an empty review window says so.
+
+To review the fictional replay example from the engine repository: replay it
+(`python scripts/replay_samples.py scripts/examples/fictional_replay.jsonl`),
+switch to **Recorded**, enter `2026-10-20T10:00:02Z` and click **Review**;
+athlete-1 then shows 2 heart-rate samples (one null) and 3 tracking samples
+including a real 0.0 m/s, and athlete-2 shows one tracking sample drawn as a
+below-confidence marker.
+
 ## Tests
 
 The timeline card has behaviour tests in `tests/timeline_confidence.test.html`:
@@ -189,8 +232,12 @@ and read the pass/fail list (also logged to the console and exposed as
 `window.__results`). It covers: the rule being taken from the window response
 with the summary delayed or failed; points below, exactly at and above the
 rule; missing or invalid rules; null markers and display-gap breaks; rapid
-athlete switching with late responses; backend errors; and public mode making
-no engine request.
+athlete switching with late responses; backend errors; public mode making
+no engine request; and the Recorded review mode (hidden live cards, requests
+only on Review/athlete change/Refresh with the encoded `end`, timers never
+advancing the window, invalid input refused on the page, engine 422 messages
+shown, late responses across time/athlete/mode changes dropped, empty
+windows, and returning to Live).
 
 ## Project handoff
 

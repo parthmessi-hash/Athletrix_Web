@@ -70,6 +70,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axSumStatus", "axLiveSumWho", "axSumDistance", "axSumDistanceBasis", "axSumDistanceDetail", "axSumDistanceRules",
     "axSumHsTime", "axSumHsTimeBasis", "axSumHsDist", "axSumHsDistBasis", "axSumHsTimeLabel", "axSumHsDistLabel",
     "axLiveTlWho", "axTlWindow", "axTlHrSvg", "axTlSpSvg", "axTlHrNote", "axTlSpNote", "axTlStatus",
+    "axSumTitle", "axSumSub", "axSumModeBadge", "axSumHrAgeLabel", "axSumTrkAgeLabel", "axTlSub", "axTlModeBadge",
+    "axReviewBar", "axModeLive", "axModeRecorded", "axReviewForm", "axReviewEnd", "axReviewGo", "axReviewRefresh", "axReviewStatus", "axReviewBanner", "axReviewBounds",
   ];
 
   function boot(opts) {
@@ -81,7 +83,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const doc = { getElementById: id => els[id] || null, createElement: tag => new El(tag), createElementNS: (_ns, tag) => new El(tag), querySelector: () => null };
     const sandbox = {}; // stands in for `window`
     const fetchStub = url => new Promise((resolve, reject) => pending.push({ url: String(url), resolve, reject }));
-    const intervalStub = () => 0; // pollers are created but never ticked by a timer; polls are driven by athlete selection
+    const timers = []; // interval callbacks are captured, never scheduled; a test can fire them by hand
+    const intervalStub = fn => { timers.push(fn); return 0; };
     // Shadow the globals the script uses, so it runs against the stub rather than this page.
     new Function("window", "document", "location", "fetch", "setInterval", SRC)(sandbox, doc, { hostname, search: "" }, fetchStub, intervalStub);
     const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)); };
@@ -89,7 +92,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const respond = async (part, body, status) => { status = status || 200; take(part).resolve({ ok: status < 400, status, json: async () => body }); await flush(); };
     const fail = async part => { take(part).reject(new Error("network")); await flush(); };
     const resolveLate = async (req, body) => { pending.splice(pending.indexOf(req), 1); req.resolve({ ok: true, status: 200, json: async () => body }); await flush(); };
-    return { els, pending, sandbox, flush, respond, fail, resolveLate };
+    const tick = async () => { for (const fn of timers) fn(); await flush(); }; // one tick of every poller timer
+    return { els, pending, sandbox, flush, respond, fail, resolveLate, tick };
   }
 
   // ---- fictional data helpers ------------------------------------------------------------------------
@@ -104,6 +108,26 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     if (!("rules" in o)) w.tracking_rules = { min_confidence: 0.5 }; else if (o.rules !== undefined) w.tracking_rules = o.rules;
     return w;
   }
+  const R0 = Date.UTC(2026, 9, 20, 10, 0, 2); // a recorded window end, five days before T0
+  const riso = s => new Date(R0 + s * 1000).toISOString();
+  function rwin(o) { // a window response for the recorded end R0 (samples placed relative to it)
+    o = o || {};
+    const w = { athlete_id: o.athlete || "a1", window_start: riso(-60), window_end: riso(0), physiological_samples: o.physiological || [], tracking_samples: o.tracking || [], tracking_rules: { min_confidence: 0.5 } };
+    return w;
+  }
+  const rtrk = (s, speed, conf) => ({ athlete_id: "a1", timestamp: riso(s), x_position: 0, y_position: 0, speed_mps: speed, acceleration_mps2: 0, tracking_confidence: conf });
+  function sum(o) { // a summary response; counts default to an empty window
+    o = o || {};
+    return {
+      athlete_id: o.athlete || "a1", window_start: o.start || riso(-60), window_end: o.end || riso(0),
+      physiological: Object.assign({ sample_count: 0, heart_rate_count: 0, heart_rate_mean_bpm: null, heart_rate_peak_bpm: null, first_sample_at: null, last_sample_at: null, latest_sample_age_seconds: null, max_inter_sample_gap_seconds: null }, o.physiological || {}),
+      tracking: Object.assign({ sample_count: 0, speed_peak_mps: null, first_sample_at: null, last_sample_at: null, latest_sample_age_seconds: null, max_inter_sample_gap_seconds: null, estimated_distance_m: null, included_duration_seconds: 0, included_window_fraction: 0, excluded_interval_count: 0, high_speed_duration_seconds: null, high_speed_distance_m: null, distance_rules: { max_gap_seconds: 3, min_confidence: 0.5, high_speed_threshold_mps: 5 } }, o.tracking || {}),
+    };
+  }
+  const END = "2026-10-20T10:00:02Z", END_Q = "end=2026-10-20T10%3A00%3A02Z";
+  const click = async (ctx, id) => { ctx.els[id].dispatch("click"); await ctx.flush(); };
+  const reviewAt = async (ctx, text) => { ctx.els.axReviewEnd.value = text; await click(ctx, "axReviewGo"); };
+  const urls = ctx => ctx.pending.map(p => p.url);
   const states = svg => svg.byTag("circle").map(c => c.getAttribute("data-state"));
   const segments = svg => svg.byTag("path").reduce((n, p) => n + (p.getAttribute("d").match(/M/g) || []).length, 0);
   const start = ctx => ctx.respond("/api/v1/athletes", ROSTER); // roster -> a1 selected -> every card polls once
@@ -118,6 +142,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.sandbox.ATHLETRIX_ENGINE_MODE, "public");
     assert.equal(ctx.els.axEngineNotice.style.display, "block");
     assert.equal(ctx.els.axLiveTl.style.display, "none");
+    assert.equal(ctx.els.axReviewBar.style.display, "none");
   });
 
   test("timeline needs only the window response and ignores a delayed or failed summary", async () => {
@@ -222,6 +247,142 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await ctx.respond("/a2/window", {}, 500);
     assert.match(ctx.els.axTlStatus.textContent, /HTTP 500/);
     assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0);
+  });
+
+  // ---- recorded-time review ------------------------------------------------------------------------------
+
+  test("recorded mode hides live cards, requests nothing until Review, then asks for summary and window at the selected end", async () => {
+    const ctx = boot();
+    await start(ctx);
+    const liveBefore = ctx.pending.length; // a1's four live requests are in flight
+    assert.equal(ctx.els.axLiveCards.style.display, "grid");
+    await click(ctx, "axModeRecorded");
+    assert.equal(ctx.els.axLiveCards.style.display, "none", "current-reading cards hidden");
+    assert.equal(ctx.els.axReviewBanner.style.display, "block", "recorded-time review banner shown");
+    assert.equal(ctx.els.axReviewForm.style.display, "flex");
+    assert.equal(ctx.pending.length, liveBefore, "no request until a time is reviewed");
+    assert.match(ctx.els.axSumStatus.textContent, /enter a window end above and click Review/);
+    assert.match(ctx.els.axTlStatus.textContent, /enter a window end above and click Review/);
+    assert.match(ctx.els.axReviewStatus.textContent, /2026-10-20T10:00:02Z/, "format explained with an example");
+    assert.equal(ctx.els.axSumTitle.textContent, "Recorded 60 seconds");
+    assert.equal(ctx.els.axSumModeBadge.style.display, "inline-block");
+    assert.equal(ctx.els.axTlModeBadge.style.display, "inline-block");
+    await reviewAt(ctx, END);
+    const fresh = urls(ctx).slice(liveBefore);
+    assert.deepEqual(fresh.map(u => u.replace(/^.*\/athletes\//, "")).sort(), ["a1/summary?seconds=60&" + END_Q, "a1/window?seconds=60&" + END_Q]);
+    // The stale live responses for a1 arrive now: all dropped (older generation), nothing shown as live.
+    await ctx.respond("/physiological/latest", { athlete_id: "a1", timestamp: iso(0), source: "simulated", device_id: "sim", heart_rate_bpm: 150 });
+    assert.equal(ctx.els.axLiveHrValue.textContent, "—");
+    await ctx.respond("/a1/window?seconds=60&" + END_Q, rwin({ tracking: [rtrk(-2, 0.0, 0.9), rtrk(-1, 1.5, 0.95), rtrk(0, 2.0, 1.0)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable", "usable", "usable"]);
+    assert.match(ctx.els.axTlWindow.textContent, /^Recorded window .* selected end\)$/);
+    assert.match(ctx.els.axTlStatus.textContent, /^Recorded-time review · Recorded timestamps only · newest sample 0\.0 s before the selected window end\./);
+    assert.match(ctx.els.axReviewBounds.textContent, /^60 s from .* to .* \(engine time\)$/);
+    await ctx.respond("/a1/summary?seconds=60&" + END_Q, sum({ physiological: { sample_count: 2, heart_rate_count: 1, heart_rate_mean_bpm: 112, heart_rate_peak_bpm: 112, latest_sample_age_seconds: 0.5, max_inter_sample_gap_seconds: 1.5 }, tracking: { sample_count: 3, speed_peak_mps: 2.0, latest_sample_age_seconds: 0.0, max_inter_sample_gap_seconds: 1.0, estimated_distance_m: 2.5, included_duration_seconds: 2, included_window_fraction: 2 / 60, high_speed_duration_seconds: 0, high_speed_distance_m: 0 } }));
+    assert.equal(ctx.els.axSumHrAgeLabel.textContent, "Newest sample before selected window end");
+    assert.equal(ctx.els.axSumHrAge.textContent, "0.5 s");
+    assert.equal(ctx.els.axSumHrCount.textContent, "1 of 2 samples");
+    assert.equal(ctx.els.axSumDistance.textContent, "2.5 m");
+    assert.match(ctx.els.axSumStatus.textContent, /^Recorded-time review · window ended .*seconds before the selected window end, not before now/);
+    assert.ok(!/Live/.test(ctx.els.axSumStatus.textContent) && !/Live/.test(ctx.els.axTlStatus.textContent), "a review is never labelled Live");
+  });
+
+  test("invalid review input makes no request and explains the format", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    const before = ctx.pending.length;
+    for (const bad of ["", "2026-10-20T10:00:02", "2026-10-20 10:00:02Z", "yesterday", "2026-13-40T10:00:02Z"]) {
+      await reviewAt(ctx, bad);
+      assert.equal(ctx.pending.length, before, "no request for " + JSON.stringify(bad));
+      assert.match(ctx.els.axReviewStatus.textContent, /ISO 8601 timestamp with a timezone, for example 2026-10-20T10:00:02Z/);
+    }
+    await reviewAt(ctx, "2026-10-20T12:00:02+02:00");
+    assert.equal(ctx.pending.length, before + 2);
+    assert.ok(urls(ctx).slice(-2).every(u => u.includes("end=2026-10-20T12%3A00%3A02%2B02%3A00")), "offset encoded with %2B");
+  });
+
+  test("an engine 422 for the review end is shown and nothing stale is kept", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await reviewAt(ctx, "2099-01-01T00:00:00Z");
+    await ctx.respond("/summary?seconds=60&end=2099", { detail: "end 2099-01-01T00:00:00+00:00 is after backend time 2026-10-25T12:00:00+00:00; a recorded review cannot end in the future" }, 422);
+    assert.match(ctx.els.axSumStatus.textContent, /^Engine rejected the request: end 2099.*cannot end in the future/);
+    assert.equal(ctx.els.axSumHrMean.textContent, "—");
+    await ctx.respond("/window?seconds=60&end=2099", { detail: [{ loc: ["query", "end"], msg: "Input should have timezone info" }] }, 422);
+    assert.match(ctx.els.axTlStatus.textContent, /^Engine rejected the request: query\.end: Input should have timezone info/);
+    assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0);
+  });
+
+  test("timers never advance a recorded window; Refresh re-requests the same end", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await reviewAt(ctx, END);
+    const n = ctx.pending.length;
+    await ctx.tick(); await ctx.tick();
+    assert.equal(ctx.pending.length, n, "no timer-driven request in recorded mode");
+    await click(ctx, "axReviewRefresh");
+    assert.equal(ctx.pending.length, n + 2);
+    assert.ok(urls(ctx).slice(-2).every(u => u.includes(END_Q)));
+    await click(ctx, "axModeLive");
+    const live = ctx.pending.length;
+    await ctx.tick();
+    assert.ok(ctx.pending.length > live, "live timers poll again");
+  });
+
+  test("late responses from an earlier review time, athlete or mode are dropped; returning to Live restores cards and polling", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await reviewAt(ctx, END);
+    const w1 = ctx.pending.find(p => p.url.includes("/a1/window") && p.url.includes(END_Q));
+    await reviewAt(ctx, "2026-10-20T10:00:01Z");
+    const w2 = ctx.pending.find(p => p.url.includes("/a1/window") && p.url.includes("10%3A00%3A01Z"));
+    await ctx.resolveLate(w1, rwin({ tracking: [rtrk(-4, 1, 1), rtrk(-3, 1, 1), rtrk(-2, 1, 1), rtrk(-1, 1, 1), rtrk(0, 1, 1)] }));
+    assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0, "earlier review time dropped");
+    await ctx.resolveLate(w2, rwin({ tracking: [rtrk(-1, 1, 1)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable"]);
+    // athlete change while reviewing: a new request with the same end; the old athlete's late reply is dropped
+    const s2 = ctx.pending.find(p => p.url.includes("/a1/summary") && p.url.includes("10%3A00%3A01Z"));
+    await select(ctx, "a2");
+    assert.ok(urls(ctx).slice(-2).every(u => u.includes("/a2/") && u.includes("10%3A00%3A01Z")));
+    assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0, "cleared immediately on athlete change");
+    await ctx.resolveLate(s2, sum({ physiological: { sample_count: 9, heart_rate_count: 9, heart_rate_mean_bpm: 150 } }));
+    assert.equal(ctx.els.axSumHrMean.textContent, "—", "late summary for a1 dropped");
+    // back to Live: cards visible, live requests without end, a late recorded reply is dropped
+    const w3 = ctx.pending.find(p => p.url.includes("/a2/window"));
+    await click(ctx, "axModeLive");
+    assert.equal(ctx.els.axLiveCards.style.display, "grid");
+    assert.equal(ctx.els.axReviewBanner.style.display, "none");
+    assert.equal(ctx.els.axSumTitle.textContent, "Last 60 seconds");
+    assert.equal(ctx.els.axSumHrAgeLabel.textContent, "Latest sample age");
+    const liveUrls = urls(ctx).slice(-4);
+    assert.ok(liveUrls.some(u => u.endsWith("/a2/window?seconds=60")) && liveUrls.some(u => u.endsWith("/a2/summary?seconds=60")) && liveUrls.some(u => u.includes("/a2/physiological/latest")));
+    await ctx.resolveLate(w3, rwin({ athlete: "a2", tracking: [rtrk(0, 1, 1), rtrk(-1, 1, 1)] }));
+    assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0, "late recorded reply dropped after returning to Live");
+    await ctx.respond("/a2/window?seconds=60", win({ athlete: "a2", tracking: [trk(0, 1, 0.9)] }));
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable"]);
+    assert.match(ctx.els.axTlWindow.textContent, /^Window /);
+    assert.ok(!/Recorded-time review/.test(ctx.els.axTlStatus.textContent));
+  });
+
+  test("empty recorded window and backend errors are reported as such", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await reviewAt(ctx, END);
+    await ctx.respond("/summary?seconds=60&" + END_Q, sum());
+    assert.match(ctx.els.axSumStatus.textContent, /^Recorded-time review · no retained samples for Alex Example #7/);
+    await ctx.respond("/window?seconds=60&" + END_Q, rwin());
+    assert.match(ctx.els.axTlStatus.textContent, /no retained samples in this window/);
+    assert.equal(ctx.els.axTlSpSvg.byTag("text")[0].textContent, "No tracking samples in this window");
+    await click(ctx, "axReviewRefresh");
+    await ctx.fail("/window?seconds=60&" + END_Q);
+    assert.match(ctx.els.axTlStatus.textContent, /Cannot reach backend/);
+    await ctx.respond("/summary?seconds=60&" + END_Q, {}, 500);
+    assert.match(ctx.els.axSumStatus.textContent, /HTTP 500/);
   });
 
   // ---- run --------------------------------------------------------------------------------------------

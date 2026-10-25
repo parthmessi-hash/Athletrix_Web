@@ -3581,6 +3581,25 @@
             <div class="card-sub" id="axAthleteStatus" style="flex-basis:100%;margin-top:2px;">Loading roster&hellip;</div>
           </div>
         </div>
+        <div class="card" id="axReviewBar" style="margin-bottom:18px;padding:14px 24px;border-left:4px solid #3b82f6;">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;">
+            <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;font-size:0.9rem;color:#fff;">Review</span>
+            <div role="group" aria-label="Review mode" style="display:inline-flex;gap:6px;">
+              <button type="button" id="axModeLive" class="btn btn-primary" aria-pressed="true" style="padding:5px 12px;font-size:0.8rem;">Live</button>
+              <button type="button" id="axModeRecorded" class="btn btn-ghost" aria-pressed="false" style="padding:5px 12px;font-size:0.8rem;">Recorded</button>
+            </div>
+            <div id="axReviewForm" style="display:none;flex-wrap:wrap;align-items:center;gap:8px 10px;">
+              <label for="axReviewEnd" class="card-sub" style="margin:0;">Window end, ISO 8601 with timezone</label>
+              <input type="text" id="axReviewEnd" class="coach-select" placeholder="2026-10-20T10:00:02Z" spellcheck="false" autocomplete="off" style="min-width:240px;max-width:100%;font-family:monospace;">
+              <button type="button" id="axReviewGo" class="btn btn-primary" style="padding:5px 12px;font-size:0.8rem;">Review</button>
+              <button type="button" id="axReviewRefresh" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Refresh</button>
+            </div>
+            <div class="card-sub" id="axReviewStatus" style="flex-basis:100%;margin-top:2px;">Live: the cards poll the engine for the current readings and the last 60 seconds.</div>
+          </div>
+          <div id="axReviewBanner" role="status" style="display:none;margin-top:10px;padding:8px 12px;border:1px solid rgba(215,150,11,0.5);background:rgba(215,150,11,0.12);color:#f1d08a;font-size:0.85rem;line-height:1.5;">
+            <b>Recorded-time review</b> &middot; <span id="axReviewBounds">enter a window end and click Review</span>. Shows only the samples the engine still retains (newest 300 per athlete per stream); older records may already have been removed. Not a live feed.
+          </div>
+        </div>
         <div id="axLiveCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;margin-bottom:24px;">
           <div class="card" id="axLiveHr" style="border-left:4px solid #3b82f6;">
             <div class="card-header">
@@ -3614,11 +3633,12 @@
           </div>
         </div>
         <div class="card" id="axLiveSum" style="margin-bottom:24px;border-left:4px solid #3b82f6;">
-          <div class="card-header">
-            <div>
-              <div class="card-title">Last 60 seconds &middot; <span id="axLiveSumWho">no athlete selected</span></div>
-              <div class="card-sub">Summary from the Athletrix engine API, refreshed every 5 seconds. Values describe recorded samples, not a live feed.</div>
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title"><span id="axSumTitle">Last 60 seconds</span> &middot; <span id="axLiveSumWho">no athlete selected</span></div>
+              <div class="card-sub" id="axSumSub">Summary from the Athletrix engine API, refreshed every 5 seconds. Values describe recorded samples, not a live feed.</div>
             </div>
+            <span class="ax-badge" id="axSumModeBadge" style="display:none;background:rgba(215,150,11,0.15);color:#f1d08a;border:1px solid rgba(215,150,11,0.5);white-space:nowrap;margin-right:8px;">Recorded-time review</span>
             <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Simulated demo</span>
           </div>
           <div class="vitals-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:12px;">
@@ -3634,7 +3654,7 @@
               <div class="vital-label">Heart-rate stream</div>
               <div class="vital-value" style="font-size:0.85rem;font-weight:500;line-height:1.7;">
                 <div>Measurements: <b id="axSumHrCount">&mdash;</b></div>
-                <div>Latest sample age: <b id="axSumHrAge">&mdash;</b></div>
+                <div><span id="axSumHrAgeLabel">Latest sample age</span>: <b id="axSumHrAge">&mdash;</b></div>
                 <div>Max gap between samples: <b id="axSumHrGap">&mdash;</b></div>
               </div>
             </div>
@@ -3642,7 +3662,7 @@
               <div class="vital-label">Tracking stream</div>
               <div class="vital-value" style="font-size:0.85rem;font-weight:500;line-height:1.7;">
                 <div>Samples: <b id="axSumTrkCount">&mdash;</b></div>
-                <div>Latest sample age: <b id="axSumTrkAge">&mdash;</b></div>
+                <div><span id="axSumTrkAgeLabel">Latest sample age</span>: <b id="axSumTrkAge">&mdash;</b></div>
                 <div>Max gap between samples: <b id="axSumTrkGap">&mdash;</b></div>
                 <div>Distance basis: <b id="axSumDistanceDetail">&mdash;</b></div>
               </div>
@@ -3652,11 +3672,12 @@
           <div class="card-sub" id="axSumDistanceRules" style="margin-top:6px;font-size:0.76rem;color:#8a9097;"></div>
         </div>
         <div class="card" id="axLiveTl" style="margin-bottom:24px;border-left:4px solid #3b82f6;">
-          <div class="card-header">
-            <div>
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
               <div class="card-title">Recent movement and heart rate &middot; <span id="axLiveTlWho">no athlete selected</span></div>
-              <div class="card-sub">Last 60 s from the Athletrix engine window, refreshed every 5 seconds. Points are recorded samples on one shared time axis.</div>
+              <div class="card-sub" id="axTlSub">Last 60 s from the Athletrix engine window, refreshed every 5 seconds. Points are recorded samples on one shared time axis.</div>
             </div>
+            <span class="ax-badge" id="axTlModeBadge" style="display:none;background:rgba(215,150,11,0.15);color:#f1d08a;border:1px solid rgba(215,150,11,0.5);white-space:nowrap;margin-right:8px;">Recorded-time review</span>
             <span class="ax-badge" style="background:rgba(255,78,27,0.15);color:#ff4e1b;border:1px solid rgba(255,78,27,0.5);white-space:nowrap;">Simulated demo</span>
           </div>
           <div class="card-sub" id="axTlWindow" style="margin-bottom:8px;">&mdash;</div>
@@ -10073,21 +10094,40 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axLiveCards", "axLiveSum", "axLiveTl"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axLiveCards", "axLiveSum", "axLiveTl"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
   var notice2 = byId("axEngineNotice"); if (notice2) notice2.style.display = "none";
 
   // ---- shared selection ----
-  var selection = { id: null, label: "", generation: 0 };
+  // One generation counter covers athlete, review mode and review time: every change bumps it, every request
+  // carries the generation it was made for, and a response from an earlier generation is dropped unseen.
+  var selection = { id: null, label: "", generation: 0, mode: "live", reviewEnd: null }; // mode: "live" | "recorded"; reviewEnd: ISO text with timezone, or null
   var cards = []; // { reset(), poll(), setWho(label) }
+  function bumpGeneration() { selection.generation += 1; }
+  function refreshCards() { for (var i = 0; i < cards.length; i++) { cards[i].reset(); cards[i].poll(); } }
   function selectAthlete(id, label) {
-    selection.generation += 1;            // invalidates every in-flight request for the previous athlete
+    bumpGeneration();                     // invalidates every in-flight request for the previous athlete
     selection.id = id; selection.label = label || "";
-    for (var i = 0; i < cards.length; i++) { cards[i].setWho(label || "no athlete selected"); cards[i].reset(); cards[i].poll(); }
+    for (var i = 0; i < cards.length; i++) cards[i].setWho(label || "no athlete selected");
+    refreshCards();
   }
   function noSelectionText() { return rosterState === "empty" ? "No athlete selected. " + SETUP_HINT : rosterState === "error" ? "No athlete selected. Roster could not be loaded." : "No athlete selected."; }
+  function reviewing() { return selection.mode === "recorded"; }
+  function awaitingReviewTime() { return reviewing() && selection.reviewEnd === null; }
+  var AWAITING_TEXT = "Recorded-time review: enter a window end above and click Review.";
+  // Query string for the window/summary endpoints: the 60 s duration, plus the selected end in recorded mode.
+  function windowQuery(seconds) {
+    var q = new URLSearchParams({ seconds: String(seconds) });
+    if (reviewing()) q.set("end", selection.reviewEnd); // URLSearchParams encodes '+' and ':' correctly
+    return "?" + q.toString();
+  }
+  function whenText(iso) { var d = new Date(iso); return isNaN(d.getTime()) ? String(iso) : (reviewing() ? d.toLocaleString() : d.toLocaleTimeString()); }
+  function rejectionText(res) { // a 422 carries the engine's reason (a string for the end check, a list for schema errors)
+    return res.json().then(function(b) { var d = b && b.detail; return typeof d === "string" ? d : (Array.isArray(d) ? d.map(function(e){ return (e.loc || []).join(".") + ": " + e.msg; }).join("; ") : "HTTP " + res.status); })
+      .catch(function() { return "HTTP " + res.status; });
+  }
 
   // ---- roster ----
   var selectEl = byId("axAthleteSelect"), refreshEl = byId("axAthleteRefresh"), rosterStatusEl = byId("axAthleteStatus");
@@ -10146,6 +10186,58 @@ function initializePlayerFatigue(team) {
   });
   refreshEl.addEventListener("click", loadRoster);
 
+  // ---- review mode (Live / Recorded) ----
+  // Recorded review asks the engine for the summary and timeline ending at a chosen past instant. Requests are
+  // made on Review, on athlete change and on Refresh only; nothing advances the window on a timer. The live
+  // current-reading cards are hidden while reviewing, and a review is never labelled "Live".
+  var modeLiveEl = byId("axModeLive"), modeRecEl = byId("axModeRecorded"), reviewFormEl = byId("axReviewForm"), reviewEndEl = byId("axReviewEnd");
+  var reviewGoEl = byId("axReviewGo"), reviewRefreshEl = byId("axReviewRefresh"), reviewStatusEl = byId("axReviewStatus"), reviewBannerEl = byId("axReviewBanner"), reviewBoundsEl = byId("axReviewBounds");
+  var liveCardsEl = byId("axLiveCards");
+  if (!modeLiveEl || !modeRecEl || !reviewFormEl || !reviewEndEl || !reviewGoEl || !reviewRefreshEl || !reviewStatusEl || !reviewBannerEl || !reviewBoundsEl || !liveCardsEl) return;
+  var ISO_WITH_TZ = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})$/;
+  var FORMAT_HINT = "Use an ISO 8601 timestamp with a timezone, for example 2026-10-20T10:00:02Z or 2026-10-20T12:00:02+02:00.";
+  function setReviewStatus(text, color) { reviewStatusEl.textContent = text; reviewStatusEl.style.color = color; }
+  function setReviewBounds(text) { reviewBoundsEl.textContent = text; }
+  function parseReviewEnd(text) {
+    text = String(text || "").trim();
+    if (!text) return { error: "Enter a window end. " + FORMAT_HINT };
+    if (!ISO_WITH_TZ.test(text)) return { error: "Window end must include a timezone. " + FORMAT_HINT };
+    if (isNaN(new Date(text).getTime())) return { error: "Window end is not a valid date-time. " + FORMAT_HINT };
+    return { value: text };
+  }
+  function applyModeUi() {
+    var rec = reviewing();
+    modeLiveEl.setAttribute("aria-pressed", rec ? "false" : "true"); modeRecEl.setAttribute("aria-pressed", rec ? "true" : "false");
+    modeLiveEl.className = rec ? "btn btn-ghost" : "btn btn-primary"; modeRecEl.className = rec ? "btn btn-primary" : "btn btn-ghost";
+    reviewFormEl.style.display = rec ? "flex" : "none";
+    reviewBannerEl.style.display = rec ? "block" : "none";
+    liveCardsEl.style.display = rec ? "none" : "grid"; // current-reading cards are hidden while reviewing recordings
+  }
+  function setMode(mode) {
+    if (mode === selection.mode) return;
+    bumpGeneration();                       // responses for the previous mode (or its review time) are dropped
+    selection.mode = mode; selection.reviewEnd = null;
+    applyModeUi();
+    if (mode === "recorded") { setReviewBounds("enter a window end and click Review"); setReviewStatus("Recorded: " + FORMAT_HINT + " The summary and timeline will cover the 60 s ending there.", COLORS.muted); }
+    else setReviewStatus("Live: the cards poll the engine for the current readings and the last 60 seconds.", COLORS.muted);
+    refreshCards();                         // live: polling resumes at once; recorded: cards clear and wait for a time
+  }
+  function review() {
+    var parsed = parseReviewEnd(reviewEndEl.value);
+    if (parsed.error) { setReviewStatus(parsed.error, COLORS.error); return; }
+    bumpGeneration();                       // a new review time invalidates responses for the previous one
+    selection.reviewEnd = parsed.value;
+    setReviewBounds("60 s ending " + parsed.value + " (waiting for the engine)");
+    setReviewStatus("Reviewing the 60 s ending " + parsed.value + " for " + (selection.label || "the selected athlete") + ".", COLORS.muted);
+    refreshCards();
+  }
+  modeLiveEl.addEventListener("click", function() { setMode("live"); });
+  modeRecEl.addEventListener("click", function() { setMode("recorded"); });
+  reviewGoEl.addEventListener("click", review);
+  reviewEndEl.addEventListener("keydown", function(e) { if (e.key === "Enter") review(); });
+  reviewRefreshEl.addEventListener("click", function() { if (awaitingReviewTime()) { setReviewStatus(AWAITING_TEXT, COLORS.warn); return; } bumpGeneration(); refreshCards(); });
+  applyModeUi();
+
   // ---- live card poller (heart rate / tracking) ----
   // cfg: { path, whoEl, statusEl, timeEl, noSampleText(label, id), render(sample) -> live status text, clear() }
   function startPoller(cfg) {
@@ -10170,6 +10262,7 @@ function initializePlayerFatigue(team) {
     }
     function poll() {
       if (!dashboardVisible()) return; // only poll while the dashboard is visible
+      if (reviewing()) return;          // current-reading cards are hidden and silent during recorded review
       if (selection.id === null) { setStatus(noSelectionText(), COLORS.muted); return; }
       var gen = selection.generation, id = selection.id, label = selection.label;
       fetch(athleteUrl(id, cfg.path), { cache: "no-store" }).then(function(res) {
@@ -10226,7 +10319,7 @@ function initializePlayerFatigue(team) {
 
   // ---- Summary card (last 60 s, refreshed every 5 s) ----
   (function(){
-    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho","axSumDistance","axSumDistanceBasis","axSumDistanceDetail","axSumDistanceRules","axSumHsTime","axSumHsTimeBasis","axSumHsDist","axSumHsDistBasis","axSumHsTimeLabel","axSumHsDistLabel"];
+    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho","axSumDistance","axSumDistanceBasis","axSumDistanceDetail","axSumDistanceRules","axSumHsTime","axSumHsTimeBasis","axSumHsDist","axSumHsDistBasis","axSumHsTimeLabel","axSumHsDistLabel","axSumTitle","axSumSub","axSumModeBadge","axSumHrAgeLabel","axSumTrkAgeLabel"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     function fmt(v, unit, digits) { return isNum(v) ? v.toFixed(digits) + (unit ? " " + unit : "") : NA; } // null -> Not available; real 0 formatted
@@ -10289,17 +10382,33 @@ function initializePlayerFatigue(team) {
       el.axSumTrkAge.textContent = fmt(t.latest_sample_age_seconds, "s", 1);
       el.axSumTrkGap.textContent = fmt(t.max_inter_sample_gap_seconds, "s", 1);
       renderDistance(t, WINDOW_S);
-      var endD = new Date(sum.window_end), endText = isNaN(endD.getTime()) ? sum.window_end : endD.toLocaleTimeString();
+      var rec = reviewing(), endText = whenText(sum.window_end);
       var empty = !(p.sample_count > 0) && !(t.sample_count > 0);
-      if (empty) setStatus("No samples recorded for " + label + " in the " + WINDOW_S + " s ending " + endText + ". Run the simulator to send data.", COLORS.muted);
+      if (rec) {
+        setReviewBounds(WINDOW_S + " s from " + whenText(sum.window_start) + " to " + endText + " (engine time)");
+        if (empty) setStatus("Recorded-time review · no retained samples for " + label + " in the " + WINDOW_S + " s ending " + endText + ". Samples older than the engine's retention cap are gone; check the time or the athlete.", COLORS.muted);
+        else setStatus("Recorded-time review · window ended " + endText + " · " + describeRecency(p, t) + " (ages are seconds before the selected window end, not before now).", COLORS.muted);
+      } else if (empty) setStatus("No samples recorded for " + label + " in the " + WINDOW_S + " s ending " + endText + ". Run the simulator to send data.", COLORS.muted);
       else setStatus("Summary window ended " + endText + " · " + describeRecency(p, t) + ".", COLORS.muted);
     }
-    function poll() {
+    function applyMode() { // labels never call a review "Live"
+      var rec = reviewing();
+      el.axSumTitle.textContent = rec ? "Recorded 60 seconds" : "Last 60 seconds";
+      el.axSumSub.textContent = rec ? "Recorded-time review from the Athletrix engine API: the 60 s ending at the selected time. Fetched on Review, athlete change or Refresh; not refreshed by a timer." : "Summary from the Athletrix engine API, refreshed every 5 seconds. Values describe recorded samples, not a live feed.";
+      el.axSumModeBadge.style.display = rec ? "inline-block" : "none";
+      el.axSumHrAgeLabel.textContent = rec ? "Newest sample before selected window end" : "Latest sample age";
+      el.axSumTrkAgeLabel.textContent = rec ? "Newest sample before selected window end" : "Latest sample age";
+    }
+    function poll(fromTimer) {
       if (!dashboardVisible()) return;
+      applyMode();
+      if (fromTimer && reviewing()) return;   // a recorded window never advances on a timer
       if (selection.id === null) { setStatus(noSelectionText(), COLORS.muted); return; }
+      if (awaitingReviewTime()) { setStatus(AWAITING_TEXT, COLORS.muted); return; }
       var gen = selection.generation, id = selection.id, label = selection.label;
-      fetch(athleteUrl(id, "/summary?seconds=" + WINDOW_S), { cache: "no-store" }).then(function(res) {
+      fetch(athleteUrl(id, "/summary" + windowQuery(WINDOW_S)), { cache: "no-store" }).then(function(res) {
         if (gen !== selection.generation) return;
+        if (res.status === 422) return rejectionText(res).then(function(why) { if (gen === selection.generation) { clearAll(); setStatus("Engine rejected the request: " + why, COLORS.error); } });
         if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
         return res.json().then(function(sum) { if (gen === selection.generation) render(sum, label); });
       }).catch(function() {
@@ -10308,14 +10417,14 @@ function initializePlayerFatigue(team) {
         setStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running?", COLORS.error);
       });
     }
-    cards.push({ reset: function() { clearAll(); setStatus("Loading…", COLORS.muted); }, poll: poll, setWho: function(l) { el.axLiveSumWho.textContent = l; } });
-    setInterval(poll, SUMMARY_MS); // created once
+    cards.push({ reset: function() { clearAll(); applyMode(); setStatus("Loading…", COLORS.muted); }, poll: function() { poll(false); }, setWho: function(l) { el.axLiveSumWho.textContent = l; } });
+    setInterval(function() { poll(true); }, SUMMARY_MS); // created once
   })();
 
   // ---- Timeline card (window of 60 s, refreshed every 5 s; two SVG charts on one time axis) ----
   (function(){
     var TL_MS = 5000, TL_WINDOW_S = 60, DISPLAY_GAP_S = 3;  // DISPLAY_GAP_S: lines are not drawn across longer gaps (display rule only)
-    var ids = ["axLiveTlWho","axTlWindow","axTlHrSvg","axTlSpSvg","axTlHrNote","axTlSpNote","axTlStatus"];
+    var ids = ["axLiveTlWho","axTlWindow","axTlHrSvg","axTlSpSvg","axTlHrNote","axTlSpNote","axTlStatus","axTlSub","axTlModeBadge"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     var W = 640, H = 120, PAD = { l: 44, r: 10, t: 8, b: 18 };
@@ -10379,7 +10488,9 @@ function initializePlayerFatigue(team) {
       var t0 = ms(win.window_start), t1 = ms(win.window_end);
       if (t0 === null || t1 === null) { setStatus("Window bounds missing from response", COLORS.error); return; }
       var minConfidence = readMinConfidence(win); // from this response only; never carried over from another request or athlete
-      el.axTlWindow.textContent = "Window " + new Date(t0).toLocaleTimeString() + " – " + new Date(t1).toLocaleTimeString() + " (" + Math.round((t1 - t0) / 1000) + " s, engine time)";
+      var rec = reviewing();
+      el.axTlWindow.textContent = (rec ? "Recorded window " : "Window ") + whenText(win.window_start) + " – " + whenText(win.window_end) + " (" + Math.round((t1 - t0) / 1000) + " s, engine time" + (rec ? ", selected end" : "") + ")";
+      if (rec) setReviewBounds(Math.round((t1 - t0) / 1000) + " s from " + whenText(win.window_start) + " to " + whenText(win.window_end) + " (engine time)");
       var phys = (win.physiological_samples || []).map(function(s) { return { t: ms(s.timestamp), v: isNum(s.heart_rate_bpm) ? s.heart_rate_bpm : null, usable: isNum(s.heart_rate_bpm), unclassified: false }; }).filter(function(p) { return p.t !== null; });
       var track = (win.tracking_samples || []).map(function(s) {
         var hasSpeed = isNum(s.speed_mps);
@@ -10401,16 +10512,27 @@ function initializePlayerFatigue(team) {
         + (minConfidence === null
             ? " · confidence filtering unavailable (rule missing or invalid in the engine response)" + (spUnclassified ? "; " + spUnclassified + " unclassified, drawn as dashed markers" : "")
             : (spLow ? ", " + spLow + " below confidence " + minConfidence : ", all at or above confidence " + minConfidence) + (spUnclassified ? "; " + spUnclassified + " without a confidence value" : ""));
-      setStatus("Recorded timestamps only · " + (phys.length || track.length ? "newest sample " + Math.max(0, (t1 - Math.max(phys.length ? phys[phys.length - 1].t : 0, track.length ? track[track.length - 1].t : 0)) / 1000).toFixed(1) + " s before window end" : "no samples in window") + ".", COLORS.muted);
+      var newest = phys.length || track.length ? "newest sample " + Math.max(0, (t1 - Math.max(phys.length ? phys[phys.length - 1].t : 0, track.length ? track[track.length - 1].t : 0)) / 1000).toFixed(1) + " s before " + (rec ? "the selected window end" : "window end") : (rec ? "no retained samples in this window" : "no samples in window");
+      setStatus((rec ? "Recorded-time review · " : "") + "Recorded timestamps only · " + newest + ".", COLORS.muted);
     }
 
-    function poll() {
+    function applyMode() {
+      var rec = reviewing();
+      el.axTlSub.textContent = rec ? "Recorded-time review: the 60 s ending at the selected time, from the Athletrix engine window. Fetched on Review, athlete change or Refresh; not refreshed by a timer." : "Last 60 s from the Athletrix engine window, refreshed every 5 seconds. Points are recorded samples on one shared time axis.";
+      el.axTlModeBadge.style.display = rec ? "inline-block" : "none";
+    }
+
+    function poll(fromTimer) {
       if (!dashboardVisible()) return;
+      applyMode();
+      if (fromTimer && reviewing()) return;   // a recorded window never advances on a timer
       if (selection.id === null) { setStatus(noSelectionText(), COLORS.muted); return; }
+      if (awaitingReviewTime()) { setStatus(AWAITING_TEXT, COLORS.muted); return; }
       var gen = selection.generation, id = selection.id;
       // One request: the window response carries both the samples and the rule that classifies them.
-      fetch(athleteUrl(id, "/window?seconds=" + TL_WINDOW_S), { cache: "no-store" }).then(function(res) {
-        if (gen !== selection.generation) return; // athlete changed while in flight: drop this response
+      fetch(athleteUrl(id, "/window" + windowQuery(TL_WINDOW_S)), { cache: "no-store" }).then(function(res) {
+        if (gen !== selection.generation) return; // athlete, mode or review time changed while in flight: drop this response
+        if (res.status === 422) return rejectionText(res).then(function(why) { if (gen === selection.generation) { clearAll(); setStatus("Engine rejected the request: " + why, COLORS.error); } });
         if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
         return res.json().then(function(win) { if (gen === selection.generation) render(win); });
       }).catch(function() {
@@ -10420,8 +10542,8 @@ function initializePlayerFatigue(team) {
       });
     }
 
-    cards.push({ reset: function() { clearAll(); setStatus("Loading…", COLORS.muted); }, poll: poll, setWho: function(l) { el.axLiveTlWho.textContent = l; } });
-    setInterval(poll, TL_MS); // created once
+    cards.push({ reset: function() { clearAll(); applyMode(); setStatus("Loading…", COLORS.muted); }, poll: function() { poll(false); }, setWho: function(l) { el.axLiveTlWho.textContent = l; } });
+    setInterval(function() { poll(true); }, TL_MS); // created once
   })();
 
   // ---- start ----
