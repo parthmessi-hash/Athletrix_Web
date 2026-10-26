@@ -177,6 +177,59 @@ can never appear under another athlete's name. Each card shows its own
 sample timestamp; the streams are polled and timestamped separately, so
 showing them side by side does not mean they are synchronized.
 
+## Selected effort review (Recorded mode)
+
+In Recorded mode a **Selected effort review** card sits below the timeline.
+You type an effort start and end (ISO 8601 with a timezone, 1 to 120 s
+apart) and click **Review effort**; the page calls the engine's
+`effort-review` endpoint and shows exactly what it returns. Nothing is
+recalculated in the browser, nothing is detected automatically, and no
+request is made until you click Review effort or **Refresh** (which
+re-submits the same bounds for a fresh capture time).
+
+The card shows the athlete, the effort bounds and duration, the engine's
+capture time, and then:
+
+- **Movement during the effort**: tracking sample count, peak speed,
+  estimated distance, included duration and fraction of the effort, excluded
+  intervals, time and distance at or above the engine's high-speed threshold,
+  the applied rules (gap, confidence, threshold, and the 10 s / 30 s period
+  lengths, all engineering defaults) and the reported sources.
+- **Heart rate before, during and after**: a three-column comparison of
+  non-null measurements out of samples, arithmetic mean, peak and largest
+  inter-sample gap, with a collapsible details line per period giving the
+  applied bounds (with the half-open side marked), first and last sample
+  timestamps and sources.
+- **Follow-up**: whether the 30 s after the effort had elapsed at capture
+  time, or that the after period is capped at the capture time. Either way
+  the card states that elapsed time does not establish that samples were
+  received, retained or complete, and that a heart-rate difference between
+  periods is a description of recorded samples, not a recovery measure or a
+  change in condition.
+
+Null heart rates are shown as "Not available", never 0; a stationary effort
+shows real zeros (`0.0 m/s`, `0.0 m`); a period without samples shows
+"0 of 0 samples"; an effort without tracking samples says so and marks the
+distance and high-speed figures as not available. Times in the results are
+labelled UTC. Page-side validation refuses empty, timezone-less, invalid or
+reversed inputs without a request; an engine 422 (for example a duration
+outside 1 to 120 s or an end in the future) is shown with the engine's
+reason, and backend errors are reported with a retry hint.
+
+Editing either input, changing athlete, switching mode or submitting again
+invalidates the earlier result, and a late response for an earlier selection
+is dropped unseen. Live mode and public mode are unchanged: the card is
+hidden in both, and public mode still makes no engine request.
+
+To try it with the fictional fixtures from the engine repository, convert
+and replay `fictional_heart_rate.csv` and `fictional_tracking.csv` for
+athlete-1 (see the engine README), switch to **Recorded**, enter
+`2026-10-20T10:00:01Z` and `2026-10-20T10:00:04Z` and click **Review
+effort**: movement shows 4 samples, peak 6.0 m/s, 10.5 m over 2.0 s with one
+excluded interval and 1.5 s / 8.3 m at or above 5 m/s; heart rate shows
+1 measurement before (112), 3 of 4 during (mean 117.8, peak 120.5) and
+nothing after.
+
 ## Source labels on the engine-connected cards
 
 The engine-connected cards no longer carry fixed "Simulated" badges. Each
@@ -309,7 +362,13 @@ protection across athlete and mode changes); and the source labels (latest
 sample's own source on the live cards, the breakdown-derived badge on the
 summary and timeline cards for simulated, single, mixed, not-reported, empty
 and unavailable cases, and clearing on athlete, mode and review-time
-changes). Expect "29 tests, 29 passed".
+changes); and the Selected effort review card (Recorded mode only, no
+request until Review effort, page validation, the encoded request, a
+populated render checked field by field, empty periods, missing movement,
+nulls and real zeros, pending follow-up, engine 422 and backend errors,
+Refresh re-submitting the same bounds, no polling, and invalidation on
+input edits, athlete and mode changes with late responses dropped). Expect
+"33 tests, 33 passed".
 
 ## Project handoff
 

@@ -75,6 +75,10 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axReviewBar", "axModeLive", "axModeRecorded", "axReviewForm", "axReviewEnd", "axReviewGo", "axReviewRefresh", "axReviewStatus", "axReviewBanner", "axReviewBounds",
     "axRetainedBlock", "axRetainedFind", "axRetainedLatest", "axRetainedStatus", "axRetainedList", "axRetainedPhys", "axRetainedTrk", "axRetainedCap",
     "axLiveTrkBadge", "axSumSourceBadge", "axSumSources", "axTlSourceBadge", "axTlSources",
+    "axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp",
+    "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
+    "axEffHrBeforeCount", "axEffHrDuringCount", "axEffHrAfterCount", "axEffHrBeforeMean", "axEffHrDuringMean", "axEffHrAfterMean", "axEffHrBeforePeak", "axEffHrDuringPeak", "axEffHrAfterPeak",
+    "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail",
   ];
 
   function boot(opts) {
@@ -153,6 +157,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axEngineNotice.style.display, "block");
     assert.equal(ctx.els.axLiveTl.style.display, "none");
     assert.equal(ctx.els.axReviewBar.style.display, "none");
+    assert.equal(ctx.els.axEffortCard.style.display, "none");
   });
 
   test("timeline needs only the window response and ignores a delayed or failed summary", async () => {
@@ -618,6 +623,145 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axTlSourceBadge.style.display, "none", "cleared when returning to Live");
     await ctx.respond("/a2/window?seconds=60", win({ athlete: "a2" }));
     assert.deepEqual(badge(ctx.els.axTlSourceBadge), { text: "No samples", style: "none" });
+  });
+
+  // ---- selected effort review ----------------------------------------------------------------------------
+
+  const E_START = "2026-10-20T10:00:01Z", E_END = "2026-10-20T10:00:04Z";
+  const E_Q = "effort-review?effort_start=2026-10-20T10%3A00%3A01Z&effort_end=2026-10-20T10%3A00%3A04Z";
+  const period = (start, end, si, ei, o) => Object.assign({ period_start: start, period_end: end, start_inclusive: si, end_inclusive: ei, sample_count: 0, heart_rate_count: 0, heart_rate_mean_bpm: null, heart_rate_peak_bpm: null, first_sample_at: null, last_sample_at: null, max_inter_sample_gap_seconds: null, sources: { reported: {}, not_reported: 0 } }, o || {});
+  function effortBody(o) { // a fictional effort-review response shaped like the engine's
+    o = o || {};
+    return {
+      athlete_id: o.athlete || "a1", effort_start: E_START, effort_end: E_END, effort_duration_seconds: 3.0, captured_at: "2026-10-25T12:00:00Z",
+      follow_up_elapsed: "follow_up_elapsed" in o ? o.follow_up_elapsed : true,
+      rules: { before_seconds: 10.0, after_seconds: 30.0, min_effort_seconds: 1.0, max_effort_seconds: 120.0 },
+      movement: Object.assign({ sample_count: 4, speed_peak_mps: 6.0, first_sample_at: E_START, last_sample_at: E_END, latest_sample_age_seconds: 0.0, max_inter_sample_gap_seconds: 1.0, estimated_distance_m: 10.5, included_duration_seconds: 2.0, included_window_fraction: 2 / 3, excluded_interval_count: 1, high_speed_duration_seconds: 1.5, high_speed_distance_m: 8.25, distance_rules: { max_gap_seconds: 3.0, min_confidence: 0.5, high_speed_threshold_mps: 5.0 }, sources: { reported: { simulated: 4 }, not_reported: 0 } }, o.movement || {}),
+      heart_rate: {
+        before: period("2026-10-20T09:59:51Z", E_START, true, false, o.before || { sample_count: 1, heart_rate_count: 1, heart_rate_mean_bpm: 112.0, heart_rate_peak_bpm: 112.0, first_sample_at: "2026-10-20T10:00:00Z", last_sample_at: "2026-10-20T10:00:00Z", sources: { reported: { simulated: 1 }, not_reported: 0 } }),
+        during: period(E_START, E_END, true, true, o.during || { sample_count: 4, heart_rate_count: 3, heart_rate_mean_bpm: 117.83333, heart_rate_peak_bpm: 120.5, first_sample_at: E_START, last_sample_at: E_END, max_inter_sample_gap_seconds: 1.0, sources: { reported: { simulated: 3, wearable: 1 }, not_reported: 0 } }),
+        after: period(E_END, o.afterEnd || "2026-10-20T10:00:34Z", false, true, o.after || {}),
+      },
+    };
+  }
+  const effortUrls = ctx => urls(ctx).filter(u => u.includes("effort-review"));
+  const setEffort = (ctx, start, end) => { ctx.els.axEffortStart.value = start; ctx.els.axEffortEnd.value = end; };
+
+  test("effort review: Recorded mode only, explicit submission, page validation, encoded request and a populated render", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.equal(ctx.els.axEffortCard.style.display, "none", "hidden in Live mode");
+    await click(ctx, "axModeRecorded");
+    assert.equal(ctx.els.axEffortCard.style.display, "block");
+    assert.equal(ctx.els.axEffortWho.textContent, "Alex Example #7");
+    const n = ctx.pending.length;
+    await ctx.tick();
+    assert.equal(effortUrls(ctx).length, 0, "never requested on a timer or on entering Recorded mode");
+    for (const [a, b, needle] of [["", E_END, /^Effort start is empty/], ["2026-10-20T10:00:01", E_END, /^Effort start must include a timezone/], [E_START, "2026-13-40T10:00:04Z", /^Effort end is not a valid date-time/], [E_END, E_START, /^Effort start must precede effort end/]]) {
+      setEffort(ctx, a, b); await click(ctx, "axEffortGo");
+      assert.match(ctx.els.axEffortStatus.textContent, needle);
+      assert.equal(ctx.pending.length, n, "no request for an invalid selection");
+    }
+    setEffort(ctx, "2026-10-20T12:00:01+02:00", "2026-10-20T05:00:04-05:00");
+    await click(ctx, "axEffortGo");
+    assert.deepEqual(effortUrls(ctx).map(u => u.replace(/^.*\/athletes\//, "")), ["a1/effort-review?effort_start=2026-10-20T12%3A00%3A01%2B02%3A00&effort_end=2026-10-20T05%3A00%3A04-05%3A00"]);
+    assert.equal(ctx.els.axEffortGo.disabled, true, "no double submission while loading");
+    assert.match(ctx.els.axEffortStatus.textContent, /^Asking the engine about the effort/);
+    await ctx.respond("/a1/effort-review", effortBody());
+    assert.equal(ctx.els.axEffortGo.disabled, false);
+    assert.equal(ctx.els.axEffortResult.style.display, "block");
+    assert.equal(ctx.els.axEffortBounds.textContent, "Effort 2026-10-20T10:00:01Z to 2026-10-20T10:00:04Z UTC · 3.0 s · captured by the engine at 2026-10-25T12:00:00Z UTC");
+    assert.match(ctx.els.axEffortFollowUp.textContent, /^Follow-up period elapsed: the 30 s after the effort end lie at or before the capture time\. Elapsed time does not establish that samples were received, retained or complete\.$/);
+    assert.equal(ctx.els.axEffMvCount.textContent, "4"); assert.equal(ctx.els.axEffMvPeak.textContent, "6.0 m/s"); assert.equal(ctx.els.axEffMvDist.textContent, "10.5 m");
+    assert.equal(ctx.els.axEffMvIncl.textContent, "2.0 s · 67% of effort"); assert.equal(ctx.els.axEffMvExcl.textContent, "1");
+    assert.equal(ctx.els.axEffMvHsTimeLabel.textContent, "Time at or above 5.0 m/s"); assert.equal(ctx.els.axEffMvHsTime.textContent, "1.5 s"); assert.equal(ctx.els.axEffMvHsDist.textContent, "8.3 m");
+    assert.match(ctx.els.axEffMvRules.textContent, /^Applied rules: intervals longer than 3\.0 s or with confidence below 0\.5 at either end are excluded and never bridged; high-speed threshold 5\.0 m\/s; before 10 s, after 30 s \(engineering defaults\)\.$/);
+    assert.equal(ctx.els.axEffMvSources.textContent, "Reported sources of the tracking samples: 4 simulated.");
+    assert.equal(ctx.els.axEffHrBeforeCount.textContent, "1 of 1 samples"); assert.equal(ctx.els.axEffHrBeforeMean.textContent, "112.0 bpm"); assert.equal(ctx.els.axEffHrBeforeGap.textContent, "Not available");
+    assert.equal(ctx.els.axEffHrDuringCount.textContent, "3 of 4 samples"); assert.equal(ctx.els.axEffHrDuringMean.textContent, "117.8 bpm"); assert.equal(ctx.els.axEffHrDuringPeak.textContent, "120.5 bpm"); assert.equal(ctx.els.axEffHrDuringGap.textContent, "1.0 s");
+    assert.equal(ctx.els.axEffHrAfterCount.textContent, "0 of 0 samples"); assert.equal(ctx.els.axEffHrAfterMean.textContent, "Not available");
+    assert.equal(ctx.els.axEffHrBeforeDetail.textContent, "bounds [2026-10-20T09:59:51Z, 2026-10-20T10:00:01Z) UTC, end excluded · first sample 2026-10-20T10:00:00Z, last sample 2026-10-20T10:00:00Z UTC · sources: 1 simulated");
+    assert.equal(ctx.els.axEffHrDuringDetail.textContent, "bounds [2026-10-20T10:00:01Z, 2026-10-20T10:00:04Z] UTC · first sample 2026-10-20T10:00:01Z, last sample 2026-10-20T10:00:04Z UTC · sources: 3 simulated, 1 wearable");
+    assert.equal(ctx.els.axEffHrAfterDetail.textContent, "bounds (2026-10-20T10:00:04Z, 2026-10-20T10:00:34Z] UTC, start excluded · no samples in this period · sources: no samples");
+    assert.match(ctx.els.axEffortStatus.textContent, /^Reviewed the 3\.0 s effort ending 2026-10-20T10:00:04Z UTC for Alex Example #7\. Descriptive figures only\.$/);
+    assert.ok(!/recover|fatigue|readiness/i.test(ctx.els.axEffortStatus.textContent + ctx.els.axEffortFollowUp.textContent + ctx.els.axEffMvRules.textContent), "no recovery or fatigue language");
+  });
+
+  test("effort review: empty periods, missing movement, null values, real zeros and a pending follow-up", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    setEffort(ctx, E_START, E_END); await click(ctx, "axEffortGo");
+    await ctx.respond("/a1/effort-review", effortBody({ movement: { sample_count: 0, speed_peak_mps: null, first_sample_at: null, last_sample_at: null, latest_sample_age_seconds: null, max_inter_sample_gap_seconds: null, estimated_distance_m: null, included_duration_seconds: 0, included_window_fraction: 0, excluded_interval_count: 0, high_speed_duration_seconds: null, high_speed_distance_m: null, sources: { reported: {}, not_reported: 0 } }, before: {}, during: {}, after: {} }));
+    assert.equal(ctx.els.axEffMvCount.textContent, "0"); assert.equal(ctx.els.axEffMvPeak.textContent, "Not available"); assert.equal(ctx.els.axEffMvDist.textContent, "Not available");
+    assert.equal(ctx.els.axEffMvIncl.textContent, "0.0 s · 0% of effort"); assert.equal(ctx.els.axEffMvHsTime.textContent, "Not available");
+    assert.match(ctx.els.axEffMvRules.textContent, /^No tracking samples recorded in the effort; distance and high-speed figures are not available\.$/);
+    for (const k of ["Before", "During", "After"]) { assert.equal(ctx.els["axEffHr" + k + "Count"].textContent, "0 of 0 samples"); assert.equal(ctx.els["axEffHr" + k + "Mean"].textContent, "Not available"); assert.equal(ctx.els["axEffHr" + k + "Peak"].textContent, "Not available"); assert.equal(ctx.els["axEffHr" + k + "Gap"].textContent, "Not available"); }
+    assert.match(ctx.els.axEffHrDuringDetail.textContent, /no samples in this period · sources: no samples$/);
+    // real zeros and nulls: a stationary effort with heart-rate samples that carry no measurement
+    await click(ctx, "axEffortRefresh");
+    await ctx.respond("/a1/effort-review", effortBody({ movement: { speed_peak_mps: 0.0, estimated_distance_m: 0.0, included_duration_seconds: 3.0, included_window_fraction: 1.0, excluded_interval_count: 0, high_speed_duration_seconds: 0.0, high_speed_distance_m: 0.0 }, during: { sample_count: 2, heart_rate_count: 0, first_sample_at: E_START, last_sample_at: E_END, max_inter_sample_gap_seconds: 3.0, sources: { reported: {}, not_reported: 0 } }, follow_up_elapsed: false, afterEnd: "2026-10-20T10:00:20Z" }));
+    assert.equal(ctx.els.axEffMvPeak.textContent, "0.0 m/s", "stationary is a real reading"); assert.equal(ctx.els.axEffMvDist.textContent, "0.0 m"); assert.equal(ctx.els.axEffMvHsTime.textContent, "0.0 s"); assert.equal(ctx.els.axEffMvIncl.textContent, "3.0 s · 100% of effort");
+    assert.equal(ctx.els.axEffHrDuringCount.textContent, "0 of 2 samples"); assert.equal(ctx.els.axEffHrDuringMean.textContent, "Not available", "null heart rates are never shown as 0"); assert.equal(ctx.els.axEffHrDuringGap.textContent, "3.0 s");
+    assert.match(ctx.els.axEffortFollowUp.textContent, /^Follow-up pending: the 30 s after the effort end had not fully elapsed at capture time, so the after period is capped at 2026-10-20T10:00:20Z UTC\. Elapsed time would not establish completeness either\.$/);
+    assert.equal(ctx.els.axEffHrAfterDetail.textContent, "bounds (2026-10-20T10:00:04Z, 2026-10-20T10:00:20Z] UTC, start excluded · no samples in this period · sources: no samples");
+  });
+
+  test("effort review: engine 422, HTTP and network errors are reported, Refresh re-submits the same bounds, nothing polls", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await click(ctx, "axEffortRefresh");
+    assert.match(ctx.els.axEffortStatus.textContent, /^Nothing to refresh yet/);
+    assert.equal(effortUrls(ctx).length, 0);
+    setEffort(ctx, E_START, "2026-10-20T10:03:01Z"); await click(ctx, "axEffortGo");
+    await ctx.respond("/a1/effort-review", { detail: "effort duration 180.000 s must be between 1 and 120 seconds" }, 422);
+    assert.match(ctx.els.axEffortStatus.textContent, /^Engine rejected the request: effort duration 180\.000 s must be between 1 and 120 seconds$/);
+    assert.equal(ctx.els.axEffortResult.style.display, "none"); assert.equal(ctx.els.axEffortGo.disabled, false);
+    await click(ctx, "axEffortRefresh");
+    assert.equal(effortUrls(ctx).length, 1, "one new request pending"); assert.ok(effortUrls(ctx)[0].includes("effort_end=2026-10-20T10%3A03%3A01Z"), "same bounds re-submitted");
+    await ctx.respond("/a1/effort-review", {}, 500);
+    assert.match(ctx.els.axEffortStatus.textContent, /HTTP 500/);
+    await click(ctx, "axEffortRefresh");
+    await ctx.fail("/a1/effort-review");
+    assert.match(ctx.els.axEffortStatus.textContent, /^Cannot reach backend at .* is it running\? Click Review effort to try again\.$/);
+    assert.equal(ctx.els.axEffortRefresh.disabled, false);
+    const n = ctx.pending.length;
+    await ctx.tick(); await ctx.tick();
+    assert.equal(ctx.pending.length, n, "no timer-driven effort request");
+  });
+
+  test("effort review: editing inputs, changing athlete or mode invalidates results and drops late responses", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    setEffort(ctx, E_START, E_END); await click(ctx, "axEffortGo");
+    const r1 = ctx.pending.find(p => p.url.includes("/a1/effort-review"));
+    ctx.els.axEffortEnd.value = "2026-10-20T10:00:05Z"; ctx.els.axEffortEnd.dispatch("input"); await ctx.flush();
+    assert.match(ctx.els.axEffortStatus.textContent, /^Inputs changed: the earlier result no longer applies/);
+    await ctx.resolveLate(r1, effortBody());
+    assert.equal(ctx.els.axEffortResult.style.display, "none", "response for the edited selection dropped");
+    await click(ctx, "axEffortGo");
+    const r2 = ctx.pending.find(p => p.url.includes("/a1/effort-review") && p !== r1);
+    await select(ctx, "a2");
+    assert.equal(ctx.els.axEffortWho.textContent, "Sam Sample #9");
+    assert.match(ctx.els.axEffortStatus.textContent, /^Athlete changed/);
+    await ctx.resolveLate(r2, effortBody());
+    assert.equal(ctx.els.axEffortResult.style.display, "none", "a1's late answer never shown under a2");
+    await click(ctx, "axEffortGo");
+    assert.ok(effortUrls(ctx).slice(-1)[0].includes("/a2/effort-review"));
+    await ctx.respond("/a2/effort-review", effortBody({ athlete: "a2" }));
+    assert.equal(ctx.els.axEffortResult.style.display, "block");
+    await click(ctx, "axEffortRefresh");
+    const r4 = ctx.pending.find(p => p.url.includes("/a2/effort-review"));
+    await click(ctx, "axModeLive");
+    assert.equal(ctx.els.axEffortCard.style.display, "none");
+    assert.equal(ctx.els.axLiveCards.style.display, "grid", "Live behaviour unchanged");
+    await ctx.resolveLate(r4, effortBody({ athlete: "a2" }));
+    await click(ctx, "axModeRecorded");
+    assert.equal(ctx.els.axEffortResult.style.display, "none", "nothing carried over from the previous mode");
+    assert.match(ctx.els.axEffortStatus.textContent, /^Enter the effort start and end/);
+    assert.equal(ctx.els.axEffortCard.style.display, "block");
   });
 
   // ---- run --------------------------------------------------------------------------------------------

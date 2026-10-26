@@ -3709,6 +3709,54 @@
           <div class="card-sub" id="axTlStatus" style="margin-top:8px;">Waiting for roster&hellip;</div>
           <div class="card-sub" id="axTlRules" style="margin-top:6px;font-size:0.76rem;color:#8a9097;">Display rules: filled points are recorded samples; a hollow amber marker on the heart-rate baseline is a sample with no heart rate; a hollow amber marker on the speed chart is a tracking sample below the engine's confidence rule, which arrives in the same window response as the samples (<code>tracking_rules.min_confidence</code>). If that rule is missing or invalid, confidence filtering is unavailable: every speed point is drawn as a dashed grey unclassified marker at its recorded value and no line is drawn. Lines connect consecutive samples only when both are usable and they are no more than 3 s apart (a display rule); nothing is drawn across gaps or removed points. Confidence filtering compares each sample's reported tracking confidence with the engine's rule; it does not validate the accuracy of the underlying speed measurement. The two charts group recorded timestamps on one time axis; they do not correct device clocks or establish any physiological relationship.</div>
         </div>
+        <div class="card" id="axEffortCard" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Selected effort review &middot; <span id="axEffortWho">no athlete selected</span></div>
+              <div class="card-sub">Describes a period you choose: movement during it and heart rate 10 s before, during and up to 30 s after, from the engine's effort-review endpoint. Fetched only when you click Review effort or Refresh. Nothing is detected or classified automatically.</div>
+            </div>
+            <span class="ax-badge" style="background:rgba(215,150,11,0.15);color:#f1d08a;border:1px solid rgba(215,150,11,0.5);white-space:nowrap;">Recorded-time review</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;margin-bottom:8px;">
+            <label class="card-sub" style="margin:0;display:flex;flex-direction:column;gap:4px;flex:1 1 220px;min-width:0;">Effort start (ISO 8601 with timezone)
+              <input type="text" id="axEffortStart" class="coach-select" placeholder="2026-10-20T10:00:01Z" spellcheck="false" autocomplete="off" style="width:100%;box-sizing:border-box;font-family:monospace;"></label>
+            <label class="card-sub" style="margin:0;display:flex;flex-direction:column;gap:4px;flex:1 1 220px;min-width:0;">Effort end (1 to 120 s later)
+              <input type="text" id="axEffortEnd" class="coach-select" placeholder="2026-10-20T10:00:04Z" spellcheck="false" autocomplete="off" style="width:100%;box-sizing:border-box;font-family:monospace;"></label>
+            <button type="button" id="axEffortGo" class="btn btn-primary" style="padding:5px 12px;font-size:0.8rem;">Review effort</button>
+            <button type="button" id="axEffortRefresh" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Refresh</button>
+          </div>
+          <div class="card-sub" id="axEffortStatus" style="margin-bottom:8px;">Enter the effort start and end and click Review effort.</div>
+          <div id="axEffortResult" style="display:none;">
+            <div class="card-sub" id="axEffortBounds" style="font-family:monospace;font-size:0.8rem;color:#e5e7eb;margin-bottom:4px;"></div>
+            <div class="card-sub" id="axEffortFollowUp" style="margin-bottom:10px;"></div>
+            <div class="vital-label" style="margin-bottom:6px;">Movement during the effort</div>
+            <div class="vitals-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:6px;">
+              <div class="vital"><div class="vital-label">Tracking samples</div><div class="vital-value" id="axEffMvCount">&mdash;</div></div>
+              <div class="vital"><div class="vital-label">Peak speed</div><div class="vital-value" id="axEffMvPeak">&mdash;</div></div>
+              <div class="vital"><div class="vital-label">Estimated distance</div><div class="vital-value" id="axEffMvDist">&mdash;</div></div>
+              <div class="vital"><div class="vital-label">Included duration</div><div class="vital-value" id="axEffMvIncl">&mdash;</div></div>
+              <div class="vital"><div class="vital-label">Excluded intervals</div><div class="vital-value" id="axEffMvExcl">&mdash;</div></div>
+              <div class="vital"><div class="vital-label" id="axEffMvHsTimeLabel">Time at or above threshold</div><div class="vital-value" id="axEffMvHsTime">&mdash;</div></div>
+              <div class="vital"><div class="vital-label" id="axEffMvHsDistLabel">Distance at or above threshold</div><div class="vital-value" id="axEffMvHsDist">&mdash;</div></div>
+            </div>
+            <div class="card-sub" id="axEffMvRules" style="margin-bottom:2px;"></div>
+            <div class="card-sub" id="axEffMvSources" style="margin-bottom:12px;"></div>
+            <div class="vital-label" style="margin-bottom:6px;">Heart rate before, during and after</div>
+            <table id="axEffHrTable" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:0.8rem;margin-bottom:6px;">
+              <thead><tr style="color:#8a9097;text-align:left;"><th style="padding:4px 6px;font-weight:600;width:25%;">Period</th><th style="padding:4px 6px;font-weight:600;">Before</th><th style="padding:4px 6px;font-weight:600;">During</th><th style="padding:4px 6px;font-weight:600;">After</th></tr></thead>
+              <tbody style="color:#e5e7eb;">
+                <tr><td style="padding:4px 6px;color:#8a9097;overflow-wrap:anywhere;">Measured</td><td style="padding:4px 6px;" id="axEffHrBeforeCount">&mdash;</td><td style="padding:4px 6px;" id="axEffHrDuringCount">&mdash;</td><td style="padding:4px 6px;" id="axEffHrAfterCount">&mdash;</td></tr>
+                <tr><td style="padding:4px 6px;color:#8a9097;">Mean</td><td style="padding:4px 6px;" id="axEffHrBeforeMean">&mdash;</td><td style="padding:4px 6px;" id="axEffHrDuringMean">&mdash;</td><td style="padding:4px 6px;" id="axEffHrAfterMean">&mdash;</td></tr>
+                <tr><td style="padding:4px 6px;color:#8a9097;">Peak</td><td style="padding:4px 6px;" id="axEffHrBeforePeak">&mdash;</td><td style="padding:4px 6px;" id="axEffHrDuringPeak">&mdash;</td><td style="padding:4px 6px;" id="axEffHrAfterPeak">&mdash;</td></tr>
+                <tr><td style="padding:4px 6px;color:#8a9097;">Largest gap</td><td style="padding:4px 6px;" id="axEffHrBeforeGap">&mdash;</td><td style="padding:4px 6px;" id="axEffHrDuringGap">&mdash;</td><td style="padding:4px 6px;" id="axEffHrAfterGap">&mdash;</td></tr>
+              </tbody>
+            </table>
+            <details style="margin-bottom:4px;"><summary class="card-sub" style="cursor:pointer;margin:0;">Before: bounds, first/last samples, sources</summary><div class="card-sub" id="axEffHrBeforeDetail" style="font-family:monospace;font-size:0.76rem;color:#e5e7eb;margin:4px 0 0 12px;"></div></details>
+            <details style="margin-bottom:4px;"><summary class="card-sub" style="cursor:pointer;margin:0;">During: bounds, first/last samples, sources</summary><div class="card-sub" id="axEffHrDuringDetail" style="font-family:monospace;font-size:0.76rem;color:#e5e7eb;margin:4px 0 0 12px;"></div></details>
+            <details style="margin-bottom:8px;"><summary class="card-sub" style="cursor:pointer;margin:0;">After: bounds, first/last samples, sources</summary><div class="card-sub" id="axEffHrAfterDetail" style="font-family:monospace;font-size:0.76rem;color:#e5e7eb;margin:4px 0 0 12px;"></div></details>
+            <div class="card-sub" id="axEffortNote" style="font-size:0.76rem;color:#8a9097;">All figures are the engine's calculations over retained samples (newest 300 per stream); nothing is recalculated here. Measurements count non-null heart rates out of the samples in each period; means are arithmetic, not time-weighted; nothing is interpolated or extrapolated and excluded tracking intervals are never bridged. "Follow-up elapsed" means only that 30 s of backend time passed after the effort end: it does not show that samples were received, retained or complete. A heart-rate difference between periods is a description of recorded samples, not a recovery measure or a change in condition. The 10 s and 30 s periods are engineering defaults. Recorded timestamps are used without device-clock correction or lag estimation. Times are UTC.</div>
+          </div>
+        </div>
         <section id="homeView">
           <div id="emptyDashboard" class="empty-dashboard" style="display: none;">
             <h2>Welcome to Athletrix!</h2>
@@ -10109,7 +10157,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axReviewBar", "axLiveCards", "axLiveSum", "axLiveTl"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axLiveCards", "axLiveSum", "axLiveTl", "axEffortCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -10127,6 +10175,7 @@ function initializePlayerFatigue(team) {
     selection.id = id; selection.label = label || "";
     for (var i = 0; i < cards.length; i++) cards[i].setWho(label || "no athlete selected");
     clearRetained();                      // retained-data metadata belongs to one athlete; never shown under another
+    clearEffort("Athlete changed: enter the effort start and end and click Review effort.");
     if (reviewing() && selection.reviewEnd !== null) setReviewStatus("Reviewing the 60 s ending " + selection.reviewEnd + " for " + (label || "the selected athlete") + ".", COLORS.muted);
     refreshCards();
   }
@@ -10281,6 +10330,7 @@ function initializePlayerFatigue(team) {
     reviewFormEl.style.display = rec ? "flex" : "none";
     reviewBannerEl.style.display = rec ? "block" : "none";
     retainedBlockEl.style.display = rec ? "block" : "none"; // retained-data lookup exists only for recorded review
+    applyEffortUi();
     liveCardsEl.style.display = rec ? "none" : "grid"; // current-reading cards are hidden while reviewing recordings
   }
   function setMode(mode) {
@@ -10288,6 +10338,7 @@ function initializePlayerFatigue(team) {
     bumpGeneration();                       // responses for the previous mode (or its review time) are dropped
     selection.mode = mode; selection.reviewEnd = null;
     clearRetained();                        // metadata found in the previous mode is not carried over
+    clearEffort();
     applyModeUi();
     if (mode === "recorded") { setReviewBounds("enter a window end and click Review"); setReviewStatus("Recorded: " + FORMAT_HINT + " The summary and timeline will cover the 60 s ending there.", COLORS.muted); }
     else setReviewStatus("Live: the cards poll the engine for the current readings and the last 60 seconds.", COLORS.muted);
@@ -10704,6 +10755,119 @@ function initializePlayerFatigue(team) {
     cards.push({ reset: function() { clearAll(); applyMode(); setStatus("Loading…", COLORS.muted); }, poll: function() { poll(false); }, setWho: function(l) { el.axLiveTlWho.textContent = l; } });
     setInterval(function() { poll(true); }, TL_MS); // created once
   })();
+
+  // ---- selected effort review (Recorded mode only) ----
+  // The caller types an effort start and end; the engine's effort-review endpoint describes movement during it and heart
+  // rate before, during and after it. Every figure shown is the engine's own calculation; nothing is recalculated here.
+  // Requests happen only on Review effort / Refresh (never on a timer, never in public mode). Editing an input, changing
+  // athlete or mode, or submitting again invalidates earlier results, and a late response for an earlier selection is dropped.
+  var EFFORT_IDS = ["axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp",
+    "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
+    "axEffHrBeforeCount", "axEffHrDuringCount", "axEffHrAfterCount", "axEffHrBeforeMean", "axEffHrDuringMean", "axEffHrAfterMean", "axEffHrBeforePeak", "axEffHrDuringPeak", "axEffHrAfterPeak",
+    "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail"];
+  var effortEl = {}, effortReady = true;
+  for (var ei = 0; ei < EFFORT_IDS.length; ei++) { effortEl[EFFORT_IDS[ei]] = byId(EFFORT_IDS[ei]); if (!effortEl[EFFORT_IDS[ei]]) effortReady = false; }
+  var effort = { seq: 0, last: null }; // seq: submission counter; last: {start, end} of the last submitted review, for Refresh
+  var EFFORT_IDLE = "Enter the effort start and end and click Review effort.";
+  var EFFORT_HINT = "Both must be ISO 8601 timestamps with a timezone, for example 2026-10-20T10:00:01Z and 2026-10-20T10:00:04Z, 1 to 120 s apart.";
+  function setEffortStatus(text, color) { effortEl.axEffortStatus.textContent = text; effortEl.axEffortStatus.style.color = color; }
+  function utcText(iso) { var d = new Date(iso); return isNaN(d.getTime()) ? String(iso) : d.toISOString().replace(/\.000Z$/, "Z"); }
+  function effortNum(v, unit, digits) { return isNum(v) ? v.toFixed(digits) + (unit ? " " + unit : "") : NA; } // null -> Not available; 0 is a real value
+  function parseEffortInput(text, label) {
+    text = String(text || "").trim();
+    if (!text) return { error: label + " is empty. " + EFFORT_HINT };
+    if (!ISO_WITH_TZ.test(text)) return { error: label + " must include a timezone. " + EFFORT_HINT };
+    if (isNaN(new Date(text).getTime())) return { error: label + " is not a valid date-time. " + EFFORT_HINT };
+    return { value: text };
+  }
+  function applyEffortUi() { if (!effortReady) return; effortEl.axEffortCard.style.display = reviewing() ? "block" : "none"; }
+  function clearEffort(reason) {
+    if (!effortReady) return;
+    effort.seq += 1; effort.last = null;                       // any in-flight review is now obsolete
+    effortEl.axEffortResult.style.display = "none";
+    effortEl.axEffortGo.disabled = false; effortEl.axEffortRefresh.disabled = false;
+    setEffortStatus(reason || EFFORT_IDLE, COLORS.muted);
+  }
+  function periodText(p) {
+    var open = p.start_inclusive ? "[" : "(", close = p.end_inclusive ? "]" : ")";
+    var bounds = "bounds " + open + utcText(p.period_start) + ", " + utcText(p.period_end) + close + " UTC" + (p.start_inclusive ? "" : ", start excluded") + (p.end_inclusive ? "" : ", end excluded");
+    var firstLast = p.sample_count > 0 ? "first sample " + utcText(p.first_sample_at) + ", last sample " + utcText(p.last_sample_at) + " UTC" : "no samples in this period";
+    return bounds + " · " + firstLast + " · sources: " + breakdownText(p.sources);
+  }
+  function renderEffortPeriod(key, p) {
+    p = p || {};
+    effortEl["axEffHr" + key + "Count"].textContent = (isNum(p.heart_rate_count) ? p.heart_rate_count : NA) + " of " + (isNum(p.sample_count) ? p.sample_count : NA) + " samples";
+    effortEl["axEffHr" + key + "Mean"].textContent = effortNum(p.heart_rate_mean_bpm, "bpm", 1);
+    effortEl["axEffHr" + key + "Peak"].textContent = effortNum(p.heart_rate_peak_bpm, "bpm", 1);
+    effortEl["axEffHr" + key + "Gap"].textContent = effortNum(p.max_inter_sample_gap_seconds, "s", 1);
+    effortEl["axEffHr" + key + "Detail"].textContent = periodText(p);
+  }
+  function renderEffort(body, label) {
+    var m = body.movement || {}, hr = body.heart_rate || {}, rules = body.rules || {}, dr = m.distance_rules || {};
+    effortEl.axEffortBounds.textContent = "Effort " + utcText(body.effort_start) + " to " + utcText(body.effort_end) + " UTC · " + effortNum(body.effort_duration_seconds, "s", 1) + " · captured by the engine at " + utcText(body.captured_at) + " UTC";
+    var afterEnd = hr.after ? utcText(hr.after.period_end) : NA;
+    effortEl.axEffortFollowUp.textContent = body.follow_up_elapsed === true
+      ? "Follow-up period elapsed: the " + effortNum(rules.after_seconds, "s", 0) + " after the effort end lie at or before the capture time. Elapsed time does not establish that samples were received, retained or complete."
+      : "Follow-up pending: the " + effortNum(rules.after_seconds, "s", 0) + " after the effort end had not fully elapsed at capture time, so the after period is capped at " + afterEnd + " UTC. Elapsed time would not establish completeness either.";
+    effortEl.axEffortFollowUp.style.color = body.follow_up_elapsed === true ? COLORS.muted : COLORS.warn;
+    var noTracking = !(m.sample_count > 0);
+    effortEl.axEffMvCount.textContent = isNum(m.sample_count) ? String(m.sample_count) : NA;
+    effortEl.axEffMvPeak.textContent = noTracking ? NA : effortNum(m.speed_peak_mps, "m/s", 1);
+    effortEl.axEffMvDist.textContent = effortNum(m.estimated_distance_m, "m", 1);
+    effortEl.axEffMvIncl.textContent = isNum(m.included_duration_seconds) ? m.included_duration_seconds.toFixed(1) + " s" + (isNum(m.included_window_fraction) ? " · " + Math.round(m.included_window_fraction * 100) + "% of effort" : "") : NA;
+    effortEl.axEffMvExcl.textContent = isNum(m.excluded_interval_count) ? String(m.excluded_interval_count) : NA;
+    var thr = isNum(dr.high_speed_threshold_mps) ? dr.high_speed_threshold_mps.toFixed(1) + " m/s" : "threshold";
+    effortEl.axEffMvHsTimeLabel.textContent = "Time at or above " + thr; effortEl.axEffMvHsDistLabel.textContent = "Distance at or above " + thr;
+    effortEl.axEffMvHsTime.textContent = effortNum(m.high_speed_duration_seconds, "s", 1); effortEl.axEffMvHsDist.textContent = effortNum(m.high_speed_distance_m, "m", 1);
+    effortEl.axEffMvRules.textContent = noTracking ? "No tracking samples recorded in the effort; distance and high-speed figures are not available." :
+      (isNum(m.estimated_distance_m) ? "" : "No eligible interval, so distance and high-speed figures are not available. ")
+      + "Applied rules: intervals longer than " + effortNum(dr.max_gap_seconds, "s", 1) + " or with confidence below " + (isNum(dr.min_confidence) ? dr.min_confidence : NA) + " at either end are excluded and never bridged; high-speed threshold " + thr + "; before " + effortNum(rules.before_seconds, "s", 0) + ", after " + effortNum(rules.after_seconds, "s", 0) + " (engineering defaults).";
+    effortEl.axEffMvSources.textContent = "Reported sources of the tracking samples: " + breakdownText(m.sources) + ".";
+    renderEffortPeriod("Before", hr.before); renderEffortPeriod("During", hr.during); renderEffortPeriod("After", hr.after);
+    effortEl.axEffortResult.style.display = "block";
+    setEffortStatus("Reviewed the " + effortNum(body.effort_duration_seconds, "s", 1) + " effort ending " + utcText(body.effort_end) + " UTC for " + label + ". Descriptive figures only.", COLORS.muted);
+  }
+  function submitEffort(start, end) {
+    if (!reviewing()) { setEffortStatus("Switch Review to Recorded to review an effort.", COLORS.warn); return; }
+    if (selection.id === null) { setEffortStatus(noSelectionText(), COLORS.warn); return; }
+    var seq = ++effort.seq, gen = selection.generation, id = selection.id, label = selection.label || id;
+    effort.last = { start: start, end: end };
+    effortEl.axEffortResult.style.display = "none";
+    effortEl.axEffortGo.disabled = true; effortEl.axEffortRefresh.disabled = true;
+    setEffortStatus("Asking the engine about the effort " + start + " to " + end + " for " + label + "…", COLORS.muted);
+    var stale = function() { return seq !== effort.seq || gen !== selection.generation || id !== selection.id || !reviewing(); };
+    var done = function() { effortEl.axEffortGo.disabled = false; effortEl.axEffortRefresh.disabled = false; };
+    var q = new URLSearchParams({ effort_start: start, effort_end: end }); // encodes '+' and ':' correctly
+    fetch(athleteUrl(id, "/effort-review?" + q.toString()), { cache: "no-store" }).then(function(res) {
+      if (stale()) return;
+      if (res.status === 422) return rejectionText(res).then(function(why) { if (!stale()) { done(); setEffortStatus("Engine rejected the request: " + why, COLORS.error); } });
+      if (!res.ok) { done(); setEffortStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
+      return res.json().then(function(body) { if (stale()) return; done(); renderEffort(body, label); });
+    }).catch(function() {
+      if (stale()) return;
+      done(); setEffortStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running? Click Review effort to try again.", COLORS.error);
+    });
+  }
+  function reviewEffort() {
+    var a = parseEffortInput(effortEl.axEffortStart.value, "Effort start"), b = parseEffortInput(effortEl.axEffortEnd.value, "Effort end");
+    if (a.error) { setEffortStatus(a.error, COLORS.error); return; }
+    if (b.error) { setEffortStatus(b.error, COLORS.error); return; }
+    if (new Date(a.value).getTime() >= new Date(b.value).getTime()) { setEffortStatus("Effort start must precede effort end. " + EFFORT_HINT, COLORS.error); return; }
+    submitEffort(a.value, b.value);
+  }
+  if (effortReady) {
+    effortEl.axEffortGo.addEventListener("click", reviewEffort);
+    effortEl.axEffortRefresh.addEventListener("click", function() {
+      if (!effort.last) { setEffortStatus("Nothing to refresh yet: click Review effort first.", COLORS.warn); return; }
+      submitEffort(effort.last.start, effort.last.end); // the same bounds, a fresh capture time
+    });
+    [effortEl.axEffortStart, effortEl.axEffortEnd].forEach(function(input) {
+      input.addEventListener("keydown", function(e) { if (e.key === "Enter") reviewEffort(); });
+      input.addEventListener("input", function() { if (effort.last || effortEl.axEffortResult.style.display !== "none") clearEffort("Inputs changed: the earlier result no longer applies. Click Review effort to run the new selection."); });
+    });
+    cards.push({ reset: function() {}, poll: function() {}, setWho: function(l) { effortEl.axEffortWho.textContent = l; } }); // label only: never polled
+    applyEffortUi();
+  }
 
   // ---- start ----
   loadRoster();
