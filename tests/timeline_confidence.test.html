@@ -53,6 +53,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     setAttribute(k, v) { this.attrs[k] = String(v); }
     getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
     removeAttribute(k) { delete this.attrs[k]; }
+    click() { this.clicks = (this.clicks || 0) + 1; }
     appendChild(c) { this.children.push(c); return c; }
     removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); return c; }
     addEventListener(type, fn) { (this.listeners[type] || (this.listeners[type] = [])).push(fn); }
@@ -74,6 +75,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axSumTitle", "axSumSub", "axSumModeBadge", "axSumHrAgeLabel", "axSumTrkAgeLabel", "axTlSub", "axTlModeBadge",
     "axReviewBar", "axModeLive", "axModeRecorded", "axReviewForm", "axReviewEnd", "axReviewGo", "axReviewRefresh", "axReviewStatus", "axReviewBanner", "axReviewBounds",
     "axRetainedBlock", "axRetainedFind", "axRetainedLatest", "axRetainedStatus", "axRetainedList", "axRetainedPhys", "axRetainedTrk", "axRetainedCap",
+    "axRetainedDownload", "axRetainedDownloadStatus",
     "axLiveTrkBadge", "axSumSourceBadge", "axSumSources", "axTlSourceBadge", "axTlSources",
     "axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp",
     "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
@@ -87,7 +89,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     for (const id of IDS) els[id] = new El("div");
     els["view-dashboard"].classes.add("active-view");
     const pending = []; // every request the page script makes, oldest first: { url, resolve, reject }
-    const doc = { getElementById: id => els[id] || null, createElement: tag => new El(tag), createElementNS: (_ns, tag) => new El(tag), querySelector: () => null };
+    const created = []; // every element the page script creates (anchors for downloads among them)
+    const doc = { getElementById: id => els[id] || null, createElement: tag => { const e = new El(tag); created.push(e); return e; }, createElementNS: (_ns, tag) => new El(tag), querySelector: () => null };
     const sandbox = {}; // stands in for `window`
     const fetchStub = url => new Promise((resolve, reject) => pending.push({ url: String(url), resolve, reject }));
     const timers = []; // interval callbacks are captured, never scheduled; a test can fire them by hand
@@ -100,7 +103,9 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const fail = async part => { take(part).reject(new Error("network")); await flush(); };
     const resolveLate = async (req, body) => { pending.splice(pending.indexOf(req), 1); req.resolve({ ok: true, status: 200, json: async () => body }); await flush(); };
     const tick = async () => { for (const fn of timers) fn(); await flush(); }; // one tick of every poller timer
-    return { els, pending, sandbox, flush, respond, fail, resolveLate, tick };
+    const respondRaw = async (part, res) => { take(part).resolve(res); await flush(); }; // a hand-built response object (headers, blob, ...)
+    const resolveLateRaw = async (req, res) => { pending.splice(pending.indexOf(req), 1); req.resolve(res); await flush(); };
+    return { els, pending, sandbox, flush, respond, fail, resolveLate, tick, respondRaw, resolveLateRaw, created };
   }
 
   // ---- fictional data helpers ------------------------------------------------------------------------
@@ -623,6 +628,87 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axTlSourceBadge.style.display, "none", "cleared when returning to Live");
     await ctx.respond("/a2/window?seconds=60", win({ athlete: "a2" }));
     assert.deepEqual(badge(ctx.els.axTlSourceBadge), { text: "No samples", style: "none" });
+  });
+
+  // ---- download of retained samples --------------------------------------------------------------------------
+
+  const JSONL = '{"type":"physiological","sample":{"athlete_id":"a1","timestamp":"2026-10-20T10:00:00Z","source":"simulated","device_id":"d","heart_rate_bpm":112}}\n{"type":"tracking","sample":{"athlete_id":"a1","timestamp":"2026-10-20T10:00:00Z","x_position":1,"y_position":2,"speed_mps":0.0,"acceleration_mps2":0,"tracking_confidence":0.9}}\n';
+  const fileResponse = (o) => { o = o || {}; const h = Object.assign({ "content-disposition": 'attachment; filename="athletrix-retained-samples-a1-20261025T120000Z.jsonl"', "x-athletrix-record-count": "2", "x-athletrix-physiological-count": "1", "x-athletrix-tracking-count": "1" }, o.headers || {}); return { ok: true, status: 200, headers: { get: k => (k.toLowerCase() in h ? h[k.toLowerCase()] : null) }, blob: async () => new Blob([JSONL], { type: "application/x-ndjson" }), json: async () => { throw new Error("not json"); } }; };
+  const anchors = ctx => ctx.created.filter(e => e.tag === "a");
+  const downloadUrls = ctx => urls(ctx).filter(u => u.includes("retained-samples.jsonl"));
+
+  test("download retained samples: Recorded mode only, explicit click, saved through a download link with the engine's filename and counts", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.equal(ctx.els.axRetainedBlock.style.display, "none");
+    await click(ctx, "axModeRecorded");
+    assert.match(ctx.els.axRetainedDownloadStatus.textContent, /saves every sample the engine currently retains for this athlete, both streams/);
+    assert.equal(downloadUrls(ctx).length, 0, "nothing fetched until the click");
+    await click(ctx, "axRetainedDownload");
+    assert.deepEqual(downloadUrls(ctx).map(u => u.replace(/^.*\/athletes\//, "")), ["a1/retained-samples.jsonl"]);
+    assert.equal(ctx.els.axRetainedDownload.disabled, true);
+    assert.match(ctx.els.axRetainedDownloadStatus.textContent, /^Preparing the download of every retained sample for Alex Example #7/);
+    await ctx.respondRaw("/a1/retained-samples.jsonl", fileResponse());
+    const a = anchors(ctx);
+    assert.equal(a.length, 1, "one download link created"); assert.equal(a[0].clicks, 1, "and clicked");
+    assert.equal(a[0].getAttribute("download"), "athletrix-retained-samples-a1-20261025T120000Z.jsonl");
+    assert.match(a[0].getAttribute("href"), /^blob:/);
+    assert.equal(ctx.els.axRetainedDownload.disabled, false);
+    assert.match(ctx.els.axRetainedDownloadStatus.textContent, /^Downloaded athletrix-retained-samples-a1-20261025T120000Z\.jsonl \(2 records: 1 physiological, 1 tracking\) for Alex Example #7\. A snapshot of currently retained samples across both streams, not an archive; replay it with scripts\/replay_samples\.py\.$/);
+    // without the headers (another server in front, say) a safe fallback name is used
+    await click(ctx, "axRetainedDownload");
+    await ctx.respondRaw("/a1/retained-samples.jsonl", { ok: true, status: 200, headers: { get: () => null }, blob: async () => new Blob([JSONL]) });
+    assert.equal(anchors(ctx)[1].getAttribute("download"), "athletrix-retained-samples-a1.jsonl");
+    assert.match(ctx.els.axRetainedDownloadStatus.textContent, /^Downloaded athletrix-retained-samples-a1\.jsonl for Alex Example #7/);
+  });
+
+  test("download retained samples: no data, HTTP and network errors are reported and the click can be retried", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await click(ctx, "axRetainedDownload");
+    await ctx.respond("/a1/retained-samples.jsonl", { detail: "No retained samples for athlete 'a1' in either stream; nothing to export" }, 404);
+    assert.match(ctx.els.axRetainedDownloadStatus.textContent, /^No retained samples for Alex Example #7 in either stream; nothing to download\. This does not show whether data was never sent or has since been removed\.$/);
+    assert.equal(anchors(ctx).length, 0, "nothing saved"); assert.equal(ctx.els.axRetainedDownload.disabled, false);
+    await click(ctx, "axRetainedDownload");
+    await ctx.respond("/a1/retained-samples.jsonl", {}, 500);
+    assert.match(ctx.els.axRetainedDownloadStatus.textContent, /^Cannot download from .*\(HTTP 500\)\. Click Download retained samples to try again\.$/);
+    await click(ctx, "axRetainedDownload");
+    await ctx.fail("/a1/retained-samples.jsonl");
+    assert.match(ctx.els.axRetainedDownloadStatus.textContent, /^Cannot download from .*\(network\)\. Click Download retained samples to try again\.$/);
+    assert.equal(ctx.els.axRetainedDownload.disabled, false);
+    await click(ctx, "axRetainedDownload");
+    await ctx.respondRaw("/a1/retained-samples.jsonl", fileResponse());
+    assert.equal(anchors(ctx).length, 1, "retry succeeds");
+  });
+
+  test("download retained samples: a response for an earlier athlete, mode or request is never saved", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await click(ctx, "axRetainedDownload");
+    const r1 = ctx.pending.find(p => p.url.includes("/a1/retained-samples.jsonl"));
+    await select(ctx, "a2");
+    assert.match(ctx.els.axRetainedDownloadStatus.textContent, /^Download retained samples saves every sample/, "status reset on athlete change");
+    assert.equal(ctx.els.axRetainedDownload.disabled, false);
+    await ctx.resolveLateRaw(r1, fileResponse());
+    assert.equal(anchors(ctx).length, 0, "a1's file is not saved under a2");
+    await click(ctx, "axRetainedDownload");
+    const r2 = ctx.pending.find(p => p.url.includes("/a2/retained-samples.jsonl"));
+    await click(ctx, "axModeLive");
+    await ctx.resolveLateRaw(r2, fileResponse({ headers: { "content-disposition": 'attachment; filename="athletrix-retained-samples-a2-x.jsonl"' } }));
+    assert.equal(anchors(ctx).length, 0, "not saved after leaving Recorded mode");
+    await click(ctx, "axModeRecorded");
+    await click(ctx, "axRetainedDownload");
+    const r3 = ctx.pending.find(p => p.url.includes("/a2/retained-samples.jsonl") && p !== r2);
+    ctx.els.axRetainedDownload.disabled = false; // a rapid second click
+    await click(ctx, "axRetainedDownload");
+    const r4 = ctx.pending.filter(p => p.url.includes("/a2/retained-samples.jsonl")).slice(-1)[0];
+    assert.ok(r4 && r4 !== r3);
+    await ctx.resolveLateRaw(r3, fileResponse());
+    assert.equal(anchors(ctx).length, 0, "superseded request not saved");
+    await ctx.resolveLateRaw(r4, fileResponse({ headers: { "content-disposition": 'attachment; filename="athletrix-retained-samples-a2-20261025T120000Z.jsonl"' } }));
+    assert.equal(anchors(ctx).length, 1); assert.equal(anchors(ctx)[0].getAttribute("download"), "athletrix-retained-samples-a2-20261025T120000Z.jsonl");
   });
 
   // ---- selected effort review ----------------------------------------------------------------------------

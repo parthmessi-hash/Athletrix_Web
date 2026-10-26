@@ -3601,13 +3601,15 @@
               <b style="color:#fff;">Retained data</b>
               <button type="button" id="axRetainedFind" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Find retained data</button>
               <button type="button" id="axRetainedLatest" class="btn btn-primary" disabled style="padding:5px 12px;font-size:0.8rem;">Review latest retained</button>
+              <button type="button" id="axRetainedDownload" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Download retained samples</button>
               <span class="card-sub" id="axRetainedStatus" style="margin:0;flex-basis:100%;">Click Find retained data to see what the engine still stores for this athlete.</span>
+              <span class="card-sub" id="axRetainedDownloadStatus" style="margin:0;flex-basis:100%;">Download retained samples saves every sample the engine currently retains for this athlete, both streams, as a replayable JSON Lines file on this computer.</span>
             </div>
             <ul id="axRetainedList" style="display:none;list-style:none;margin:6px 0 0;padding:0;font-family:monospace;font-size:0.8rem;color:#e5e7eb;">
               <li id="axRetainedPhys"></li>
               <li id="axRetainedTrk"></li>
             </ul>
-            <div class="card-sub" id="axRetainedNote" style="margin:6px 0 0;">Times are UTC. Counts and ranges describe the records the engine currently retains (newest <span id="axRetainedCap">300</span> per stream), not continuous coverage or a full archive; an empty stream does not show whether data was never sent or has since been removed. The two streams may cover different times, so the latest 60 s window may contain only one of them.</div>
+            <div class="card-sub" id="axRetainedNote" style="margin:6px 0 0;">Times are UTC. Counts and ranges describe the records the engine currently retains (newest <span id="axRetainedCap">300</span> per stream), not continuous coverage or a full archive; an empty stream does not show whether data was never sent or has since been removed. The two streams may cover different times, so the latest 60 s window may contain only one of them. The download is a snapshot of currently retained samples across both streams, not just the 60 s review or a selected effort, and not a recording archive or database backup: samples already removed by the cap cannot be recovered. It is saved directly to this computer and uploaded nowhere.</div>
           </div>
           <div id="axReviewBanner" role="status" style="display:none;margin-top:10px;padding:8px 12px;border:1px solid rgba(215,150,11,0.5);background:rgba(215,150,11,0.12);color:#f1d08a;font-size:0.85rem;line-height:1.5;">
             <b>Recorded-time review</b> &middot; <span id="axReviewBounds">enter a window end and click Review</span>. Shows only the samples the engine still retains (newest 300 per athlete per stream); older records may already have been removed. Not a live feed.
@@ -10310,8 +10312,9 @@ function initializePlayerFatigue(team) {
   var liveCardsEl = byId("axLiveCards");
   var retainedBlockEl = byId("axRetainedBlock"), retainedFindEl = byId("axRetainedFind"), retainedLatestEl = byId("axRetainedLatest"), retainedStatusEl = byId("axRetainedStatus");
   var retainedListEl = byId("axRetainedList"), retainedPhysEl = byId("axRetainedPhys"), retainedTrkEl = byId("axRetainedTrk"), retainedCapEl = byId("axRetainedCap");
+  var retainedDownloadEl = byId("axRetainedDownload"), retainedDownloadStatusEl = byId("axRetainedDownloadStatus");
   if (!modeLiveEl || !modeRecEl || !reviewFormEl || !reviewEndEl || !reviewGoEl || !reviewRefreshEl || !reviewStatusEl || !reviewBannerEl || !reviewBoundsEl || !liveCardsEl) return;
-  if (!retainedBlockEl || !retainedFindEl || !retainedLatestEl || !retainedStatusEl || !retainedListEl || !retainedPhysEl || !retainedTrkEl || !retainedCapEl) return;
+  if (!retainedBlockEl || !retainedFindEl || !retainedLatestEl || !retainedStatusEl || !retainedListEl || !retainedPhysEl || !retainedTrkEl || !retainedCapEl || !retainedDownloadEl || !retainedDownloadStatusEl) return;
   var ISO_WITH_TZ = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})$/;
   var FORMAT_HINT = "Use an ISO 8601 timestamp with a timezone, for example 2026-10-20T10:00:02Z or 2026-10-20T12:00:02+02:00.";
   function setReviewStatus(text, color) { reviewStatusEl.textContent = text; reviewStatusEl.style.color = color; }
@@ -10383,6 +10386,7 @@ function initializePlayerFatigue(team) {
   }
   function clearRetained() {
     if (!retainedStatusEl) return;          // called from selectAthlete before this section ran (never the case after load)
+    clearDownload();
     retained.seq += 1; retained.data = null;
     retainedListEl.style.display = "none"; retainedPhysEl.textContent = ""; retainedTrkEl.textContent = "";
     retainedLatestEl.disabled = true; retainedFindEl.disabled = false;
@@ -10432,6 +10436,48 @@ function initializePlayerFatigue(team) {
     reviewEndEl.value = end;                // the exact UTC text the engine reported; the manual field shows what is being reviewed
     review();
   }
+  // ---- download of retained samples (Recorded mode only) ----
+  // Fetches the engine's JSON Lines export for the selected athlete (both streams, everything currently retained) and
+  // saves it on this computer through a browser download; nothing is uploaded. A response that arrives after the
+  // athlete, mode or a newer download request changed is discarded without saving, so a file never lands under the
+  // wrong athlete. The export is a snapshot of retained rows, not an archive: samples trimmed by the cap are gone.
+  var download = { seq: 0 };
+  var DOWNLOAD_IDLE = "Download retained samples saves every sample the engine currently retains for this athlete, both streams, as a replayable JSON Lines file on this computer.";
+  function setDownloadStatus(text, color) { retainedDownloadStatusEl.textContent = text; retainedDownloadStatusEl.style.color = color; }
+  function clearDownload() { download.seq += 1; retainedDownloadEl.disabled = false; setDownloadStatus(DOWNLOAD_IDLE, COLORS.muted); }
+  function saveBlob(blob, name) {
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.setAttribute("href", url); a.setAttribute("download", name);
+    a.click();                                                // a direct browser download; no upload anywhere
+    setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+  }
+  function downloadRetained() {
+    if (!reviewing()) return;               // the control is hidden in Live mode
+    if (selection.id === null) { setDownloadStatus(noSelectionText(), COLORS.warn); return; }
+    var seq = ++download.seq, id = selection.id, mode = selection.mode, label = selection.label || id;
+    retainedDownloadEl.disabled = true;
+    setDownloadStatus("Preparing the download of every retained sample for " + label + "…", COLORS.muted);
+    var stale = function() { return seq !== download.seq || id !== selection.id || mode !== selection.mode; };
+    var done = function() { retainedDownloadEl.disabled = false; };
+    fetch(athleteUrl(id, "/retained-samples.jsonl"), { cache: "no-store" }).then(function(res) {
+      if (stale()) return;
+      if (res.status === 404) { done(); setDownloadStatus("No retained samples for " + label + " in either stream; nothing to download. This does not show whether data was never sent or has since been removed.", COLORS.warn); return; }
+      if (!res.ok) { done(); setDownloadStatus("Cannot download from " + API_BASE + " (HTTP " + res.status + "). Click Download retained samples to try again.", COLORS.error); return; }
+      var disposition = (res.headers && res.headers.get && res.headers.get("content-disposition")) || "", m = /filename="([^"]+)"/.exec(disposition);
+      var name = m ? m[1] : "athletrix-retained-samples-" + String(id).replace(/[^A-Za-z0-9._-]+/g, "_") + ".jsonl";
+      var total = res.headers && res.headers.get ? res.headers.get("x-athletrix-record-count") : null, np = res.headers && res.headers.get ? res.headers.get("x-athletrix-physiological-count") : null, nt = res.headers && res.headers.get ? res.headers.get("x-athletrix-tracking-count") : null;
+      return res.blob().then(function(blob) {
+        if (stale()) return;                // athlete, mode or request changed while downloading: nothing is saved
+        done(); saveBlob(blob, name);
+        var counts = total !== null ? " (" + total + " records" + (np !== null && nt !== null ? ": " + np + " physiological, " + nt + " tracking" : "") + ")" : "";
+        setDownloadStatus("Downloaded " + name + counts + " for " + label + ". A snapshot of currently retained samples across both streams, not an archive; replay it with scripts/replay_samples.py.", COLORS.muted);
+      });
+    }).catch(function(err) {
+      if (stale()) return;
+      done(); setDownloadStatus("Cannot download from " + API_BASE + " (" + err.message + "). Click Download retained samples to try again.", COLORS.error);
+    });
+  }
+  retainedDownloadEl.addEventListener("click", downloadRetained);
   retainedFindEl.addEventListener("click", findRetained);
   retainedLatestEl.addEventListener("click", reviewLatestRetained);
   applyModeUi();

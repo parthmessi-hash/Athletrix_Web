@@ -319,6 +319,21 @@ network or HTTP error is shown with the engine address and the button is
 re-enabled for a retry. An athlete or mode change clears the block at once,
 and a late answer for an earlier athlete, mode or lookup is dropped unseen.
 
+- **Download retained samples** fetches the engine's
+  `retained-samples.jsonl` export for the selected athlete and saves it on
+  this computer through an ordinary browser download; nothing is uploaded
+  anywhere. The file holds every sample the engine currently retains for
+  that athlete across **both** streams in the replayable JSON Lines format,
+  not just the 60 s review or a selected effort, and can be replayed into
+  another local engine with `scripts/replay_samples.py`. It is a snapshot
+  of retained rows, not a recording archive or a database backup: samples
+  already removed by the newest-300 cap cannot be recovered. The button
+  works only in Recorded mode and only on click; while fetching it is
+  disabled; "no retained samples" (the engine's 404) and backend or network
+  errors are shown with a retry hint; and a response that arrives after the
+  athlete, the mode or a newer request changed is discarded without saving,
+  so a file never lands under the wrong athlete.
+
 **Counts and ranges describe retained records only.** They are not a session
 list, do not show continuous coverage between the bounds, and are not a full
 archive: nothing is inferred about gaps or about rows the newest-300 rule has
@@ -367,8 +382,12 @@ request until Review effort, page validation, the encoded request, a
 populated render checked field by field, empty periods, missing movement,
 nulls and real zeros, pending follow-up, engine 422 and backend errors,
 Refresh re-submitting the same bounds, no polling, and invalidation on
-input edits, athlete and mode changes with late responses dropped). Expect
-"33 tests, 33 passed".
+input edits, athlete and mode changes with late responses dropped); and
+Download retained samples (click-only request, saving through a download
+link with the engine's filename and counts or a safe fallback name, the
+no-data 404, HTTP and network errors with retry, and responses for an
+earlier athlete, mode or request never being saved). Expect "36 tests,
+36 passed".
 
 ## Project handoff
 
