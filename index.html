@@ -3772,8 +3772,40 @@
             <details style="margin-bottom:4px;"><summary class="card-sub" style="cursor:pointer;margin:0;">Before: bounds, first/last samples, sources</summary><div class="card-sub" id="axEffHrBeforeDetail" style="font-family:monospace;font-size:0.76rem;color:#e5e7eb;margin:4px 0 0 12px;"></div></details>
             <details style="margin-bottom:4px;"><summary class="card-sub" style="cursor:pointer;margin:0;">During: bounds, first/last samples, sources</summary><div class="card-sub" id="axEffHrDuringDetail" style="font-family:monospace;font-size:0.76rem;color:#e5e7eb;margin:4px 0 0 12px;"></div></details>
             <details style="margin-bottom:8px;"><summary class="card-sub" style="cursor:pointer;margin:0;">After: bounds, first/last samples, sources</summary><div class="card-sub" id="axEffHrAfterDetail" style="font-family:monospace;font-size:0.76rem;color:#e5e7eb;margin:4px 0 0 12px;"></div></details>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:8px 0;">
+              <span class="card-sub" style="margin:0;">Keep this result for comparison:</span>
+              <button type="button" id="axEffortSaveA" class="btn btn-ghost" disabled style="padding:4px 10px;font-size:0.78rem;">Save as Comparison A</button>
+              <button type="button" id="axEffortSaveB" class="btn btn-ghost" disabled style="padding:4px 10px;font-size:0.78rem;">Save as Comparison B</button>
+            </div>
             <div class="card-sub" id="axEffortNote" style="font-size:0.76rem;color:#8a9097;">All figures are the engine's calculations over retained samples (newest 300 per stream); nothing is recalculated here. Measurements count non-null heart rates out of the samples in each period; means are arithmetic, not time-weighted; nothing is interpolated or extrapolated and excluded tracking intervals are never bridged. "Follow-up elapsed" means only that 30 s of backend time passed after the effort end: it does not show that samples were received, retained or complete. A heart-rate difference between periods is a description of recorded samples, not a recovery measure or a change in condition. The 10 s and 30 s periods are engineering defaults. Recorded timestamps are used without device-clock correction or lag estimation. Times are UTC.</div>
           </div>
+        </div>
+        <div class="card" id="axCompareCard" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Compare two selected efforts &middot; <span id="axCmpWho">no athlete selected</span></div>
+              <div class="card-sub">Two effort-review results you saved explicitly, shown side by side exactly as the engine returned them. They are two selected snapshots of one athlete and may describe different workloads, durations and data availability. Nothing is ranked, scored, normalised or called a baseline, and a difference is not a fatigue or recovery finding.</div>
+            </div>
+            <span class="ax-badge" style="background:rgba(215,150,11,0.15);color:#f1d08a;border:1px solid rgba(215,150,11,0.5);white-space:nowrap;">Saved snapshots</span>
+          </div>
+          <div class="card-sub" id="axCmpStatus" style="margin-bottom:8px;">No snapshots saved. Review an effort above, then click Save as Comparison A or B. Snapshots live in this page only and are cleared when the athlete changes or you return to Live.</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:10px;">
+            <div style="border:1px solid #1f2937;padding:8px 10px;">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;"><b style="color:#fff;">Comparison A</b><button type="button" id="axCmpClearA" class="btn btn-ghost" disabled style="padding:3px 8px;font-size:0.74rem;">Clear A</button></div>
+              <div class="card-sub" id="axCmpASummary" style="margin:4px 0 0;font-family:monospace;font-size:0.76rem;color:#e5e7eb;">Not saved yet.</div>
+            </div>
+            <div style="border:1px solid #1f2937;padding:8px 10px;">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;"><b style="color:#fff;">Comparison B</b><button type="button" id="axCmpClearB" class="btn btn-ghost" disabled style="padding:3px 8px;font-size:0.74rem;">Clear B</button></div>
+              <div class="card-sub" id="axCmpBSummary" style="margin:4px 0 0;font-family:monospace;font-size:0.76rem;color:#e5e7eb;">Not saved yet.</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table id="axCmpTable" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:0.8rem;min-width:300px;">
+              <thead><tr style="color:#8a9097;text-align:left;"><th style="padding:4px 6px;font-weight:600;width:34%;">Displayed measurement</th><th style="padding:4px 6px;font-weight:600;">A</th><th style="padding:4px 6px;font-weight:600;">B</th><th style="padding:4px 6px;font-weight:600;">B − A (arithmetic only)</th></tr></thead>
+              <tbody id="axCmpBody" style="color:#e5e7eb;"></tbody>
+            </table>
+          </div>
+          <div class="card-sub" id="axCmpNote" style="margin-top:8px;font-size:0.76rem;color:#8a9097;">Each slot keeps the exact response it was saved from: athlete, effort bounds and duration, the engine's capture time, follow-up status, applied rules and reported sources. "Not available" is a null the engine returned (no eligible interval, no measurement, no samples); 0.0 is a real value. The difference column is B minus A where both values are numbers and nothing more: efforts of different lengths, with different sample availability or different applied rules are not comparable on it. Saved snapshots are never updated by later reviews, input edits or polling.</div>
         </div>
         <section id="homeView">
           <div id="emptyDashboard" class="empty-dashboard" style="display: none;">
@@ -10175,7 +10207,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axReviewBar", "axLiveCards", "axLiveSum", "axLiveTl", "axEffortCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axLiveCards", "axLiveSum", "axLiveTl", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -10194,6 +10226,7 @@ function initializePlayerFatigue(team) {
     for (var i = 0; i < cards.length; i++) cards[i].setWho(label || "no athlete selected");
     clearRetained();                      // retained-data metadata belongs to one athlete; never shown under another
     clearEffort("Athlete changed: enter the effort start and end and click Review effort.");
+    clearCompare("Athlete changed: both comparison snapshots were cleared because they belonged to the previous athlete.");
     if (reviewing() && selection.reviewEnd !== null) setReviewStatus("Reviewing the 60 s ending " + selection.reviewEnd + " for " + (label || "the selected athlete") + ".", COLORS.muted);
     refreshCards();
   }
@@ -10358,6 +10391,7 @@ function initializePlayerFatigue(team) {
     selection.mode = mode; selection.reviewEnd = null;
     clearRetained();                        // metadata found in the previous mode is not carried over
     clearEffort();
+    clearCompare(mode === "live" ? "Returned to Live: both comparison snapshots were cleared; they are kept only while reviewing recordings." : null, true);
     applyModeUi();
     if (mode === "recorded") { setReviewBounds("enter a window end and click Review"); setReviewStatus("Recorded: " + FORMAT_HINT + " The summary and timeline will cover the 60 s ending there.", COLORS.muted); }
     else setReviewStatus("Live: the cards poll the engine for the current readings and the last 60 seconds.", COLORS.muted);
@@ -10955,10 +10989,10 @@ function initializePlayerFatigue(team) {
   var EFFORT_IDS = ["axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp",
     "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
     "axEffHrBeforeCount", "axEffHrDuringCount", "axEffHrAfterCount", "axEffHrBeforeMean", "axEffHrDuringMean", "axEffHrAfterMean", "axEffHrBeforePeak", "axEffHrDuringPeak", "axEffHrAfterPeak",
-    "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail"];
+    "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail", "axEffortSaveA", "axEffortSaveB"];
   var effortEl = {}, effortReady = true;
   for (var ei = 0; ei < EFFORT_IDS.length; ei++) { effortEl[EFFORT_IDS[ei]] = byId(EFFORT_IDS[ei]); if (!effortEl[EFFORT_IDS[ei]]) effortReady = false; }
-  var effort = { seq: 0, last: null }; // seq: submission counter; last: {start, end} of the last submitted review, for Refresh
+  var effort = { seq: 0, last: null, result: null }; // seq: submission counter; last: {start, end} for Refresh; result: the response currently displayed (null while loading, failed or obsolete)
   var EFFORT_IDLE = "Enter the effort start and end and click Review effort.";
   var EFFORT_HINT = "Both must be ISO 8601 timestamps with a timezone, for example 2026-10-20T10:00:01Z and 2026-10-20T10:00:04Z, 1 to 120 s apart.";
   function setEffortStatus(text, color) { effortEl.axEffortStatus.textContent = text; effortEl.axEffortStatus.style.color = color; }
@@ -10971,11 +11005,11 @@ function initializePlayerFatigue(team) {
     if (isNaN(new Date(text).getTime())) return { error: label + " is not a valid date-time. " + EFFORT_HINT };
     return { value: text };
   }
-  function applyEffortUi() { if (!effortReady) return; effortEl.axEffortCard.style.display = reviewing() ? "block" : "none"; }
+  function applyEffortUi() { if (!effortReady) return; effortEl.axEffortCard.style.display = reviewing() ? "block" : "none"; if (compareReady) compareEl.axCompareCard.style.display = reviewing() ? "block" : "none"; }
   function clearEffort(reason) {
     if (!effortReady) return;
-    effort.seq += 1; effort.last = null;                       // any in-flight review is now obsolete
-    effortEl.axEffortResult.style.display = "none";
+    effort.seq += 1; effort.last = null; effort.result = null;   // any in-flight review is now obsolete; nothing displayable to save
+    effortEl.axEffortResult.style.display = "none"; setSaveButtons();
     effortEl.axEffortGo.disabled = false; effortEl.axEffortRefresh.disabled = false;
     setEffortStatus(reason || EFFORT_IDLE, COLORS.muted);
   }
@@ -11016,14 +11050,15 @@ function initializePlayerFatigue(team) {
     effortEl.axEffMvSources.textContent = "Reported sources of the tracking samples: " + breakdownText(m.sources) + ".";
     renderEffortPeriod("Before", hr.before); renderEffortPeriod("During", hr.during); renderEffortPeriod("After", hr.after);
     effortEl.axEffortResult.style.display = "block";
+    effort.result = { body: body, label: label, athleteId: selection.id }; setSaveButtons();
     setEffortStatus("Reviewed the " + effortNum(body.effort_duration_seconds, "s", 1) + " effort ending " + utcText(body.effort_end) + " UTC for " + label + ". Descriptive figures only.", COLORS.muted);
   }
   function submitEffort(start, end) {
     if (!reviewing()) { setEffortStatus("Switch Review to Recorded to review an effort.", COLORS.warn); return; }
     if (selection.id === null) { setEffortStatus(noSelectionText(), COLORS.warn); return; }
     var seq = ++effort.seq, gen = selection.generation, id = selection.id, label = selection.label || id;
-    effort.last = { start: start, end: end };
-    effortEl.axEffortResult.style.display = "none";
+    effort.last = { start: start, end: end }; effort.result = null;
+    effortEl.axEffortResult.style.display = "none"; setSaveButtons();
     effortEl.axEffortGo.disabled = true; effortEl.axEffortRefresh.disabled = true;
     setEffortStatus("Asking the engine about the effort " + start + " to " + end + " for " + label + "…", COLORS.muted);
     var stale = function() { return seq !== effort.seq || gen !== selection.generation || id !== selection.id || !reviewing(); };
@@ -11062,6 +11097,112 @@ function initializePlayerFatigue(team) {
     });
     cards.push({ reset: function() {}, poll: function() {}, setWho: function(l) { effortEl.axEffortWho.textContent = l; } }); // label only: never polled
     applyEffortUi();
+  }
+
+  // ---- comparison of two saved effort reviews (page memory only) ----
+  // A slot holds a deep copy of the response that was on screen when Save was clicked, with the athlete and label it was
+  // reviewed for. Nothing updates a slot afterwards: not a new review, not an input edit, not polling. Both slots are
+  // cleared when the athlete changes or Live mode returns, so the two snapshots always belong to the same athlete.
+  // The table repeats the engine's values and an arithmetic B - A where both are numbers; it never ranks or scores.
+  var COMPARE_IDS = ["axCompareCard", "axCmpWho", "axCmpStatus", "axCmpASummary", "axCmpBSummary", "axCmpClearA", "axCmpClearB", "axCmpBody"];
+  var compareEl = {}, compareReady = effortReady;
+  for (var ci = 0; ci < COMPARE_IDS.length; ci++) { compareEl[COMPARE_IDS[ci]] = byId(COMPARE_IDS[ci]); if (!compareEl[COMPARE_IDS[ci]]) compareReady = false; }
+  var compare = { A: null, B: null }; // slot -> { body, label, athleteId, savedAt }
+  var COMPARE_IDLE = "No snapshots saved. Review an effort above, then click Save as Comparison A or B. Snapshots live in this page only and are cleared when the athlete changes or you return to Live.";
+  function setSaveButtons() {
+    if (!compareReady) return;
+    var can = !!effort.result; // only a displayed, current result can be saved: never a loading, failed or obsolete one
+    effortEl.axEffortSaveA.disabled = !can; effortEl.axEffortSaveB.disabled = !can;
+  }
+  function setCompareStatus(text, color) { compareEl.axCmpStatus.textContent = text; compareEl.axCmpStatus.style.color = color; }
+  function slotSummary(slot) {
+    if (!slot) return "Not saved yet.";
+    var b = slot.body, hr = b.heart_rate || {}, m = b.movement || {}, rules = b.rules || {}, dr = m.distance_rules || {};
+    return [
+      slot.label + " (" + slot.athleteId + ")",
+      "effort " + utcText(b.effort_start) + " to " + utcText(b.effort_end) + " UTC · " + effortNum(b.effort_duration_seconds, "s", 1),
+      "captured " + utcText(b.captured_at) + " UTC · follow-up " + (b.follow_up_elapsed === true ? "elapsed" : "pending (after period capped at " + (hr.after ? utcText(hr.after.period_end) : NA) + " UTC)"),
+      "rules: gap " + effortNum(dr.max_gap_seconds, "s", 1) + ", confidence " + (isNum(dr.min_confidence) ? dr.min_confidence : NA) + ", high speed " + effortNum(dr.high_speed_threshold_mps, "m/s", 1) + ", before " + effortNum(rules.before_seconds, "s", 0) + ", after " + effortNum(rules.after_seconds, "s", 0),
+      "sources: tracking " + breakdownText(m.sources) + "; heart rate before " + breakdownText(hr.before && hr.before.sources) + ", during " + breakdownText(hr.during && hr.during.sources) + ", after " + breakdownText(hr.after && hr.after.sources),
+      "saved " + slot.savedAt + " UTC",
+    ].join("\n");
+  }
+  var COMPARE_ROWS = [ // [key, label, getter(body) -> number|null|string, unit, digits]
+    ["duration", "Effort duration", function(b) { return b.effort_duration_seconds; }, "s", 1],
+    ["trk_count", "Tracking samples in effort", function(b) { return b.movement && b.movement.sample_count; }, "", 0],
+    ["peak", "Peak speed", function(b) { return b.movement && b.movement.speed_peak_mps; }, "m/s", 1],
+    ["dist", "Estimated distance", function(b) { return b.movement && b.movement.estimated_distance_m; }, "m", 1],
+    ["incl", "Included duration", function(b) { return b.movement && b.movement.included_duration_seconds; }, "s", 1],
+    ["frac", "Included fraction of effort", function(b) { return b.movement && isNum(b.movement.included_window_fraction) ? b.movement.included_window_fraction * 100 : null; }, "%", 0],
+    ["excl", "Excluded intervals", function(b) { return b.movement && b.movement.excluded_interval_count; }, "", 0],
+    ["hs_t", "Time at or above threshold", function(b) { return b.movement && b.movement.high_speed_duration_seconds; }, "s", 1],
+    ["hs_d", "Distance at or above threshold", function(b) { return b.movement && b.movement.high_speed_distance_m; }, "m", 1],
+  ];
+  ["before", "during", "after"].forEach(function(period) {
+    var P = period.charAt(0).toUpperCase() + period.slice(1);
+    COMPARE_ROWS.push([period + "_n", P + ": heart-rate measurements", function(b) { var p = b.heart_rate && b.heart_rate[period]; return p ? p.heart_rate_count : null; }, "", 0]);
+    COMPARE_ROWS.push([period + "_samples", P + ": physiological samples", function(b) { var p = b.heart_rate && b.heart_rate[period]; return p ? p.sample_count : null; }, "", 0]);
+    COMPARE_ROWS.push([period + "_mean", P + ": mean heart rate", function(b) { var p = b.heart_rate && b.heart_rate[period]; return p ? p.heart_rate_mean_bpm : null; }, "bpm", 1]);
+    COMPARE_ROWS.push([period + "_peak", P + ": peak heart rate", function(b) { var p = b.heart_rate && b.heart_rate[period]; return p ? p.heart_rate_peak_bpm : null; }, "bpm", 1]);
+  });
+  function cell(text, key, col) { var td = document.createElement("td"); td.setAttribute("style", "padding:4px 6px;vertical-align:top;"); td.setAttribute("data-key", key); td.setAttribute("data-col", col); td.textContent = text; return td; }
+  function renderCompare() {
+    if (!compareReady) return;
+    compareEl.axCmpASummary.textContent = slotSummary(compare.A); compareEl.axCmpBSummary.textContent = slotSummary(compare.B);
+    compareEl.axCmpClearA.disabled = !compare.A; compareEl.axCmpClearB.disabled = !compare.B;
+    while (compareEl.axCmpBody.firstChild) compareEl.axCmpBody.removeChild(compareEl.axCmpBody.firstChild);
+    if (!compare.A && !compare.B) return;
+    var a = compare.A ? compare.A.body : null, b = compare.B ? compare.B.body : null;
+    COMPARE_ROWS.forEach(function(row) {
+      var key = row[0], unit = row[3], digits = row[4];
+      var va = a ? row[2](a) : null, vb = b ? row[2](b) : null;
+      var tr = document.createElement("tr");
+      var th = document.createElement("td"); th.setAttribute("style", "padding:4px 6px;color:#8a9097;vertical-align:top;"); th.setAttribute("data-key", key); th.setAttribute("data-col", "label"); th.textContent = row[1]; tr.appendChild(th);
+      tr.appendChild(cell(a ? effortNum(va, unit, digits) : "—", key, "A"));
+      tr.appendChild(cell(b ? effortNum(vb, unit, digits) : "—", key, "B"));
+      tr.appendChild(cell(isNum(va) && isNum(vb) ? (vb - va >= 0 ? "+" : "") + (vb - va).toFixed(digits) + (unit ? " " + unit : "") : "—", key, "D"));
+      compareEl.axCmpBody.appendChild(tr);
+    });
+    // context differences that make the numbers non-comparable are stated as rows too
+    var notes = [];
+    if (a && b) {
+      if (a.effort_duration_seconds !== b.effort_duration_seconds) notes.push("different effort durations (" + effortNum(a.effort_duration_seconds, "s", 1) + " vs " + effortNum(b.effort_duration_seconds, "s", 1) + ")");
+      var ra = JSON.stringify([a.rules, a.movement && a.movement.distance_rules]), rb = JSON.stringify([b.rules, b.movement && b.movement.distance_rules]);
+      if (ra !== rb) notes.push("different applied rules");
+      if (a.follow_up_elapsed !== b.follow_up_elapsed) notes.push("follow-up elapsed for one snapshot only");
+      var ta = a.movement ? a.movement.sample_count : null, tb = b.movement ? b.movement.sample_count : null;
+      if (ta !== tb) notes.push("different tracking sample availability (" + ta + " vs " + tb + ")");
+      ["before", "during", "after"].forEach(function(p) { var pa = a.heart_rate && a.heart_rate[p], pb = b.heart_rate && b.heart_rate[p]; if (pa && pb && pa.sample_count !== pb.sample_count) notes.push("different " + p + " heart-rate sample availability (" + pa.sample_count + " vs " + pb.sample_count + ")"); });
+    }
+    var tr2 = document.createElement("tr"), td2 = document.createElement("td");
+    td2.setAttribute("colspan", "4"); td2.setAttribute("style", "padding:6px;color:#f1d08a;"); td2.setAttribute("data-key", "context"); td2.setAttribute("data-col", "note");
+    td2.textContent = a && b ? (notes.length ? "Context differences: " + notes.join("; ") + ". Two selected snapshots; the difference column is arithmetic only." : "Same duration, rules, follow-up status and sample counts. Two selected snapshots; the difference column is arithmetic only.") : "One snapshot saved; save the other to see both side by side.";
+    tr2.appendChild(td2); compareEl.axCmpBody.appendChild(tr2);
+  }
+  function saveCompare(slot) {
+    if (!compareReady || !effort.result) { if (compareReady) setCompareStatus("Nothing to save: review an effort first and wait for its result.", COLORS.warn); return; }
+    if (effort.result.athleteId !== selection.id) { setCompareStatus("The displayed result belongs to another athlete and was not saved.", COLORS.warn); return; }
+    var replaced = !!compare[slot];
+    compare[slot] = { body: JSON.parse(JSON.stringify(effort.result.body)), label: effort.result.label, athleteId: effort.result.athleteId, savedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") };
+    compareEl.axCmpWho.textContent = effort.result.label;
+    renderCompare();
+    setCompareStatus((replaced ? "Replaced Comparison " : "Saved Comparison ") + slot + " with the effort ending " + utcText(effort.result.body.effort_end) + " UTC. Later reviews, edits or polling never change a saved snapshot.", COLORS.muted);
+  }
+  function clearCompare(reason, keepStatusIfEmpty) {
+    if (!compareReady) return;
+    var had = compare.A || compare.B;
+    compare.A = null; compare.B = null;
+    renderCompare();
+    if (had) setCompareStatus(reason || COMPARE_IDLE, reason ? COLORS.warn : COLORS.muted);
+    else if (!keepStatusIfEmpty) setCompareStatus(COMPARE_IDLE, COLORS.muted); // mode changes keep an earlier explanation on screen
+  }
+  if (compareReady) {
+    effortEl.axEffortSaveA.addEventListener("click", function() { saveCompare("A"); });
+    effortEl.axEffortSaveB.addEventListener("click", function() { saveCompare("B"); });
+    compareEl.axCmpClearA.addEventListener("click", function() { compare.A = null; renderCompare(); setCompareStatus(compare.B ? "Comparison A cleared; B is kept." : COMPARE_IDLE, COLORS.muted); });
+    compareEl.axCmpClearB.addEventListener("click", function() { compare.B = null; renderCompare(); setCompareStatus(compare.A ? "Comparison B cleared; A is kept." : COMPARE_IDLE, COLORS.muted); });
+    cards.push({ reset: function() {}, poll: function() {}, setWho: function(l) { compareEl.axCmpWho.textContent = l; } });
+    renderCompare(); setSaveButtons(); applyEffortUi();
   }
 
   // ---- start ----

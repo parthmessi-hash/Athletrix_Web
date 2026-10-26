@@ -263,6 +263,33 @@ excluded interval and 1.5 s / 8.3 m at or above 5 m/s; heart rate shows
 1 measurement before (112), 3 of 4 during (mean 117.8, peak 120.5) and
 nothing after.
 
+## Comparing two selected efforts
+
+Below the effort card, Recorded mode has a **Compare two selected efforts**
+card with two slots. After a review is displayed, **Save as Comparison A**
+or **Save as Comparison B** keeps a deep copy of that exact response (the
+buttons are disabled while a review is loading, after it failed, and once
+the result is obsolete, so only a current displayed result can be saved).
+Each slot shows the athlete, effort bounds and duration, the engine's
+capture time, follow-up status, applied rules and reported sources, and the
+table lists peak speed, estimated distance, included duration and fraction,
+excluded intervals, high-speed time and distance, and the before/during/after
+heart-rate measurements, samples, mean and peak for A and B side by side
+(stacked on phones) with an arithmetic B − A column where both values are
+numbers. A null the engine returned reads "Not available", 0.0 is a real
+value, and a context row names differences in duration, applied rules,
+follow-up status and sample availability so the numbers are not compared
+blindly.
+
+These are two selected snapshots of one athlete that may describe different
+workloads and data availability. Nothing is ranked, scored, normalised or
+called a baseline, and a difference is never presented as fatigue or
+recovery. Saving is always explicit: a new review never replaces a slot by
+itself, input edits never change a saved snapshot, and no polling touches
+the slots. Either slot can be replaced (Save again) or cleared (Clear A /
+Clear B). Both slots are cleared, with a short explanation, when the
+athlete changes or you return to Live. Slots live in page memory only.
+
 ## Source labels on the engine-connected cards
 
 The engine-connected cards no longer carry fixed "Simulated" badges. Each
@@ -424,8 +451,11 @@ selection (Recorded mode only, chart clicks copying the sample's recorded
 text with offsets intact, shading and bound lines on both charts, no
 request until Review effort, reversed/equal/too-short hints, the keyboard
 list, typed entry preserved, Clear selection, and clearing on athlete
-change, new windows and leaving Recorded mode). Expect "39 tests,
-39 passed".
+change, new windows and leaving Recorded mode); and the comparison slots
+(explicit saves only, independent deep copies, side-by-side values with
+arithmetic differences and context notes, nulls and zeros, replacing and
+clearing, no polling, and clearing on athlete change and return to Live
+with stale results unsaveable). Expect "42 tests, 42 passed".
 
 ## Project handoff
 

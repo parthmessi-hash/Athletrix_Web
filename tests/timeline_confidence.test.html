@@ -82,6 +82,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axEffHrBeforeCount", "axEffHrDuringCount", "axEffHrAfterCount", "axEffHrBeforeMean", "axEffHrDuringMean", "axEffHrAfterMean", "axEffHrBeforePeak", "axEffHrDuringPeak", "axEffHrAfterPeak",
     "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail",
     "axTlPick", "axTlArmStart", "axTlArmEnd", "axTlPickClear", "axTlPointSelect", "axTlSetStart", "axTlSetEnd", "axTlPickStatus", "axTlPickSelected",
+    "axEffortSaveA", "axEffortSaveB", "axCompareCard", "axCmpWho", "axCmpStatus", "axCmpASummary", "axCmpBSummary", "axCmpClearA", "axCmpClearB", "axCmpBody",
   ];
 
   function boot(opts) {
@@ -961,6 +962,97 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable"]);
     await click(ctx, "axModeRecorded");
     assert.equal(ctx.els.axTlPickSelected.textContent, "");
+  });
+
+  // ---- comparison of two saved effort reviews --------------------------------------------------------------
+
+  const cmpCell = (ctx, key, col) => { for (const tr of ctx.els.axCmpBody.children) for (const td of tr.children) if (td.getAttribute("data-key") === key && td.getAttribute("data-col") === col) return td.textContent; return undefined; };
+  const cmpNote = ctx => cmpCell(ctx, "context", "note");
+  const reviewAndRespond = async (ctx, start, end, body) => { setEffort(ctx, start, end); await click(ctx, "axEffortGo"); await ctx.respond("/effort-review", body); }; // whichever athlete is selected
+  const effortB = () => effortBody({ movement: { sample_count: 0, speed_peak_mps: null, first_sample_at: null, last_sample_at: null, latest_sample_age_seconds: null, max_inter_sample_gap_seconds: null, estimated_distance_m: null, included_duration_seconds: 0, included_window_fraction: 0, excluded_interval_count: 0, high_speed_duration_seconds: null, high_speed_distance_m: null, sources: { reported: {}, not_reported: 0 } }, during: { sample_count: 2, heart_rate_count: 0, first_sample_at: E_START, last_sample_at: E_END, max_inter_sample_gap_seconds: 3.0, sources: { reported: {}, not_reported: 0 } }, follow_up_elapsed: false, afterEnd: "2026-10-20T10:00:20Z" });
+
+  test("comparison: explicit save only, slots are independent deep copies, side by side with arithmetic differences and context notes", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.equal(ctx.els.axCompareCard.style.display, "none", "hidden in Live mode");
+    await click(ctx, "axModeRecorded");
+    assert.equal(ctx.els.axCompareCard.style.display, "block");
+    assert.equal(ctx.els.axEffortSaveA.disabled, true, "nothing to save before a result");
+    assert.match(ctx.els.axCmpStatus.textContent, /^No snapshots saved\./);
+    setEffort(ctx, E_START, E_END); await click(ctx, "axEffortGo");
+    assert.equal(ctx.els.axEffortSaveA.disabled, true, "a loading result cannot be saved");
+    const bodyA = effortBody();
+    await ctx.respond("/a1/effort-review", bodyA);
+    assert.equal(ctx.els.axEffortSaveA.disabled, false);
+    assert.equal(ctx.els.axCmpBody.children.length, 0, "a review alone saves nothing");
+    await click(ctx, "axEffortSaveA");
+    assert.match(ctx.els.axCmpStatus.textContent, /^Saved Comparison A with the effort ending 2026-10-20T10:00:04Z UTC\. Later reviews, edits or polling never change a saved snapshot\.$/);
+    assert.match(ctx.els.axCmpASummary.textContent, /^Alex Example #7 \(a1\)\neffort 2026-10-20T10:00:01Z to 2026-10-20T10:00:04Z UTC · 3\.0 s\ncaptured 2026-10-25T12:00:00Z UTC · follow-up elapsed\nrules: gap 3\.0 s, confidence 0\.5, high speed 5\.0 m\/s, before 10 s, after 30 s\nsources: tracking 4 simulated; heart rate before 1 simulated, during 3 simulated, 1 wearable, after no samples\nsaved \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z UTC$/);
+    assert.equal(cmpCell(ctx, "dist", "A"), "10.5 m"); assert.equal(cmpCell(ctx, "dist", "B"), "—"); assert.equal(cmpCell(ctx, "dist", "D"), "—");
+    assert.match(cmpNote(ctx), /^One snapshot saved; save the other/);
+    // the saved copy is independent of the live response object and of later edits
+    bodyA.movement.estimated_distance_m = 99; ctx.els.axEffortEnd.value = "2026-10-20T10:00:05Z"; ctx.els.axEffortEnd.dispatch("input"); await ctx.flush();
+    assert.equal(ctx.els.axEffortResult.style.display, "none"); assert.equal(ctx.els.axEffortSaveB.disabled, true, "an obsolete result cannot be saved");
+    assert.equal(cmpCell(ctx, "dist", "A"), "10.5 m", "slot A unchanged by the mutation and the edit");
+    // a second, shorter review with nulls, zeros and a pending follow-up
+    await reviewAndRespond(ctx, E_START, "2026-10-20T10:00:03Z", Object.assign(effortB(), { effort_end: "2026-10-20T10:00:03Z", effort_duration_seconds: 2.0 }));
+    await click(ctx, "axEffortSaveB");
+    assert.match(ctx.els.axCmpStatus.textContent, /^Saved Comparison B/);
+    assert.equal(cmpCell(ctx, "duration", "A"), "3.0 s"); assert.equal(cmpCell(ctx, "duration", "B"), "2.0 s"); assert.equal(cmpCell(ctx, "duration", "D"), "-1.0 s");
+    assert.equal(cmpCell(ctx, "peak", "B"), "Not available", "null stays null"); assert.equal(cmpCell(ctx, "peak", "D"), "—", "no difference against a null");
+    assert.equal(cmpCell(ctx, "incl", "B"), "0.0 s", "a real zero is shown"); assert.equal(cmpCell(ctx, "incl", "D"), "-2.0 s");
+    assert.equal(cmpCell(ctx, "frac", "A"), "67 %"); assert.equal(cmpCell(ctx, "frac", "D"), "-67 %");
+    assert.equal(cmpCell(ctx, "during_n", "A"), "3"); assert.equal(cmpCell(ctx, "during_n", "B"), "0"); assert.equal(cmpCell(ctx, "during_samples", "B"), "2"); assert.equal(cmpCell(ctx, "during_mean", "B"), "Not available");
+    assert.equal(cmpCell(ctx, "during_mean", "A"), "117.8 bpm"); assert.equal(cmpCell(ctx, "before_peak", "D"), "+0.0 bpm");
+    assert.match(cmpNote(ctx), /^Context differences: different effort durations \(3\.0 s vs 2\.0 s\); follow-up elapsed for one snapshot only; different tracking sample availability \(4 vs 0\); different during heart-rate sample availability \(4 vs 2\)\. Two selected snapshots; the difference column is arithmetic only\.$/);
+    assert.match(ctx.els.axCmpBSummary.textContent, /follow-up pending \(after period capped at 2026-10-20T10:00:20Z UTC\)/);
+    assert.ok(!/better|worse|baseline|fatigue|recover|score/i.test(ctx.els.axCmpBody.children.map(tr => tr.children.map(td => td.textContent).join(" ")).join(" ")), "no ranking or interpretation");
+  });
+
+  test("comparison: replacing and clearing slots is explicit; a new review never replaces a slot by itself", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await reviewAndRespond(ctx, E_START, E_END, effortBody());
+    await click(ctx, "axEffortSaveA"); await click(ctx, "axEffortSaveB");
+    assert.equal(cmpCell(ctx, "dist", "B"), "10.5 m");
+    assert.match(cmpNote(ctx), /^Same duration, rules, follow-up status and sample counts\./);
+    await reviewAndRespond(ctx, E_START, E_END, effortBody({ movement: { estimated_distance_m: 12.25 } }));
+    assert.equal(cmpCell(ctx, "dist", "A"), "10.5 m", "a new review leaves both slots alone"); assert.equal(cmpCell(ctx, "dist", "B"), "10.5 m");
+    await click(ctx, "axEffortSaveB");
+    assert.match(ctx.els.axCmpStatus.textContent, /^Replaced Comparison B/);
+    assert.equal(cmpCell(ctx, "dist", "B"), "12.3 m"); assert.equal(cmpCell(ctx, "dist", "D"), "+1.8 m"); assert.equal(cmpCell(ctx, "dist", "A"), "10.5 m");
+    await click(ctx, "axCmpClearA");
+    assert.equal(ctx.els.axCmpASummary.textContent, "Not saved yet."); assert.equal(ctx.els.axCmpClearA.disabled, true);
+    assert.equal(cmpCell(ctx, "dist", "A"), "—"); assert.equal(cmpCell(ctx, "dist", "B"), "12.3 m");
+    assert.match(ctx.els.axCmpStatus.textContent, /^Comparison A cleared; B is kept\.$/);
+    await click(ctx, "axCmpClearB");
+    assert.equal(ctx.els.axCmpBody.children.length, 0); assert.match(ctx.els.axCmpStatus.textContent, /^No snapshots saved\./);
+    await ctx.tick(); await ctx.tick();
+    assert.equal(ctx.pending.filter(p => p.url.includes("effort-review")).length, 0, "nothing about comparisons polls");
+  });
+
+  test("comparison: athlete change and return to Live clear both slots with a reason; a stale result cannot be saved under a new athlete", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    await reviewAndRespond(ctx, E_START, E_END, effortBody());
+    await click(ctx, "axEffortSaveA");
+    setEffort(ctx, E_START, "2026-10-20T10:00:03Z"); await click(ctx, "axEffortGo");
+    const late = ctx.pending.find(p => p.url.includes("/a1/effort-review"));
+    await select(ctx, "a2");
+    assert.match(ctx.els.axCmpStatus.textContent, /^Athlete changed: both comparison snapshots were cleared because they belonged to the previous athlete\.$/);
+    assert.equal(ctx.els.axCmpASummary.textContent, "Not saved yet."); assert.equal(ctx.els.axCmpWho.textContent, "Sam Sample #9");
+    await ctx.resolveLate(late, effortBody());
+    assert.equal(ctx.els.axEffortSaveA.disabled, true, "a1's late result is dropped and cannot be saved under a2");
+    await reviewAndRespond(ctx, E_START, E_END, effortBody({ athlete: "a2" })); // the stub answers any athlete; the page labels it as the current one
+    await click(ctx, "axEffortSaveA");
+    assert.match(ctx.els.axCmpASummary.textContent, /^Sam Sample #9 \(a2\)/);
+    await click(ctx, "axModeLive");
+    assert.equal(ctx.els.axCompareCard.style.display, "none");
+    await click(ctx, "axModeRecorded");
+    assert.match(ctx.els.axCmpStatus.textContent, /^Returned to Live: both comparison snapshots were cleared; they are kept only while reviewing recordings\.$/);
+    assert.equal(ctx.els.axCmpASummary.textContent, "Not saved yet.");
   });
 
   // ---- run --------------------------------------------------------------------------------------------
