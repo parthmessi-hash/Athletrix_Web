@@ -45,11 +45,13 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
   class El {
     constructor(tag) {
       this.tag = tag; this.children = []; this.attrs = {}; this.style = {}; this.classes = new Set(); this.listeners = {};
-      this.textContent = ""; this.title = ""; this.value = ""; this.disabled = false;
+      this._text = ""; this.title = ""; this.value = ""; this.disabled = false;
       const self = this;
       this.classList = { contains: c => self.classes.has(c), add: c => self.classes.add(c), remove: c => self.classes.delete(c) };
     }
     get firstChild() { return this.children[0] || null; }
+    get textContent() { return this._text; }
+    set textContent(v) { this._text = String(v); this.children.length = 0; } // like the DOM: replacing the text drops child nodes
     setAttribute(k, v) { this.attrs[k] = String(v); }
     getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
     removeAttribute(k) { delete this.attrs[k]; }
@@ -76,6 +78,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axReviewBar", "axModeLive", "axModeRecorded", "axReviewForm", "axReviewEnd", "axReviewGo", "axReviewRefresh", "axReviewStatus", "axReviewBanner", "axReviewBounds",
     "axRetainedBlock", "axRetainedFind", "axRetainedLatest", "axRetainedStatus", "axRetainedList", "axRetainedPhys", "axRetainedTrk", "axRetainedCap",
     "axRetainedDownload", "axRetainedDownloadStatus", "axSumAvail", "axTlAvail", "axEffortAvail",
+    "axRecordingCard", "axRecName", "axRecAthletes", "axRecStart", "axRecStop", "axRecStatus", "axRecActive", "axRecRefresh", "axRecListStatus", "axRecList",
+    "axModeSession", "axSessionBanner", "axSessionLabel", "axSessionExit", "axRetainedTitle", "axReviewBannerNote", "axRetainedNote",
     "axLiveTrkBadge", "axSumSourceBadge", "axSumSources", "axTlSourceBadge", "axTlSources",
     "axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp",
     "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
@@ -95,7 +99,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const created = []; // every element the page script creates (anchors for downloads among them)
     const doc = { getElementById: id => els[id] || null, createElement: tag => { const e = new El(tag); created.push(e); return e; }, createElementNS: (_ns, tag) => new El(tag), querySelector: () => null };
     const sandbox = {}; // stands in for `window`
-    const fetchStub = url => new Promise((resolve, reject) => pending.push({ url: String(url), resolve, reject }));
+    const fetchStub = (url, opts) => new Promise((resolve, reject) => pending.push({ url: String(url), opts: opts || {}, resolve, reject }));
     const timers = []; // interval callbacks are captured, never scheduled; a test can fire them by hand
     const intervalStub = fn => { timers.push(fn); return 0; };
     // Shadow the globals the script uses, so it runs against the stub rather than this page.
@@ -157,6 +161,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
   const click = async (ctx, id) => { ctx.els[id].dispatch("click"); await ctx.flush(); };
   const reviewAt = async (ctx, text) => { ctx.els.axReviewEnd.value = text; await click(ctx, "axReviewGo"); };
   const urls = ctx => ctx.pending.map(p => p.url);
+  const cardPending = ctx => ctx.pending.filter(p => !p.url.includes("/api/v1/recordings")).length; // the recording panel polls its own state on a timer
   const states = svg => svg.byTag("circle").map(c => c.getAttribute("data-state"));
   const segments = svg => svg.byTag("path").reduce((n, p) => n + (p.getAttribute("d").match(/M/g) || []).length, 0);
   const start = ctx => ctx.respond("/api/v1/athletes", ROSTER); // roster -> a1 selected -> every card polls once
@@ -351,16 +356,16 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await start(ctx);
     await click(ctx, "axModeRecorded");
     await reviewAt(ctx, END);
-    const n = ctx.pending.length;
+    const n = cardPending(ctx);
     await ctx.tick(); await ctx.tick();
-    assert.equal(ctx.pending.length, n, "no timer-driven request in recorded mode");
+    assert.equal(cardPending(ctx), n, "no timer-driven request in recorded mode");
     await click(ctx, "axReviewRefresh");
-    assert.equal(ctx.pending.length, n + 2);
+    assert.equal(cardPending(ctx), n + 2);
     assert.ok(urls(ctx).slice(-2).every(u => u.includes(END_Q)));
     await click(ctx, "axModeLive");
-    const live = ctx.pending.length;
+    const live = cardPending(ctx);
     await ctx.tick();
-    assert.ok(ctx.pending.length > live, "live timers poll again");
+    assert.ok(cardPending(ctx) > live, "live timers poll again");
   });
 
   test("late responses from an earlier review time, athlete or mode are dropped; returning to Live restores cards and polling", async () => {
@@ -749,13 +754,13 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await click(ctx, "axModeRecorded");
     assert.equal(ctx.els.axEffortCard.style.display, "block");
     assert.equal(ctx.els.axEffortWho.textContent, "Alex Example #7");
-    const n = ctx.pending.length;
+    const n = cardPending(ctx);
     await ctx.tick();
     assert.equal(effortUrls(ctx).length, 0, "never requested on a timer or on entering Recorded mode");
     for (const [a, b, needle] of [["", E_END, /^Effort start is empty/], ["2026-10-20T10:00:01", E_END, /^Effort start must include a timezone/], [E_START, "2026-13-40T10:00:04Z", /^Effort end is not a valid date-time/], [E_END, E_START, /^Effort start must precede effort end/]]) {
       setEffort(ctx, a, b); await click(ctx, "axEffortGo");
       assert.match(ctx.els.axEffortStatus.textContent, needle);
-      assert.equal(ctx.pending.length, n, "no request for an invalid selection");
+      assert.equal(cardPending(ctx), n, "no request for an invalid selection");
     }
     setEffort(ctx, "2026-10-20T12:00:01+02:00", "2026-10-20T05:00:04-05:00");
     await click(ctx, "axEffortGo");
@@ -821,9 +826,9 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await ctx.fail("/a1/effort-review");
     assert.match(ctx.els.axEffortStatus.textContent, /^Cannot reach backend at .* is it running\? Click Review effort to try again\.$/);
     assert.equal(ctx.els.axEffortRefresh.disabled, false);
-    const n = ctx.pending.length;
+    const n = cardPending(ctx);
     await ctx.tick(); await ctx.tick();
-    assert.equal(ctx.pending.length, n, "no timer-driven effort request");
+    assert.equal(cardPending(ctx), n, "no timer-driven effort request");
   });
 
   test("effort review: editing inputs, changing athlete or mode invalidates results and drops late responses", async () => {
@@ -1091,10 +1096,10 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.deepEqual(tileText(t3), ["Empty Example #3 · fictional", "Heart rate: no eligible sample", "Speed: no eligible sample", "no samples retained", "no device information"]);
     assert.match(ctx.els.axTeamStatus.textContent, /^Team demo-team · 3 athletes · captured by the engine at 2026-10-25T12:00:00Z UTC · 1 with a reading within 5 s, 1 stopped updating, 1 without samples\./);
     assert.ok(!/healthy|fatigue|disconnected|readiness/i.test(ctx.els.axTeamStatus.textContent + tileText(t2).join(" ")), "freshness is a display rule only");
-    const n = ctx.pending.length;
+    const n = cardPending(ctx);
     await ctx.tick();
     assert.equal(teamUrls(ctx).length, 1, "the timer makes exactly one team request per tick");
-    assert.equal(ctx.pending.length - n, 1 + 3, "team tick plus the three single-athlete polls (one live snapshot, summary, window)");
+    assert.equal(cardPending(ctx) - n, 1 + 3, "team tick plus the three single-athlete polls (one live snapshot, summary, window)");
     await click(ctx, "axTeamRefresh");
     assert.equal(teamUrls(ctx).length, 2, "manual refresh requests once more");
     // clicking a tile uses the normal athlete selection
@@ -1374,6 +1379,171 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axRetainedCap.textContent, "physiological not reported, tracking not reported", "no cap is guessed for an engine that reports none");
     ctx.els.axAthleteSelect.value = "a2"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
     assert.equal(ctx.els.axRetainedCap.textContent, "not looked up yet", "cleared with the rest on athlete change");
+  });
+
+  // ---- local recording panel and recording review ---------------------------------------------------------
+  const recording = o => Object.assign({ id: "rec-20261026T200000Z-abc123", name: "Tuesday practice", status: "stopped", started_at: "2026-10-26T20:00:00Z", stopped_at: "2026-10-26T20:30:00Z",
+    athlete_ids: ["a1", "a9"], athletes: [ROSTER[0], { id: "a9", name: "Saved Only", jersey_number: 99, sport: "hockey", team_id: "gone" }] }, o || {});
+  const recUrls = ctx => urls(ctx).filter(u => u.includes("/api/v1/recordings"));
+  const sessionAvail = o => Object.assign({ recorded_count: 0, recorded_earliest: null, recorded_latest: null, selected_count: 0, selected_first: null, selected_last: null }, o || {});
+  const reviewButton = (ctx, i) => ctx.els.axRecList.children[i].children[1];
+
+  test("recording panel: state and list loaded on open, start validated on the page, request body, engine refusals, success, stop, errors", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.deepEqual(recUrls(ctx).map(u => u.replace(/^.*\/api\/v1\//, "")).sort(), ["recordings", "recordings/active"], "state and list are read once on open");
+    await ctx.respond("/recordings/active", { recording: null });
+    assert.match(ctx.els.axRecActive.textContent, /^No recording is active\. Start one to keep every accepted sample .* until you stop it; the rolling retention caps do not apply to it\.$/);
+    assert.equal(ctx.els.axRecStop.disabled, true); assert.equal(ctx.els.axRecStart.disabled, false);
+    await ctx.respond("/api/v1/recordings", []);
+    assert.equal(ctx.els.axRecListStatus.textContent, "No recordings on this engine yet.");
+    assert.equal(ctx.els.axRecAthletes.children.length, 2, "one checkbox per roster athlete");
+    const n = ctx.pending.length;
+    await click(ctx, "axRecStart");
+    assert.equal(ctx.els.axRecStatus.textContent, "Enter a recording name first.");
+    ctx.els.axRecName.value = "  Tuesday practice ";
+    await click(ctx, "axRecStart");
+    assert.equal(ctx.els.axRecStatus.textContent, "Tick at least one athlete to record.");
+    assert.equal(ctx.pending.length, n, "no request for an invalid form");
+    ctx.els.axRecAthletes.children[0].children[0].checked = true;
+    await click(ctx, "axRecStart");
+    const req = ctx.pending[ctx.pending.length - 1];
+    assert.ok(req.url.endsWith("/api/v1/recordings") && req.opts.method === "POST");
+    assert.deepEqual(JSON.parse(req.opts.body), { name: "Tuesday practice", athlete_ids: ["a1"] });
+    assert.equal(ctx.els.axRecStart.disabled, true, "no double submission");
+    await ctx.respond("/api/v1/recordings", { detail: "recording 'rec-x' ('Other') is already active; stop it first" }, 409);
+    assert.match(ctx.els.axRecStatus.textContent, /^Engine refused: recording 'rec-x' \('Other'\) is already active; stop it first$/);
+    await ctx.respond("/recordings/active", { recording: null }); // the refusal triggers a state refresh
+    assert.equal(ctx.els.axRecStart.disabled, false);
+    await click(ctx, "axRecStart");
+    const active = recording({ status: "active", stopped_at: null, athlete_ids: ["a1"], athletes: [ROSTER[0]] });
+    await ctx.respond("/api/v1/recordings", active, 201);
+    assert.match(ctx.els.axRecStatus.textContent, /^Recording "Tuesday practice" started at 2026-10-26T20:00:00Z UTC for Alex Example #7\. Samples accepted from now on for these athletes are kept until you stop it; existing rolling history is not copied\.$/);
+    assert.match(ctx.els.axRecActive.textContent, /^RECORDING "Tuesday practice" is active since 2026-10-26T20:00:00Z UTC \(id rec-20261026T200000Z-abc123\) · athletes: Alex Example #7\. It keeps every sample .* continues until you click Stop recording, including across backend restarts\. Nothing is uploaded\.$/);
+    assert.equal(ctx.els.axRecStop.disabled, false); assert.equal(ctx.els.axRecStart.disabled, true);
+    await ctx.respond("/recordings/active", { recording: active });
+    await ctx.respond("/api/v1/recordings", [active]);
+    assert.match(ctx.els.axRecList.children[0].children[0].textContent, /^"Tuesday practice" · active · active since 2026-10-26T20:00:00Z UTC · Alex Example #7 · rec-20261026T200000Z-abc123$/);
+    await click(ctx, "axRecStop");
+    const stopReq = ctx.pending[ctx.pending.length - 1];
+    assert.ok(stopReq.url.endsWith("/api/v1/recordings/rec-20261026T200000Z-abc123/stop") && stopReq.opts.method === "POST");
+    await ctx.respond("/stop", recording({ athlete_ids: ["a1"], athletes: [ROSTER[0]] }));
+    assert.match(ctx.els.axRecStatus.textContent, /^Recording "Tuesday practice" stopped at 2026-10-26T20:30:00Z UTC\. Later samples are not added to it\. Click Review in the list to look at it\.$/);
+    assert.match(ctx.els.axRecActive.textContent, /^No recording is active/);
+    await ctx.respond("/recordings/active", { recording: null }); await ctx.respond("/api/v1/recordings", [recording()]);
+    // errors: unreachable on start, failing state poll
+    ctx.els.axRecAthletes.children[1].children[0].checked = true;
+    await click(ctx, "axRecStart");
+    await ctx.fail("/api/v1/recordings");
+    assert.match(ctx.els.axRecStatus.textContent, /^Cannot reach backend at .* while trying to start the recording; nothing is known to have changed\. Try again\.$/);
+    assert.equal(ctx.els.axRecStart.disabled, false);
+    await ctx.tick();
+    await ctx.fail("/recordings/active");
+    assert.match(ctx.els.axRecActive.textContent, /^Cannot read the recording state from .* Whether a recording is active is unknown until the engine answers\.$/);
+    assert.equal(ctx.els.axRecStart.disabled, true, "nothing can be started while the state is unknown");
+    // a late reply from an earlier poll never overwrites the newer state
+    await ctx.tick();
+    const older = ctx.pending.filter(p => p.url.endsWith("/recordings/active")).pop();
+    await ctx.tick();
+    const newer = ctx.pending.filter(p => p.url.endsWith("/recordings/active")).pop();
+    assert.ok(newer !== older);
+    await ctx.resolveLate(newer, { recording: null });
+    await ctx.resolveLate(older, { recording: active });
+    assert.match(ctx.els.axRecActive.textContent, /^No recording is active/);
+  });
+
+  test("recording review: Review opens the saved roster and scopes summary, timeline, effort, data lookup and download to the recording; Exit restores Live", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/recordings/active", { recording: null });
+    await ctx.respond("/api/v1/recordings", [recording()]);
+    await click(ctx, "axModeSession");
+    assert.match(ctx.els.axReviewStatus.textContent, /^Choose a recording in the Local recording card below/);
+    assert.equal(ctx.els.axSessionBanner.style.display, "none");
+    reviewButton(ctx, 0).dispatch("click"); await ctx.flush();
+    assert.equal(ctx.els.axSessionBanner.style.display, "block");
+    assert.match(ctx.els.axSessionLabel.textContent, /^"Tuesday practice" \(rec-20261026T200000Z-abc123\) · recorded 2026-10-26T20:00:00Z to 2026-10-26T20:30:00Z UTC \(backend clock\) · athletes: Alex Example #7, Saved Only #99$/);
+    assert.equal(ctx.els.axModeSession.getAttribute("aria-pressed"), "true"); assert.equal(ctx.els.axModeLive.getAttribute("aria-pressed"), "false");
+    assert.deepEqual(ctx.els.axAthleteSelect.children.map(o => o.value), ["a1", "a9"], "the recording's saved roster, including an athlete no longer registered");
+    assert.equal(ctx.els.axAthleteRefresh.disabled, true);
+    assert.equal(ctx.els.axLiveCards.style.display, "none"); assert.equal(ctx.els.axRetainedBlock.style.display, "block"); assert.equal(ctx.els.axEffortCard.style.display, "block");
+    assert.equal(ctx.els.axRetainedFind.textContent, "Find recorded data"); assert.equal(ctx.els.axRetainedDownload.textContent, "Download recorded samples");
+    assert.equal(ctx.els.axRetainedTitle.textContent, "Recorded data");
+    assert.match(ctx.els.axReviewBannerNote.textContent, /^Shows only the samples this recording holds .*no retention cap.*Not a live feed\.$/);
+    assert.match(ctx.els.axRetainedNote.textContent, /^Times are UTC\. Counts and ranges describe the samples this recording holds for this athlete/);
+    assert.equal(ctx.els.axReviewEnd.value, "2026-10-26T20:30:00Z", "prefilled with the recording's stop time");
+    const base = "/api/v1/recordings/rec-20261026T200000Z-abc123/athletes/a1/";
+    const q = "?seconds=60&end=2026-10-26T20%3A30%3A00Z";
+    assert.deepEqual(urls(ctx).filter(u => u.includes("/recordings/") && u.includes("/athletes/")).map(u => u.replace(/^.*\/api\/v1\//, "")).sort(), ["recordings/rec-20261026T200000Z-abc123/athletes/a1/summary" + q, "recordings/rec-20261026T200000Z-abc123/athletes/a1/window" + q]);
+    const ses = { recording: { id: "rec-20261026T200000Z-abc123", name: "Tuesday practice", status: "stopped", started_at: "2026-10-26T20:00:00Z", stopped_at: "2026-10-26T20:30:00Z" } };
+    const p = [{ athlete_id: "a1", timestamp: "2026-10-26T20:29:00Z", source: "wearable", device_id: "w", heart_rate_bpm: 120 }];
+    await ctx.respond(base + "window", Object.assign({ athlete_id: "a1", window_start: "2026-10-26T20:29:00Z", window_end: "2026-10-26T20:30:00Z", physiological_samples: p, tracking_samples: [], tracking_rules: { min_confidence: 0.5 }, availability: null,
+      session_availability: { physiological: sessionAvail({ recorded_count: 1800, recorded_earliest: "2026-10-26T20:00:00Z", recorded_latest: "2026-10-26T20:29:59Z", selected_count: 1, selected_first: "2026-10-26T20:29:00Z", selected_last: "2026-10-26T20:29:00Z" }), tracking: sessionAvail() } }, ses));
+    assert.match(ctx.els.axTlAvail.textContent, /^Available data · Heart rate: 1 of 1800 recorded samples fall in this window \(first 2026-10-26T20:29:00Z, last 2026-10-26T20:29:00Z UTC; no cap in a recording\); the recorded samples end 1\.0 s before the window ends\. The recorded samples span 2026-10-26T20:00:00Z to 2026-10-26T20:29:59Z UTC\. Tracking: nothing recorded for this athlete in this recording \(no sample was accepted for it while the recording was active\)\./);
+    assert.ok(!/cap not reported|retained/.test(ctx.els.axTlAvail.textContent), "no rolling-cap wording in a recording review");
+    await ctx.respond(base + "summary", Object.assign(sum({ start: "2026-10-26T20:29:00Z", end: "2026-10-26T20:30:00Z", physiological: { sample_count: 1, heart_rate_count: 1, heart_rate_mean_bpm: 120, first_sample_at: "2026-10-26T20:29:00Z", last_sample_at: "2026-10-26T20:29:00Z" } }), { availability: null, session_availability: { physiological: sessionAvail({ recorded_count: 1800, recorded_earliest: "2026-10-26T20:00:00Z", recorded_latest: "2026-10-26T20:29:59Z", selected_count: 1, selected_first: "2026-10-26T20:29:00Z", selected_last: "2026-10-26T20:29:00Z" }), tracking: sessionAvail() } }, ses));
+    assert.equal(ctx.els.axSumHrMean.textContent, "120 bpm");
+    assert.match(ctx.els.axSumAvail.textContent, /^Available data · Heart rate: 1 of 1800 recorded samples/);
+    // data lookup, download and effort review are scoped to the recording
+    await click(ctx, "axRetainedFind");
+    assert.ok(urls(ctx).some(u => u.endsWith(base + "recorded-data")));
+    await ctx.respond(base + "recorded-data", Object.assign({ athlete: ROSTER[0], physiological: stream(1800, "2026-10-26T20:00:00Z", "2026-10-26T20:29:59Z"), tracking: stream(0) }, ses));
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): 1800 recorded · 2026-10-26T20:00:00Z → 2026-10-26T20:29:59Z UTC");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: none recorded");
+    assert.equal(ctx.els.axRetainedCap.textContent, "no cap: a recording keeps every accepted sample for its athletes");
+    assert.match(ctx.els.axRetainedStatus.textContent, /^One stream has recorded samples\. Review latest recorded opens the 60 s ending 2026-10-26T20:29:59Z/);
+    await click(ctx, "axRetainedDownload");
+    assert.ok(urls(ctx).some(u => u.endsWith(base + "recorded-samples.jsonl")));
+    await ctx.respondRaw(base + "recorded-samples.jsonl", { ok: false, status: 404, json: async () => ({}) });
+    assert.match(ctx.els.axRetainedDownloadStatus.textContent, /^Nothing recorded for Alex Example #7 in this recording in either stream; nothing to download\.$/);
+    setEffort(ctx, "2026-10-26T20:10:00Z", "2026-10-26T20:10:20Z"); await click(ctx, "axEffortGo");
+    assert.ok(urls(ctx).some(u => u.includes(base + "effort-review?")));
+    await ctx.respond(base + "effort-review", Object.assign(effortBody(), { availability: null, session_availability: { movement: sessionAvail({ recorded_count: 4, recorded_earliest: E_START, recorded_latest: E_END, selected_count: 4, selected_first: E_START, selected_last: E_END }), heart_rate: { before: sessionAvail(), during: sessionAvail(), after: sessionAvail() } } }, ses));
+    assert.match(ctx.els.axEffortStatus.textContent, /in recording "Tuesday practice"\. Descriptive figures only\.$/);
+    assert.match(ctx.els.axEffortAvail.textContent, /^Available data · Tracking: 4 of 4 recorded samples fall in this effort .*no cap in a recording.* Heart rate Before: nothing recorded for this athlete in this recording/);
+    // switching to the saved-roster athlete that is no longer registered still works, scoped to the recording
+    ctx.els.axAthleteSelect.value = "a9"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
+    assert.ok(urls(ctx).some(u => u.includes("/recordings/rec-20261026T200000Z-abc123/athletes/a9/summary")));
+    assert.equal(ctx.els.axLiveSumWho.textContent, "Saved Only #99");
+    // exit: back to Live with the engine roster
+    await click(ctx, "axSessionExit");
+    assert.equal(ctx.els.axSessionBanner.style.display, "none"); assert.equal(ctx.els.axLiveCards.style.display, "grid");
+    assert.deepEqual(ctx.els.axAthleteSelect.children.map(o => o.value), ["a1", "a2"], "the engine roster is back");
+    assert.equal(ctx.els.axAthleteRefresh.disabled, false);
+    assert.ok(urls(ctx).slice(-3).every(u => u.includes("/api/v1/athletes/a1/")), "Live polls the rolling endpoints again");
+    assert.equal(ctx.els.axRetainedFind.textContent, "Find retained data");
+    assert.equal(ctx.els.axRetainedTitle.textContent, "Retained data");
+    assert.equal(ctx.els.axRetainedNote.textContent, "", "the stub's static note was empty before and is restored, never left with recording wording");
+  });
+
+  test("recording review: late responses from an earlier recording, athlete or mode are dropped; the recording roster never leaks into Live; public mode hides the panel", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/recordings/active", { recording: null });
+    const other = recording({ id: "rec-20261026T210000Z-ffffff", name: "Evening", started_at: "2026-10-26T21:00:00Z", stopped_at: "2026-10-26T21:20:00Z", athlete_ids: ["a2"], athletes: [ROSTER[1]] });
+    await ctx.respond("/api/v1/recordings", [other, recording()]);
+    reviewButton(ctx, 1).dispatch("click"); await ctx.flush();        // Tuesday practice
+    const lateSum = ctx.pending.find(p => p.url.includes("rec-20261026T200000Z-abc123/athletes/a1/summary"));
+    reviewButton(ctx, 0).dispatch("click"); await ctx.flush();        // Evening: a different recording and roster
+    assert.match(ctx.els.axSessionLabel.textContent, /^"Evening"/);
+    assert.deepEqual(ctx.els.axAthleteSelect.children.map(o => o.value), ["a2"]);
+    assert.equal(ctx.els.axReviewEnd.value, "2026-10-26T21:20:00Z");
+    await ctx.resolveLate(lateSum, Object.assign(sum({ physiological: { sample_count: 3, heart_rate_count: 3, heart_rate_mean_bpm: 150 } }), { session_availability: { physiological: sessionAvail({ recorded_count: 3, selected_count: 3 }), tracking: sessionAvail() } }));
+    assert.equal(ctx.els.axSumHrMean.textContent, "—", "the earlier recording's reply is dropped");
+    assert.equal(ctx.els.axSumAvail.textContent, "");
+    const evening = "/api/v1/recordings/rec-20261026T210000Z-ffffff/athletes/a2/";
+    await ctx.respond(evening + "window", Object.assign(win({ athlete: "a2" }), { window_start: "2026-10-26T21:19:00Z", window_end: "2026-10-26T21:20:00Z", session_availability: { physiological: sessionAvail(), tracking: sessionAvail() } }));
+    assert.match(ctx.els.axTlAvail.textContent, /nothing recorded for this athlete in this recording/);
+    await click(ctx, "axModeRecorded");                                // rolling Recorded review: engine roster, rolling endpoints, awaiting a time
+    assert.deepEqual(ctx.els.axAthleteSelect.children.map(o => o.value), ["a1", "a2"]);
+    assert.equal(ctx.els.axSessionBanner.style.display, "none");
+    assert.equal(ctx.els.axSumStatus.textContent, "Recorded-time review: enter a window end above and click Review.");
+    await reviewAt(ctx, END);
+    assert.ok(urls(ctx).slice(-2).every(u => u.includes("/api/v1/athletes/a2/") && !u.includes("/recordings/")), "rolling endpoints for the engine roster's athlete");
+    const pub = boot({ hostname: "assistantcoachai.net" });
+    await pub.flush();
+    assert.equal(pub.pending.length, 0, "public mode: no engine request at all");
+    assert.equal(pub.els.axRecordingCard.style.display, "none");
   });
 
   // ---- run --------------------------------------------------------------------------------------------

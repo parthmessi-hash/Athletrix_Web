@@ -187,6 +187,38 @@ can never appear under another athlete's name. Each card shows its own
 sample timestamp; the streams are polled and timestamped separately, so
 showing them side by side does not mean they are synchronized.
 
+## Local recording and Recording review (engine mode)
+
+The **Local recording** card lets you start and stop an explicit recording on
+the engine (`POST /api/v1/recordings`, `POST /api/v1/recordings/{id}/stop`):
+a name, the athletes to record ticked from the engine roster, **Start
+recording** and **Stop recording**. A persistent indicator at the top of the
+card names the active recording, its athletes and its start time, refreshed
+from `GET /api/v1/recordings/active` every 5 s while the dashboard is visible
+and after every action, and says plainly that the recording is local, keeps
+every accepted sample for those athletes independently of the rolling
+retention caps, continues until Stop is clicked (also across backend
+restarts) and uploads nothing. The card's list (`GET /api/v1/recordings`)
+shows every recording with its status, times, athletes and id, and a
+**Review** button per recording.
+
+**Review** enters **Recording** review (the third button in the Review bar).
+The athlete selector then shows the recording's saved roster (even athletes
+no longer registered), the Refresh roster button is disabled, a green banner
+names the recording with its start and stop times on the backend's clock, and
+the summary, timeline, effort review, data lookup (**Find recorded data**)
+and download (**Download recorded samples**) read only that recording's
+samples through `/api/v1/recordings/{id}/athletes/{athlete}/...`: no rolling
+history, no other recording, no retention cap. The window end is prefilled
+with a stopped recording's stop time and the review runs at once; an active
+recording can be reviewed as far as it has been recorded by entering a time.
+The Available data lines say "recorded" and "no cap in a recording" instead
+of retention wording. **Exit recording review** (or Live / Recorded) restores
+the engine roster and the rolling endpoints. Request generations are bumped
+on every athlete, mode and recording change, so a late reply from an earlier
+recording never lands under a newer one. In public mode the card is hidden
+and, as before, no engine request is made.
+
 ## Selected effort review (Recorded mode)
 
 In Recorded mode a **Selected effort review** card sits below the timeline.
@@ -567,7 +599,12 @@ resuming after Recorded, public mode silent); and the Available data lines
 (engine caps shown as sent, nothing retained versus nothing in the period,
 partial history with and without cap evidence, per-period effort context,
 older engines without the block, per-stream caps in the retained-data
-lookup, obsolete responses dropped). Expect "53 tests, 53 passed". The
+lookup, obsolete responses dropped); and the Local recording card and
+Recording review (page validation, request bodies, engine refusals, start
+and stop, state polling with late replies dropped, the saved roster in the
+selector, every card scoped to the recording, session wording, exit back to
+Live, late replies from an earlier recording dropped, public mode hidden).
+Expect "56 tests, 56 passed". The
 runner fails a test that does not finish within 10 s and yields through a
 MessageChannel, so the run does not crawl in a background tab.
 
