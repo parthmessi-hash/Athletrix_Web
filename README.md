@@ -97,17 +97,25 @@ readings with their real age; run a simulator again for fresh values.
   every 10 seconds while the dashboard is visible and the roster is empty or
   unreachable. Athletes are never invented client-side and there is no silent
   fallback to `athlete-1`.
-- **Live Heart Rate**: heart rate and sample time of the most recent
-  physiological sample for the selected athlete, with a badge showing that
+- **Live Heart Rate** and **Live Tracking** are fed by one request per
+  second to `GET /api/v1/athletes/{id}/live`, the engine's coherent
+  snapshot: at one captured instant, the newest retained sample per stream
+  at or before that instant, with its age as the engine computed it. The
+  heart-rate card shows the heart rate, sample time and a badge with that
   sample's own reported source ("Reported source: simulated", "Reported
-  source: wearable", or "Source not reported") and the device id in the
-  status line. A `null` `heart_rate_bpm` is shown as "—", not 0.
-- **Live Tracking**: speed in m/s, acceleration in m/s² (signed), tracking
-  confidence as a percentage, and sample time of the most recent tracking
-  sample, with the same kind of source badge taken from that sample. Tracking
-  samples recorded before the optional `source` field existed show "Source
-  not reported"; nothing is assumed. Zero is a real reading and is shown as
-  `0.0 m/s`, never as missing.
+  source: wearable", or "Source not reported") and the device id; a `null`
+  `heart_rate_bpm` is shown as "—", not 0. The tracking card shows speed in
+  m/s, acceleration in m/s² (signed), tracking confidence as a percentage and
+  sample time, with the same kind of source badge; zero is a real reading and
+  is shown as `0.0 m/s`, never as missing. The cards keep five states apart:
+  *no eligible sample at engine time* (with a note when a newer sample is
+  stored but timestamped ahead of engine time and will not be shown until
+  engine time reaches it), *measurement not reported in this sample*, a live
+  reading with its age, *stopped updating* when the engine-reported age is
+  over 5 s (a display rule), and a backend error. A sample timestamped ahead
+  of engine time is never clamped into a fresh reading; the earlier eligible
+  sample is shown with its real age instead. The device line under each card
+  comes from the same snapshot.
 - **Last 60 seconds**: fetched every 5 seconds
   from the backend summary endpoint. Shows mean and peak heart rate (bpm),
   peak speed (m/s), the heart-rate measurement count out of physiological
@@ -515,7 +523,12 @@ reloads, and silence in Recorded mode and while hidden); and reported
 device status (per-device lines with age, zeros, nulls, outdated and
 no-status states on the tiles, and the selected-athlete cards taking their
 device line from the team response and clearing it on athlete change).
-Expect "47 tests, 47 passed".
+It also covers the coherent live snapshot (one request per poll feeding
+both cards, engine-provided ages, no eligible sample, an earlier eligible
+sample with a newer one ahead, stopped updating, errors, no duplicate
+pollers, late responses dropped after athlete and mode changes, Live
+resuming after Recorded, public mode silent). Expect "49 tests, 49
+passed".
 
 ## Project handoff
 

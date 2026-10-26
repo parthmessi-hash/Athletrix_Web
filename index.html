@@ -10414,7 +10414,6 @@ function initializePlayerFatigue(team) {
   // named that device id. "Last reported connected/disconnected" describes the report at its own time; a report older
   // than DEVICE_STALE_S is marked outdated (display rule). Battery 0 and signal 0 are real readings; null = not reported.
   var DEVICE_STALE_S = 60;
-  var teamDevices = {}; // athlete id -> devices[] from the latest team response, for the selected-athlete cards
   function deviceState(entry) {
     if (!entry || !entry.status) return "no-status";
     return isNum(entry.status_age_seconds) && entry.status_age_seconds > DEVICE_STALE_S ? "outdated" : "reported";
@@ -10429,12 +10428,11 @@ function initializePlayerFatigue(team) {
     var text = "device " + entry.device_id + ": " + parts.join(" · ");
     return deviceState(entry) === "outdated" ? text + " · outdated report (older than " + DEVICE_STALE_S + " s, display rule; says nothing about the connection now)" : text;
   }
-  function deviceLineFor(athleteId, deviceId) { // for the selected-athlete cards: the entry from the latest team response, if any
+  function deviceLineFor(athleteId, deviceId) { // for the selected-athlete cards: the entry from the athlete's own live snapshot
     if (!isSourceName(deviceId)) return { text: "No device id reported in this sample.", state: "no-id" };
-    var list = teamDevices[String(athleteId)];
-    if (!list) return { text: "Device " + deviceId + ": status not available here (the athlete is not on the selected team's overview).", state: "unavailable" };
+    var list = typeof liveDevices !== "undefined" ? liveDevices : [];
     for (var i = 0; i < list.length; i++) if (list[i].device_id === deviceId) return { text: "D" + deviceText(list[i]).slice(1), state: deviceState(list[i]) };
-    return { text: "Device " + deviceId + ": not named by the newest sample in the team overview.", state: "unavailable" };
+    return { text: "Device " + deviceId + ": no status information in this snapshot.", state: "unavailable" };
   }
   var liveDeviceLines = { hr: null, trk: null }; // the device id each live card last showed, so a later team response can refresh its line
   function paintDeviceLine(key) {
@@ -10454,9 +10452,11 @@ function initializePlayerFatigue(team) {
     tile.setAttribute("aria-label", "Open " + athleteLabel(a));
     var name = document.createElement("div"); name.setAttribute("style", "font-weight:600;color:#fff;"); name.textContent = athleteLabel(a) + " · " + String(a.sport || ""); tile.appendChild(name);
     var hr = document.createElement("div"); hr.setAttribute("class", "ax-team-hr"); hr.setAttribute("style", "font-size:0.82rem;margin-top:4px;");
-    hr.textContent = "Heart rate: " + (p ? (isNum(p.heart_rate_bpm) ? Math.round(p.heart_rate_bpm) + " bpm" : "not reported in sample") + " · " + recencyText(row.physiological_age_seconds) : "no sample"); tile.appendChild(hr);
+    var aheadP = isNum(row.physiological_newest_ahead_seconds) ? " · a newer sample is " + row.physiological_newest_ahead_seconds.toFixed(1) + " s ahead of engine time (not shown yet)" : "";
+    var aheadT = isNum(row.tracking_newest_ahead_seconds) ? " · a newer sample is " + row.tracking_newest_ahead_seconds.toFixed(1) + " s ahead of engine time (not shown yet)" : "";
+    hr.textContent = "Heart rate: " + (p ? (isNum(p.heart_rate_bpm) ? Math.round(p.heart_rate_bpm) + " bpm" : "not reported in sample") + " · " + recencyText(row.physiological_age_seconds) : "no eligible sample") + aheadP; tile.appendChild(hr);
     var sp = document.createElement("div"); sp.setAttribute("class", "ax-team-trk"); sp.setAttribute("style", "font-size:0.82rem;margin-top:2px;");
-    sp.textContent = "Speed: " + (t ? (isNum(t.speed_mps) ? t.speed_mps.toFixed(1) + " m/s" : "—") + " · confidence " + (isNum(t.tracking_confidence) ? Math.round(t.tracking_confidence * 100) + "%" : "—") + " · " + recencyText(row.tracking_age_seconds) : "no sample"); tile.appendChild(sp);
+    sp.textContent = "Speed: " + (t ? (isNum(t.speed_mps) ? t.speed_mps.toFixed(1) + " m/s" : "—") + " · confidence " + (isNum(t.tracking_confidence) ? Math.round(t.tracking_confidence * 100) + "%" : "—") + " · " + recencyText(row.tracking_age_seconds) : "no eligible sample") + aheadT; tile.appendChild(sp);
     var src = document.createElement("div"); src.setAttribute("class", "ax-team-src"); src.setAttribute("style", "font-size:0.74rem;color:#8a9097;margin-top:2px;");
     src.textContent = [p ? "heart rate " + sourceText(p) : null, t ? "tracking " + sourceText(t) : null].filter(Boolean).join(" · ") || "no samples retained"; tile.appendChild(src);
     var devs = Array.isArray(row.devices) ? row.devices : [];
@@ -10474,9 +10474,7 @@ function initializePlayerFatigue(team) {
   function renderTeam(body) {
     clearTeamGrid();
     var rows = Array.isArray(body.athletes) ? body.athletes : [];
-    teamDevices = {};
-    rows.forEach(function(r) { if (r.athlete && r.athlete.id !== undefined) teamDevices[String(r.athlete.id)] = Array.isArray(r.devices) ? r.devices : []; });
-    paintDeviceLine("hr"); paintDeviceLine("trk");
+
     for (var i = 0; i < rows.length; i++) teamEl.axTeamGrid.appendChild(teamTile(rows[i]));
     var recent = 0, stopped = 0, none = 0;
     rows.forEach(function(r) { var states = [recency(r.physiological_age_seconds), recency(r.tracking_age_seconds)]; if (states.indexOf("recent") >= 0) recent++; else if (states.indexOf("stopped") >= 0) stopped++; else none++; });
@@ -10683,54 +10681,66 @@ function initializePlayerFatigue(team) {
   retainedLatestEl.addEventListener("click", reviewLatestRetained);
   applyModeUi();
 
-  // ---- live card poller (heart rate / tracking) ----
-  // cfg: { path, whoEl, statusEl, timeEl, noSampleText(label, id), render(sample) -> live status text, clear() }
-  function startPoller(cfg) {
+  // ---- live cards: one coherent snapshot per poll (GET /athletes/{id}/live) ----
+  // One request per second feeds both current-reading cards. The engine chooses, at one captured instant, the newest
+  // retained sample per stream at or before that instant; a sample timestamped ahead of engine time stays stored but is
+  // not shown as current, and the response says how far ahead it is. Ages come from the engine, never from this page's
+  // clock. States kept apart: no eligible sample, measurement missing in the sample, stopped updating (engine-reported
+  // age older than STALE_MS, a display rule), backend failure, and a device report timestamped ahead of engine time.
+  var liveCards = []; // { key, render(sample) -> live text, clear(), statusEl, timeEl, whoEl, noneText(label) }
+  var liveDevices = []; // device entries from the latest live snapshot, for the device lines
+  function liveSetStatus(card, text, color) { card.statusEl.textContent = text; card.statusEl.style.color = color; }
+  function liveClear(card) { card.clear(); card.timeEl.textContent = DASH; card.timeEl.title = ""; }
+  function liveRenderStream(card, body, label) {
+    var sample = body[card.key], age = body[card.key + "_age_seconds"], ahead = body[card.key + "_newest_ahead_seconds"];
+    if (!sample) {
+      liveClear(card);
+      var aheadText = isNum(ahead) ? " The newest stored sample is timestamped " + ahead.toFixed(1) + " s ahead of engine time and is not shown until engine time reaches it." : "";
+      liveSetStatus(card, "No eligible sample at engine time for " + label + "." + aheadText + (isNum(ahead) ? "" : " " + card.noneText), COLORS.muted);
+      return;
+    }
+    var liveText = card.render(sample);
+    formatTime(sample.timestamp, card.timeEl);
+    card.timeEl.title = sample.timestamp + " · " + (isNum(age) ? age.toFixed(1) + " s before engine time " + utcText(body.captured_at) + " UTC" : "");
+    var aheadNote = isNum(ahead) ? " A newer sample is stored but timestamped " + ahead.toFixed(1) + " s ahead of engine time; it is not shown until engine time reaches it." : "";
+    if (isNum(age) && age * 1000 > STALE_MS) liveSetStatus(card, "Sample has stopped updating " + DASH + " newest eligible sample is " + age.toFixed(1) + " s old at engine time (display rule: older than " + (STALE_MS / 1000) + " s)." + aheadNote, COLORS.warn);
+    else liveSetStatus(card, liveText + (isNum(age) ? " · " + age.toFixed(1) + " s old at engine time" : "") + aheadNote, COLORS.live);
+  }
+  function livePoll(fromTimer) {
+    if (!dashboardVisible()) return; // only poll while the dashboard is visible
+    if (reviewing()) return;          // current-reading cards are hidden and silent during recorded review
+    if (selection.id === null) { liveCards.forEach(function(c) { liveSetStatus(c, noSelectionText(), COLORS.muted); }); return; }
+    var gen = selection.generation, id = selection.id, label = selection.label || id;
+    fetch(athleteUrl(id, "/live"), { cache: "no-store" }).then(function(res) {
+      if (gen !== selection.generation) return; // athlete or mode changed while this request was in flight: dropped
+      if (!res.ok) { liveCards.forEach(function(c) { liveSetStatus(c, "Backend error: HTTP " + res.status, COLORS.error); }); return; }
+      return res.json().then(function(body) {
+        if (gen !== selection.generation || !body || typeof body !== "object") return;
+        liveDevices = Array.isArray(body.devices) ? body.devices : [];
+        liveCards.forEach(function(c) { liveRenderStream(c, body, label); });
+        paintDeviceLine("hr"); paintDeviceLine("trk");
+      });
+    }).catch(function() {
+      if (gen !== selection.generation) return;
+      liveCards.forEach(function(c) { liveSetStatus(c, "Cannot reach backend at " + API_BASE + " " + DASH + " is it running?", COLORS.error); });
+    });
+  }
+  function registerLiveCard(cfg) {
     var statusEl = byId(cfg.statusEl), timeEl = byId(cfg.timeEl), whoEl = byId(cfg.whoEl);
     if (!statusEl || !timeEl || !whoEl) return;
-    var lastTimestamp = null, lastChangeAt = 0;
-    function setStatus(text, color) { statusEl.textContent = text; statusEl.style.color = color; }
-    function clearView() { cfg.clear(); timeEl.textContent = DASH; timeEl.title = ""; lastTimestamp = null; lastChangeAt = 0; }
-    function handle(sample) {
-      var liveText = cfg.render(sample);
-      formatTime(sample.timestamp, timeEl);
-      if (sample.timestamp !== lastTimestamp) {
-        // Count staleness from the sample's own timestamp when it is already old (e.g. right after switching
-        // athlete), never from when this card first saw it; otherwise an old sample would read "Live" for 5 s.
-        var sampleMs = new Date(sample.timestamp).getTime();
-        lastTimestamp = sample.timestamp;
-        lastChangeAt = isNaN(sampleMs) ? Date.now() : Math.min(Date.now(), sampleMs);
-      }
-      var since = Math.round((Date.now() - lastChangeAt) / 1000);
-      if (Date.now() - lastChangeAt > STALE_MS) setStatus("Sample has stopped updating " + DASH + " no new data for " + since + "s", COLORS.warn);
-      else setStatus(liveText, COLORS.live);
-    }
-    function poll() {
-      if (!dashboardVisible()) return; // only poll while the dashboard is visible
-      if (reviewing()) return;          // current-reading cards are hidden and silent during recorded review
-      if (selection.id === null) { setStatus(noSelectionText(), COLORS.muted); return; }
-      var gen = selection.generation, id = selection.id, label = selection.label;
-      fetch(athleteUrl(id, cfg.path), { cache: "no-store" }).then(function(res) {
-        if (gen !== selection.generation) return; // athlete changed while this request was in flight
-        if (res.status === 404) { clearView(); setStatus(cfg.noSampleText(label, id), COLORS.muted); return; }
-        if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
-        return res.json().then(function(sample) { if (gen === selection.generation) handle(sample); });
-      }).catch(function() {
-        if (gen !== selection.generation) return;
-        setStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running?", COLORS.error);
-      });
-    }
-    cards.push({ reset: function() { clearView(); setStatus("Loading…", COLORS.muted); }, poll: poll, setWho: function(l) { whoEl.textContent = l; } });
-    setInterval(poll, POLL_MS); // created once per card
+    var card = { key: cfg.key, render: cfg.render, clear: cfg.clear, statusEl: statusEl, timeEl: timeEl, whoEl: whoEl, noneText: cfg.noneText };
+    liveCards.push(card);
+    cards.push({ reset: function() { liveClear(card); liveSetStatus(card, "Loading…", COLORS.muted); }, poll: function() { if (liveCards[0] === card) livePoll(false); }, setWho: function(l) { whoEl.textContent = l; } });
   }
+  setInterval(function() { livePoll(true); }, POLL_MS); // one poller for both cards, created once
 
   // ---- Heart-rate card ----
   (function(){
     var valueEl = byId("axLiveHrValue"), badgeEl = byId("axLiveHrBadge");
     if (!valueEl || !badgeEl) return;
-    startPoller({
-      path: "/physiological/latest", whoEl: "axLiveHrWho", statusEl: "axLiveHrStatus", timeEl: "axLiveHrTime",
-      noSampleText: function(label, id) { return "No heart-rate sample yet for " + label + ". Run the simulator with --athlete-id " + id + "."; },
+    registerLiveCard({
+      key: "physiological", whoEl: "axLiveHrWho", statusEl: "axLiveHrStatus", timeEl: "axLiveHrTime",
+      noneText: "Run the simulator (python scripts/simulate_athlete.py --athlete-id <id>) to send fictional data.",
       clear: function() { valueEl.textContent = DASH; valueEl.title = ""; hideBadge(badgeEl); setLiveDeviceLine("hr", null); },
       render: function(sample) {
         // heart_rate_bpm is optional in the API; a null stays null and is shown as "not reported", never as 0.
@@ -10750,9 +10760,9 @@ function initializePlayerFatigue(team) {
     var speedEl = byId("axLiveTrkSpeed"), accelEl = byId("axLiveTrkAccel"), confEl = byId("axLiveTrkConf"), trkBadgeEl = byId("axLiveTrkBadge");
     if (!speedEl || !accelEl || !confEl || !trkBadgeEl) return;
     function show(el, v, fmt, key) { el.textContent = isNum(v) ? fmt(v) : DASH; el.title = key + ": " + (isNum(v) ? v : "null"); } // zero is a real reading
-    startPoller({
-      path: "/tracking/latest", whoEl: "axLiveTrkWho", statusEl: "axLiveTrkStatus", timeEl: "axLiveTrkTime",
-      noSampleText: function(label, id) { return "No tracking sample yet for " + label + ". Run the simulator with --athlete-id " + id + " --with-tracking."; },
+    registerLiveCard({
+      key: "tracking", whoEl: "axLiveTrkWho", statusEl: "axLiveTrkStatus", timeEl: "axLiveTrkTime",
+      noneText: "Run the simulator with --with-tracking to send fictional data.",
       clear: function() { [speedEl, accelEl, confEl].forEach(function(el){ el.textContent = DASH; el.title = ""; }); hideBadge(trkBadgeEl); setLiveDeviceLine("trk", null); },
       render: function(sample) {
         show(speedEl, sample.speed_mps, function(v){ return v.toFixed(1) + " m/s"; }, "speed_mps");

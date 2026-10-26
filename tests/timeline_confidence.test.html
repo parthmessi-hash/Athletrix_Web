@@ -147,6 +147,10 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     };
   }
   const END = "2026-10-20T10:00:02Z", END_Q = "end=2026-10-20T10%3A00%3A02Z";
+  function liveBody(o) { // a fictional GET /athletes/{id}/live response
+    o = o || {};
+    return Object.assign({ athlete_id: o.athlete || "a1", captured_at: "2026-10-25T12:00:00Z", registered: true, athlete: null, physiological: null, tracking: null, physiological_age_seconds: null, tracking_age_seconds: null, physiological_newest_ahead_seconds: null, tracking_newest_ahead_seconds: null, devices: [] }, o);
+  }
   const click = async (ctx, id) => { ctx.els[id].dispatch("click"); await ctx.flush(); };
   const reviewAt = async (ctx, text) => { ctx.els.axReviewEnd.value = text; await click(ctx, "axReviewGo"); };
   const urls = ctx => ctx.pending.map(p => p.url);
@@ -295,7 +299,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const fresh = urls(ctx).slice(liveBefore);
     assert.deepEqual(fresh.map(u => u.replace(/^.*\/athletes\//, "")).sort(), ["a1/summary?seconds=60&" + END_Q, "a1/window?seconds=60&" + END_Q]);
     // The stale live responses for a1 arrive now: all dropped (older generation), nothing shown as live.
-    await ctx.respond("/physiological/latest", { athlete_id: "a1", timestamp: iso(0), source: "simulated", device_id: "sim", heart_rate_bpm: 150 });
+    await ctx.respond("/a1/live", liveBody({ physiological: phys(0, 150), physiological_age_seconds: 0.2 }));
     assert.equal(ctx.els.axLiveHrValue.textContent, "—");
     await ctx.respond("/a1/window?seconds=60&" + END_Q, rwin({ tracking: [rtrk(-2, 0.0, 0.9), rtrk(-1, 1.5, 0.95), rtrk(0, 2.0, 1.0)] }));
     assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable", "usable", "usable"]);
@@ -383,8 +387,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axReviewBanner.style.display, "none");
     assert.equal(ctx.els.axSumTitle.textContent, "Last 60 seconds");
     assert.equal(ctx.els.axSumHrAgeLabel.textContent, "Latest sample age");
-    const liveUrls = urls(ctx).slice(-4);
-    assert.ok(liveUrls.some(u => u.endsWith("/a2/window?seconds=60")) && liveUrls.some(u => u.endsWith("/a2/summary?seconds=60")) && liveUrls.some(u => u.includes("/a2/physiological/latest")));
+    const liveUrls = urls(ctx).slice(-3);
+    assert.ok(liveUrls.some(u => u.endsWith("/a2/window?seconds=60")) && liveUrls.some(u => u.endsWith("/a2/summary?seconds=60")) && liveUrls.some(u => u.endsWith("/a2/live")), "one live request feeds both current-reading cards");
     await ctx.resolveLate(w3, rwin({ athlete: "a2", tracking: [rtrk(0, 1, 1), rtrk(-1, 1, 1)] }));
     assert.equal(ctx.els.axTlSpSvg.byTag("circle").length, 0, "late recorded reply dropped after returning to Live");
     await ctx.respond("/a2/window?seconds=60", win({ athlete: "a2", tracking: [trk(0, 1, 0.9)] }));
@@ -558,20 +562,18 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const ctx = boot();
     await start(ctx);
     assert.equal(ctx.els.axLiveHrBadge.style.display, "none", "no badge before a sample");
-    const now = () => new Date().toISOString(); // a fresh timestamp: the card otherwise reports the sample as stopped
-    await ctx.respond("/physiological/latest", Object.assign(phys(0, 150), { timestamp: now() }));
+    const trkNoSource = { athlete_id: "a1", timestamp: iso(0), x_position: 1, y_position: 2, speed_mps: 3, acceleration_mps2: 0, tracking_confidence: 0.9 };
+    await ctx.respond("/a1/live", liveBody({ physiological: phys(0, 150), physiological_age_seconds: 0.4, tracking: trkNoSource, tracking_age_seconds: 0.9 }));
     assert.deepEqual(badge(ctx.els.axLiveHrBadge), { text: "Reported source: simulated", style: "simulated" });
-    assert.match(ctx.els.axLiveHrStatus.textContent, /^Live · reported source: simulated · device: sim$/);
-    await ctx.respond("/tracking/latest", { athlete_id: "a1", timestamp: now(), x_position: 1, y_position: 2, speed_mps: 3, acceleration_mps2: 0, tracking_confidence: 0.9 });
+    assert.match(ctx.els.axLiveHrStatus.textContent, /^Live · reported source: simulated · device: sim · 0\.4 s old at engine time$/);
     assert.deepEqual(badge(ctx.els.axLiveTrkBadge), { text: "Source not reported", style: "none" }, "an older tracking record without a source is not assumed to be anything");
-    assert.match(ctx.els.axLiveTrkStatus.textContent, /^Live · source not reported · x 1\.0 m, y 2\.0 m$/);
+    assert.match(ctx.els.axLiveTrkStatus.textContent, /^Live · source not reported · x 1\.0 m, y 2\.0 m · 0\.9 s old at engine time$/);
     await ctx.tick();
-    await ctx.respond("/tracking/latest", { athlete_id: "a1", timestamp: now(), x_position: 1, y_position: 2, speed_mps: 3, acceleration_mps2: 0, tracking_confidence: 0.9, source: "camera", device_id: "cam-3" });
+    await ctx.respond("/a1/live", liveBody({ physiological: Object.assign(phys(0, null), { source: "wearable", device_id: "unit-9" }), physiological_age_seconds: 0.1, tracking: Object.assign({}, trkNoSource, { source: "camera", device_id: "cam-3" }), tracking_age_seconds: 0.2 }));
     assert.deepEqual(badge(ctx.els.axLiveTrkBadge), { text: "Reported source: camera", style: "reported" });
     assert.match(ctx.els.axLiveTrkStatus.textContent, /^Live · reported source: camera · device: cam-3 · x/);
-    await ctx.respond("/physiological/latest", Object.assign(phys(0, null), { timestamp: now(), source: "wearable", device_id: "unit-9" }));
     assert.deepEqual(badge(ctx.els.axLiveHrBadge), { text: "Reported source: wearable", style: "reported" });
-    assert.match(ctx.els.axLiveHrStatus.textContent, /^Live · heart rate not reported in this sample · reported source: wearable · device: unit-9$/);
+    assert.match(ctx.els.axLiveHrStatus.textContent, /^Live · heart rate not reported in this sample · reported source: wearable · device: unit-9 · 0\.1 s old at engine time$/);
     assert.ok(!/real|verified|authentic/i.test(ctx.els.axLiveHrStatus.textContent + ctx.els.axLiveHrBadge.textContent), "never vouches for the data");
   });
 
@@ -1083,13 +1085,13 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(t2.getAttribute("data-hr-state"), "stopped"); assert.equal(t2.getAttribute("data-trk-state"), "stopped");
     assert.deepEqual(tileText(t2), ["Stale Example #9 · fictional", "Heart rate: not reported in sample · stopped updating · 42.5 s ago (display rule: older than 5 s)", "Speed: 4.1 m/s · confidence 50% · stopped updating · 600.0 s ago (display rule: older than 5 s)", "heart rate reported source: simulated · tracking source not reported", "no device id reported in the newest samples"]);
     assert.equal(t3.getAttribute("data-hr-state"), "none"); assert.equal(t3.getAttribute("data-trk-state"), "none");
-    assert.deepEqual(tileText(t3), ["Empty Example #3 · fictional", "Heart rate: no sample", "Speed: no sample", "no samples retained", "no device information"]);
+    assert.deepEqual(tileText(t3), ["Empty Example #3 · fictional", "Heart rate: no eligible sample", "Speed: no eligible sample", "no samples retained", "no device information"]);
     assert.match(ctx.els.axTeamStatus.textContent, /^Team demo-team · 3 athletes · captured by the engine at 2026-10-25T12:00:00Z UTC · 1 with a reading within 5 s, 1 stopped updating, 1 without samples\./);
     assert.ok(!/healthy|fatigue|disconnected|readiness/i.test(ctx.els.axTeamStatus.textContent + tileText(t2).join(" ")), "freshness is a display rule only");
     const n = ctx.pending.length;
     await ctx.tick();
     assert.equal(teamUrls(ctx).length, 1, "the timer makes exactly one team request per tick");
-    assert.equal(ctx.pending.length - n, 1 + 4, "team tick plus the four live-card polls");
+    assert.equal(ctx.pending.length - n, 1 + 3, "team tick plus the three single-athlete polls (one live snapshot, summary, window)");
     await click(ctx, "axTeamRefresh");
     assert.equal(teamUrls(ctx).length, 2, "manual refresh requests once more");
     // clicking a tile uses the normal athlete selection
@@ -1097,7 +1099,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axAthleteSelect.value, "a2");
     t1.dispatch("click"); await ctx.flush();
     assert.equal(ctx.els.axAthleteSelect.value, "a1"); assert.equal(ctx.els.axLiveTlWho.textContent, "Alex Example #7");
-    assert.ok(urls(ctx).slice(-4).every(u => u.includes("/a1/")), "the detailed cards poll the opened athlete");
+    assert.ok(urls(ctx).slice(-3).every(u => u.includes("/a1/")), "the detailed cards poll the opened athlete");
     t3.dispatch("click"); await ctx.flush();
     assert.equal(ctx.els.axAthleteSelect.value, "a1", "an athlete the roster does not know is not opened");
   });
@@ -1182,23 +1184,70 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
   test("device status: the selected-athlete cards take the device line from the team response and clear it on athlete change", async () => {
     const ctx = boot();
     await start(ctx);
-    const now = new Date().toISOString();
-    await ctx.respond("/physiological/latest", Object.assign(phys(0, 150), { timestamp: now, device_id: "w-1" }));
-    assert.equal(ctx.els.axLiveHrDevice.textContent, "Device w-1: status not available here (the athlete is not on the selected team's overview).");
-    assert.equal(ctx.els.axLiveHrDevice.getAttribute("data-device-state"), "unavailable");
-    await ctx.respond("/teams/demo-team/live", teamBody("demo-team", [member("a1", "Alex Example", 7, { physiological: Object.assign(phys(0, 150), { device_id: "w-1" }), physiological_age_seconds: 0.5, devices: [dev("w-1", ["physiological"], dstatus("w-1", true, 72, 0.6), 2.5)] })]));
-    assert.equal(ctx.els.axLiveHrDevice.textContent, "Device w-1: last reported connected 2.5 s ago · battery 72% · signal quality 0.60", "a later team response refreshes the card's line");
+    await ctx.respond("/a1/live", liveBody({ physiological: Object.assign(phys(0, 150), { device_id: "w-1" }), physiological_age_seconds: 0.5, tracking: { athlete_id: "a1", timestamp: iso(0), x_position: 1, y_position: 2, speed_mps: 3, acceleration_mps2: 0, tracking_confidence: 0.9 }, tracking_age_seconds: 0.5, devices: [dev("w-1", ["physiological"], dstatus("w-1", true, 72, 0.6), 2.5)] }));
+    assert.equal(ctx.els.axLiveHrDevice.textContent, "Device w-1: last reported connected 2.5 s ago · battery 72% · signal quality 0.60", "the device line comes from the same live snapshot");
     assert.equal(ctx.els.axLiveHrDevice.getAttribute("data-device-state"), "reported");
-    await ctx.respond("/tracking/latest", { athlete_id: "a1", timestamp: now, x_position: 1, y_position: 2, speed_mps: 3, acceleration_mps2: 0, tracking_confidence: 0.9 });
     assert.equal(ctx.els.axLiveTrkDevice.textContent, "No device id reported in this sample."); assert.equal(ctx.els.axLiveTrkDevice.getAttribute("data-device-state"), "no-id");
+    await ctx.tick();
+    await ctx.respond("/a1/live", liveBody({ physiological: Object.assign(phys(0, 150), { device_id: "w-9" }), physiological_age_seconds: 0.5, devices: [] }));
+    assert.equal(ctx.els.axLiveHrDevice.textContent, "Device w-9: no status information in this snapshot."); assert.equal(ctx.els.axLiveHrDevice.getAttribute("data-device-state"), "unavailable");
     await select(ctx, "a2");
     assert.equal(ctx.els.axLiveHrDevice.textContent, "", "cleared with the card on athlete change"); assert.equal(ctx.els.axLiveHrDevice.getAttribute("data-device-state"), null);
-    await ctx.respond("/a2/physiological/latest", Object.assign(phys(0, 99), { athlete_id: "a2", timestamp: now, device_id: "w-2" }));
-    assert.equal(ctx.els.axLiveHrDevice.textContent, "Device w-2: status not available here (the athlete is not on the selected team's overview).");
-    ctx.els.axTeamSelect.value = "team-b"; ctx.els.axTeamSelect.dispatch("change"); await ctx.flush();
-    await ctx.respond("/teams/team-b/live", teamBody("team-b", [member("a2", "Sam Sample", 9, { physiological: Object.assign(phys(0, 99), { device_id: "w-2" }), physiological_age_seconds: 0.2, devices: [dev("w-2", ["physiological"], dstatus("w-2", true, null, 0.0), 400)] })]));
+    await ctx.respond("/a2/live", liveBody({ athlete: "a2", physiological: Object.assign(phys(0, 99), { athlete_id: "a2", device_id: "w-2" }), physiological_age_seconds: 0.2, devices: [dev("w-2", ["physiological"], dstatus("w-2", true, null, 0.0), 400)] }));
     assert.match(ctx.els.axLiveHrDevice.textContent, /^Device w-2: last reported connected 400\.0 s ago · battery not reported · signal quality 0\.00 · outdated report/);
     assert.equal(ctx.els.axLiveHrDevice.getAttribute("data-device-state"), "outdated");
+  });
+
+  // ---- coherent single-athlete live snapshot --------------------------------------------------------------------
+
+  test("live snapshot: one request per poll, engine-provided ages, no eligible sample, earlier fallback with a newer sample ahead, stopped updating, errors, no duplicate pollers", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.equal(urls(ctx).filter(u => u.includes("/latest")).length, 0, "the latest endpoints are no longer polled by the cards");
+    assert.equal(urls(ctx).filter(u => u.endsWith("/a1/live")).length, 1, "one live request for both cards");
+    await ctx.respond("/a1/live", liveBody({ physiological: phys(-2, 120), physiological_age_seconds: 2.0, physiological_newest_ahead_seconds: 3.0, tracking: null, tracking_newest_ahead_seconds: 4.0 }));
+    assert.equal(ctx.els.axLiveHrValue.textContent, "120 bpm", "the earlier eligible sample is shown");
+    assert.match(ctx.els.axLiveHrStatus.textContent, /^Live · reported source: simulated · device: sim · 2\.0 s old at engine time A newer sample is stored but timestamped 3\.0 s ahead of engine time; it is not shown until engine time reaches it\.$/);
+    assert.equal(ctx.els.axLiveHrStatus.style.color, "#3b82f6");
+    assert.equal(ctx.els.axLiveTrkSpeed.textContent, "—");
+    assert.match(ctx.els.axLiveTrkStatus.textContent, /^No eligible sample at engine time for Alex Example #7\. The newest stored sample is timestamped 4\.0 s ahead of engine time and is not shown until engine time reaches it\.$/, "an all-future stream is not clamped into a fresh reading");
+    await ctx.tick();
+    assert.equal(urls(ctx).filter(u => u.endsWith("/a1/live")).length, 1, "exactly one live request per tick");
+    await ctx.respond("/a1/live", liveBody({ physiological: phys(-30, 118), physiological_age_seconds: 30.0, tracking: trk(0, 0.0, 0.9), tracking_age_seconds: 0.3 }));
+    assert.match(ctx.els.axLiveHrStatus.textContent, /^Sample has stopped updating — newest eligible sample is 30\.0 s old at engine time \(display rule: older than 5 s\)\.$/);
+    assert.equal(ctx.els.axLiveHrStatus.style.color, "#d7960b");
+    assert.equal(ctx.els.axLiveTrkSpeed.textContent, "0.0 m/s", "zero speed stays zero"); assert.equal(ctx.els.axLiveTrkStatus.style.color, "#3b82f6");
+    await ctx.tick();
+    await ctx.respond("/a1/live", liveBody());
+    assert.match(ctx.els.axLiveHrStatus.textContent, /^No eligible sample at engine time for Alex Example #7\. Run the simulator/);
+    assert.match(ctx.els.axLiveTrkStatus.textContent, /^No eligible sample at engine time for Alex Example #7\. Run the simulator with --with-tracking/);
+    await ctx.tick();
+    await ctx.fail("/a1/live");
+    assert.match(ctx.els.axLiveHrStatus.textContent, /^Cannot reach backend/); assert.match(ctx.els.axLiveTrkStatus.textContent, /^Cannot reach backend/);
+    await ctx.tick();
+    await ctx.respond("/a1/live", {}, 500);
+    assert.match(ctx.els.axLiveHrStatus.textContent, /HTTP 500/);
+  });
+
+  test("live snapshot: late responses after athlete or mode changes are dropped; Live resumes after Recorded; public mode makes no request", async () => {
+    const ctx = boot();
+    await start(ctx);
+    const first = ctx.pending.find(p => p.url.endsWith("/a1/live"));
+    await select(ctx, "a2");
+    await ctx.resolveLate(first, liveBody({ physiological: phys(0, 150), physiological_age_seconds: 0.1 }));
+    assert.equal(ctx.els.axLiveHrValue.textContent, "—", "a1's late snapshot never shown under a2");
+    await click(ctx, "axModeRecorded");
+    const pendingLive = ctx.pending.find(p => p.url.endsWith("/a2/live"));
+    await ctx.tick();
+    assert.equal(ctx.pending.filter(p => p.url.endsWith("/a2/live")).length, 1, "no live polling in Recorded mode");
+    await click(ctx, "axModeLive");
+    await ctx.resolveLate(pendingLive, liveBody({ athlete: "a2", physiological: Object.assign(phys(0, 99), { athlete_id: "a2" }), physiological_age_seconds: 0.1 }));
+    assert.equal(ctx.els.axLiveHrValue.textContent, "—", "the request from before the mode changes is dropped");
+    await ctx.respond("/a2/live", liveBody({ athlete: "a2", physiological: Object.assign(phys(0, 99), { athlete_id: "a2" }), physiological_age_seconds: 0.1 }));
+    assert.equal(ctx.els.axLiveHrValue.textContent, "99 bpm");
+    const pub = boot({ hostname: "assistantcoachai.net" });
+    await pub.flush();
+    assert.equal(pub.pending.length, 0);
   });
 
   // ---- run --------------------------------------------------------------------------------------------
