@@ -3619,7 +3619,7 @@
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
               <div class="card-title">Live team overview</div>
-              <div class="card-sub">Every athlete registered on the selected team, from one engine request about every 2 s while this dashboard is visible in Live mode. Each tile shows the newest retained reading per stream with its age. Display rule: a reading older than 5 s is marked "stopped updating"; that is a freshness label, not a judgment about the athlete or the device. Device lines show the latest status report for the device ids named by the newest samples: a reported association, not a verified identity, and "last reported connected" with its age, never a current-connection claim; a report older than 60 s is marked outdated (display rule).</div>
+              <div class="card-sub">Every athlete registered on the selected team, from one engine request about every 2 s while this dashboard is visible in Live mode. Each tile shows the newest retained reading per stream with its age. Display rule: a reading older than 5 s is marked "stopped updating"; that is a freshness label, not a judgment about the athlete or the device. Device lines show the latest status report for the device ids named by the newest samples: a reported association, not a verified identity, and "last reported connected" with its age, never a current-connection claim; a report older than 60 s is marked outdated (display rule), and a report timestamped ahead of engine time (clock skew) says so.</div>
             </div>
             <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;">
               <label for="axTeamSelect" class="card-sub" style="margin:0;">Team</label>
@@ -10425,6 +10425,7 @@ function initializePlayerFatigue(team) {
     var parts = ["last reported " + (st.connected === true ? "connected" : (st.connected === false ? "disconnected" : "connection unknown")) + " " + age];
     parts.push("battery " + (isNum(st.battery_percent) ? Math.round(st.battery_percent) + "%" : "not reported"));
     parts.push("signal quality " + (isNum(st.signal_quality) ? st.signal_quality.toFixed(2) : "not reported"));
+    if (isNum(entry.status_ahead_seconds) && entry.status_ahead_seconds > 0) parts.push("timestamped " + entry.status_ahead_seconds.toFixed(1) + " s ahead of engine time (clock skew; shown because it is the newest report held, not because it is current)");
     var text = "device " + entry.device_id + ": " + parts.join(" · ");
     return deviceState(entry) === "outdated" ? text + " · outdated report (older than " + DEVICE_STALE_S + " s, display rule; says nothing about the connection now)" : text;
   }

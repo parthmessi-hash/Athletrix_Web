@@ -351,9 +351,11 @@ response rather than extra requests. The association is only that the
 sample named the id: it is a reported association, not a verified identity
 or a permanent assignment. A status is a report about its own moment, so the
 wording is always "last reported ..." with the report's age; a report older
-than 60 s is marked outdated (a display rule), and nothing on the page
-infers that a device is connected or disconnected from samples arriving or
-stopping. Battery 0% and signal quality 0.00 are real readings; "not
+than 60 s is marked outdated (a display rule), a report timestamped ahead
+of engine time (accepted within the engine's clock-skew allowance) says so
+and is shown only because it is the newest report held, and nothing on the
+page infers that a device is connected or disconnected from samples
+arriving or stopping. Battery 0% and signal quality 0.00 are real readings; "not
 reported" is a null. "No status report received" means the id was named but
 no report exists; "no device id reported" means the newest samples named
 none. The simulator sends such reports only with `--with-device-status`.

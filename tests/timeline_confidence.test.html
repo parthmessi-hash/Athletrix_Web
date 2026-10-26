@@ -1172,6 +1172,11 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(devLine(t3).textContent, "no device id reported in the newest samples"); assert.equal(devLine(t3).getAttribute("data-device-state"), "no-id");
     assert.equal(devLine(t4).textContent, "no device information");
     assert.ok(!/currently connected|is connected|online|offline/i.test(devLine(t1).textContent), "no present-tense connection claim");
+    // a report accepted within the engine's clock-skew allowance: age 0, skew stated, never shown as "current"
+    await ctx.tick();
+    await ctx.respond("/teams/demo-team/live", teamBody("demo-team", [member("a1", "Alex Example", 7, { physiological: Object.assign(phys(0, 131), { device_id: "w-1" }), physiological_age_seconds: 1.0, devices: [Object.assign(dev("w-1", ["physiological"], dstatus("w-1", true, 50, 0.5), 0.0), { status_ahead_seconds: 3.0 })] })]));
+    assert.equal(devLine(tiles(ctx)[0]).textContent, "device w-1: last reported connected 0.0 s ago · battery 50% · signal quality 0.50 · timestamped 3.0 s ahead of engine time (clock skew; shown because it is the newest report held, not because it is current) (physiological)");
+    assert.equal(devLine(tiles(ctx)[0]).getAttribute("data-device-state"), "reported");
   });
 
   test("device status: the selected-athlete cards take the device line from the team response and clear it on athlete change", async () => {
