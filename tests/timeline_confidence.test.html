@@ -1650,6 +1650,18 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axPeriodList.children.length, 3);
     assert.equal(ctx.els.axPeriodList.children[1].children[0].textContent, '"second sprint" · 2026-10-26T20:10:00Z to 2026-10-26T20:10:20Z · 20.0 s · saved 2026-10-26T20:35:00Z UTC · per-20261026T203500Z-aaaaaa');
     assert.equal(ctx.els.axPeriodList.children[2].children[0].textContent, '"second sprint" · 2026-10-26T20:12:00+02:00 to 2026-10-26T20:12:10+02:00 · 10.0 s · saved 2026-10-26T20:35:00Z UTC · per-3', "identical labels coexist; the bounds keep their offsets");
+    // download review JSON: the engine's snapshot for that period, saved through a download link with the engine's filename
+    assert.equal(ctx.els.axPeriodList.children[1].children[2].textContent, "Download review JSON");
+    ctx.els.axPeriodList.children[1].children[2].dispatch("click"); await ctx.flush();
+    assert.ok(urls(ctx).some(u => u.endsWith(RB + "periods/per-20261026T203500Z-aaaaaa/review.json")));
+    const headers = { get: n => n === "content-disposition" ? 'attachment; filename="athletrix-period-review-rec-a1-per-x-20261026T204000Z.json"' : null };
+    await ctx.respondRaw(RB + "periods/per-20261026T203500Z-aaaaaa/review.json", { ok: true, status: 200, headers, blob: async () => new Blob(["{}"], { type: "application/json" }) });
+    const anchors = ctx.created.filter(e => e.tag === "a");
+    assert.equal(anchors[anchors.length - 1].getAttribute("download"), "athletrix-period-review-rec-a1-per-x-20261026T204000Z.json");
+    assert.match(ctx.els.axPeriodStatus.textContent, /^Downloaded athletrix-period-review-rec-a1-per-x-20261026T204000Z\.json: the saved selection, the engine rules in force now, this snapshot of the figures and the samples they came from\./);
+    ctx.els.axPeriodList.children[0].children[2].dispatch("click"); await ctx.flush();
+    await ctx.respondRaw(RB + "periods/per-1/review.json", { ok: false, status: 404, json: async () => ({ detail: "gone" }) });
+    assert.match(ctx.els.axPeriodStatus.textContent, /^The engine no longer knows this saved period \(HTTP 404\)/);
     // open restores the exact bounds, runs the session effort review and labels the result
     setEffort(ctx, "", "");
     ctx.els.axPeriodList.children[2].children[1].dispatch("click"); await ctx.flush();

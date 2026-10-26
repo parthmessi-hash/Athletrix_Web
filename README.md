@@ -246,7 +246,11 @@ exact saved bounds back into the effort inputs, runs the existing session
 effort review and labels the result with the period's label, id and bounds.
 A saved period is a selection you made, not a detected event and not a
 frozen result: opening it calculates with the engine's rules in force now,
-and the note says so. Identical labels may coexist; the id identifies a
+and the note says so. **Download review JSON** on a saved period saves the
+engine's descriptive snapshot (`GET .../periods/{id}/review.json`: the saved
+selection, the rules in force at that moment, the figures and the samples they
+came from) on this computer through a download link; nothing is uploaded, and
+a later download after an engine setting change is a different snapshot. Identical labels may coexist; the id identifies a
 period. Editing a bound, changing athlete, recording or mode clears the
 opened period, the effort result and the comparison slots, and late replies
 for an earlier athlete or recording are dropped. The block is hidden for an

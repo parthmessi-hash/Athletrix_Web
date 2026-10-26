@@ -11659,12 +11659,14 @@ function initializePlayerFatigue(team) {
     setPeriodListStatus(list.length + (list.length === 1 ? " saved period" : " saved periods") + " for " + (selection.label || "this athlete") + " in this recording, by start instant. Open restores the exact bounds and reviews them with the engine's current rules.", COLORS.muted);
     for (var i = 0; i < list.length; i++) {
       (function(p) {
-        var row = document.createElement("div"), text = document.createElement("span"), open = document.createElement("button");
+        var row = document.createElement("div"), text = document.createElement("span"), open = document.createElement("button"), dl = document.createElement("button");
         row.setAttribute("style", "display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 10px;border:1px solid rgba(255,255,255,0.12);");
         text.textContent = periodLine(p); text.setAttribute("style", "flex:1 1 240px;min-width:0;overflow-wrap:anywhere;font-family:monospace;font-size:0.78rem;");
         open.type = "button"; open.className = "btn btn-ghost"; open.setAttribute("style", "padding:4px 10px;font-size:0.78rem;"); open.textContent = "Open"; open.setAttribute("data-period-id", p.id);
         open.addEventListener("click", function() { openPeriod(p); });
-        row.appendChild(text); row.appendChild(open); effortEl.axPeriodList.appendChild(row);
+        dl.type = "button"; dl.className = "btn btn-ghost"; dl.setAttribute("style", "padding:4px 10px;font-size:0.78rem;"); dl.textContent = "Download review JSON"; dl.setAttribute("data-period-download", p.id);
+        dl.addEventListener("click", function() { downloadPeriodReview(p, dl); });
+        row.appendChild(text); row.appendChild(open); row.appendChild(dl); effortEl.axPeriodList.appendChild(row);
       })(list[i]);
     }
   }
@@ -11715,6 +11717,28 @@ function initializePlayerFatigue(team) {
     }).catch(function(err) {
       if (stale()) return;
       done(); setPeriodStatus("Cannot reach backend at " + API_BASE + " (" + err.message + ") while saving; nothing is known to have been saved. Click Save this period to try again.", COLORS.error);
+    });
+  }
+  function downloadPeriodReview(p, button) { // the engine's descriptive JSON snapshot of this saved period, saved on this computer
+    if (!sessionReview() || selection.id === null) return;
+    var seq = ++periods.saveSeq, id = selection.id, sk = sessionKey();
+    button.disabled = true;
+    setPeriodStatus("Preparing the review snapshot of \"" + p.label + "\" (calculated now with the engine's current rules)…", COLORS.muted);
+    var stale = function() { return seq !== periods.saveSeq || id !== selection.id || sk !== sessionKey() || !sessionReview(); };
+    fetch(athleteUrl(id, "/periods/" + encodeURIComponent(p.id) + "/review.json"), { cache: "no-store" }).then(function(res) {
+      if (stale()) return;
+      if (res.status === 404) { button.disabled = false; setPeriodStatus("The engine no longer knows this saved period (HTTP 404). Click Refresh list.", COLORS.warn); return; }
+      if (!res.ok) { button.disabled = false; setPeriodStatus("Backend error: HTTP " + res.status + " while preparing the review snapshot.", COLORS.error); return; }
+      var disposition = (res.headers && res.headers.get && res.headers.get("content-disposition")) || "", m = /filename="([^"]+)"/.exec(disposition);
+      var name = m ? m[1] : "athletrix-period-review-" + String(p.id).replace(/[^A-Za-z0-9._-]+/g, "_") + ".json";
+      return res.blob().then(function(blob) {
+        if (stale()) return;
+        button.disabled = false; saveBlob(blob, name);
+        setPeriodStatus("Downloaded " + name + ": the saved selection, the engine rules in force now, this snapshot of the figures and the samples they came from. A later download with other engine settings is a different snapshot; the saved bounds never change.", COLORS.muted);
+      });
+    }).catch(function(err) {
+      if (stale()) return;
+      button.disabled = false; setPeriodStatus("Cannot download from " + API_BASE + " (" + err.message + "). Click Download review JSON to try again.", COLORS.error);
     });
   }
   function openPeriod(p) {
