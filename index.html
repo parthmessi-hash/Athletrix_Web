@@ -3619,7 +3619,7 @@
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
               <div class="card-title">Live team overview</div>
-              <div class="card-sub">Every athlete registered on the selected team, from one engine request about every 2 s while this dashboard is visible in Live mode. Each tile shows the newest retained reading per stream with its age. Display rule: a reading older than 5 s is marked "stopped updating"; that is a freshness label, not a judgment about the athlete or the device.</div>
+              <div class="card-sub">Every athlete registered on the selected team, from one engine request about every 2 s while this dashboard is visible in Live mode. Each tile shows the newest retained reading per stream with its age. Display rule: a reading older than 5 s is marked "stopped updating"; that is a freshness label, not a judgment about the athlete or the device. Device lines show the latest status report for the device ids named by the newest samples: a reported association, not a verified identity, and "last reported connected" with its age, never a current-connection claim; a report older than 60 s is marked outdated (display rule).</div>
             </div>
             <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;">
               <label for="axTeamSelect" class="card-sub" style="margin:0;">Team</label>
@@ -3645,6 +3645,7 @@
               <div class="vital"><div class="vital-label">Sample Time</div><div class="vital-value" id="axLiveHrTime">&mdash;</div></div>
             </div>
             <div class="card-sub" id="axLiveHrStatus">Waiting for roster&hellip;</div>
+            <div class="card-sub" id="axLiveHrDevice" style="margin-top:4px;font-size:0.76rem;"></div>
           </div>
           <div class="card" id="axLiveTrk" style="border-left:4px solid #3b82f6;">
             <div class="card-header">
@@ -3661,6 +3662,7 @@
               <div class="vital"><div class="vital-label">Sample Time</div><div class="vital-value" id="axLiveTrkTime">&mdash;</div></div>
             </div>
             <div class="card-sub" id="axLiveTrkStatus">Waiting for roster&hellip;</div>
+            <div class="card-sub" id="axLiveTrkDevice" style="margin-top:4px;font-size:0.76rem;"></div>
           </div>
         </div>
         <div class="card" id="axLiveSum" style="margin-bottom:24px;border-left:4px solid #3b82f6;">
@@ -10408,6 +10410,40 @@ function initializePlayerFatigue(team) {
     return r === "none" ? "no sample" : (r === "recent" ? age.toFixed(1) + " s ago" : "stopped updating · " + age.toFixed(1) + " s ago (display rule: older than " + (STALE_MS / 1000) + " s)");
   }
   function sourceText(sample) { return !sample ? "" : (isSourceName(sample.source) ? "reported source: " + sample.source : "source not reported"); }
+  // Device status wording. A status is the device's latest report, associated only because the athlete's newest sample
+  // named that device id. "Last reported connected/disconnected" describes the report at its own time; a report older
+  // than DEVICE_STALE_S is marked outdated (display rule). Battery 0 and signal 0 are real readings; null = not reported.
+  var DEVICE_STALE_S = 60;
+  var teamDevices = {}; // athlete id -> devices[] from the latest team response, for the selected-athlete cards
+  function deviceState(entry) {
+    if (!entry || !entry.status) return "no-status";
+    return isNum(entry.status_age_seconds) && entry.status_age_seconds > DEVICE_STALE_S ? "outdated" : "reported";
+  }
+  function deviceText(entry) {
+    if (!entry || !entry.status) return "device " + entry.device_id + ": no status report received";
+    var st = entry.status, age = isNum(entry.status_age_seconds) ? entry.status_age_seconds.toFixed(1) + " s ago" : "age unknown";
+    var parts = ["last reported " + (st.connected === true ? "connected" : (st.connected === false ? "disconnected" : "connection unknown")) + " " + age];
+    parts.push("battery " + (isNum(st.battery_percent) ? Math.round(st.battery_percent) + "%" : "not reported"));
+    parts.push("signal quality " + (isNum(st.signal_quality) ? st.signal_quality.toFixed(2) : "not reported"));
+    var text = "device " + entry.device_id + ": " + parts.join(" · ");
+    return deviceState(entry) === "outdated" ? text + " · outdated report (older than " + DEVICE_STALE_S + " s, display rule; says nothing about the connection now)" : text;
+  }
+  function deviceLineFor(athleteId, deviceId) { // for the selected-athlete cards: the entry from the latest team response, if any
+    if (!isSourceName(deviceId)) return { text: "No device id reported in this sample.", state: "no-id" };
+    var list = teamDevices[String(athleteId)];
+    if (!list) return { text: "Device " + deviceId + ": status not available here (the athlete is not on the selected team's overview).", state: "unavailable" };
+    for (var i = 0; i < list.length; i++) if (list[i].device_id === deviceId) return { text: "D" + deviceText(list[i]).slice(1), state: deviceState(list[i]) };
+    return { text: "Device " + deviceId + ": not named by the newest sample in the team overview.", state: "unavailable" };
+  }
+  var liveDeviceLines = { hr: null, trk: null }; // the device id each live card last showed, so a later team response can refresh its line
+  function paintDeviceLine(key) {
+    var el = byId(key === "hr" ? "axLiveHrDevice" : "axLiveTrkDevice"); if (!el) return;
+    var d = liveDeviceLines[key];
+    if (!d) { el.textContent = ""; el.removeAttribute("data-device-state"); return; }
+    var line = deviceLineFor(d.athleteId, d.deviceId);
+    el.textContent = line.text; el.setAttribute("data-device-state", line.state);
+  }
+  function setLiveDeviceLine(key, athleteId, deviceId) { liveDeviceLines[key] = athleteId === null ? null : { athleteId: athleteId, deviceId: deviceId }; paintDeviceLine(key); }
   function teamTile(row) {
     var a = row.athlete || {}, p = row.physiological, t = row.tracking;
     var tile = document.createElement("button");
@@ -10422,6 +10458,11 @@ function initializePlayerFatigue(team) {
     sp.textContent = "Speed: " + (t ? (isNum(t.speed_mps) ? t.speed_mps.toFixed(1) + " m/s" : "—") + " · confidence " + (isNum(t.tracking_confidence) ? Math.round(t.tracking_confidence * 100) + "%" : "—") + " · " + recencyText(row.tracking_age_seconds) : "no sample"); tile.appendChild(sp);
     var src = document.createElement("div"); src.setAttribute("class", "ax-team-src"); src.setAttribute("style", "font-size:0.74rem;color:#8a9097;margin-top:2px;");
     src.textContent = [p ? "heart rate " + sourceText(p) : null, t ? "tracking " + sourceText(t) : null].filter(Boolean).join(" · ") || "no samples retained"; tile.appendChild(src);
+    var devs = Array.isArray(row.devices) ? row.devices : [];
+    var dev = document.createElement("div"); dev.setAttribute("class", "ax-team-dev"); dev.setAttribute("style", "font-size:0.74rem;color:#8a9097;margin-top:2px;");
+    if (!devs.length) { dev.textContent = (p || t) ? "no device id reported in the newest samples" : "no device information"; dev.setAttribute("data-device-state", "no-id"); }
+    else { dev.textContent = devs.map(function(e) { return deviceText(e) + " (" + e.streams.join(" + ") + ")"; }).join(" · "); dev.setAttribute("data-device-state", devs.map(deviceState).join(",")); }
+    tile.appendChild(dev);
     tile.addEventListener("click", function() {
       if (!rosterById.hasOwnProperty(String(a.id))) return; // only athletes the roster knows can be opened in the detailed cards
       selectEl.value = String(a.id);
@@ -10432,6 +10473,9 @@ function initializePlayerFatigue(team) {
   function renderTeam(body) {
     clearTeamGrid();
     var rows = Array.isArray(body.athletes) ? body.athletes : [];
+    teamDevices = {};
+    rows.forEach(function(r) { if (r.athlete && r.athlete.id !== undefined) teamDevices[String(r.athlete.id)] = Array.isArray(r.devices) ? r.devices : []; });
+    paintDeviceLine("hr"); paintDeviceLine("trk");
     for (var i = 0; i < rows.length; i++) teamEl.axTeamGrid.appendChild(teamTile(rows[i]));
     var recent = 0, stopped = 0, none = 0;
     rows.forEach(function(r) { var states = [recency(r.physiological_age_seconds), recency(r.tracking_age_seconds)]; if (states.indexOf("recent") >= 0) recent++; else if (states.indexOf("stopped") >= 0) stopped++; else none++; });
@@ -10686,7 +10730,7 @@ function initializePlayerFatigue(team) {
     startPoller({
       path: "/physiological/latest", whoEl: "axLiveHrWho", statusEl: "axLiveHrStatus", timeEl: "axLiveHrTime",
       noSampleText: function(label, id) { return "No heart-rate sample yet for " + label + ". Run the simulator with --athlete-id " + id + "."; },
-      clear: function() { valueEl.textContent = DASH; valueEl.title = ""; hideBadge(badgeEl); },
+      clear: function() { valueEl.textContent = DASH; valueEl.title = ""; hideBadge(badgeEl); setLiveDeviceLine("hr", null); },
       render: function(sample) {
         // heart_rate_bpm is optional in the API; a null stays null and is shown as "not reported", never as 0.
         var hr = sample.heart_rate_bpm, missing = !isNum(hr);
@@ -10694,6 +10738,7 @@ function initializePlayerFatigue(team) {
         valueEl.title = missing ? "heart_rate_bpm: null" : "heart_rate_bpm: " + hr;
         var src = sampleSourceLabel(sample); // this sample's own reported source, whatever it is
         setBadge(badgeEl, src);
+        setLiveDeviceLine("hr", selection.id, sample.device_id);
         return "Live · " + (missing ? "heart rate not reported in this sample · " : "") + src.status;
       }
     });
@@ -10707,13 +10752,14 @@ function initializePlayerFatigue(team) {
     startPoller({
       path: "/tracking/latest", whoEl: "axLiveTrkWho", statusEl: "axLiveTrkStatus", timeEl: "axLiveTrkTime",
       noSampleText: function(label, id) { return "No tracking sample yet for " + label + ". Run the simulator with --athlete-id " + id + " --with-tracking."; },
-      clear: function() { [speedEl, accelEl, confEl].forEach(function(el){ el.textContent = DASH; el.title = ""; }); hideBadge(trkBadgeEl); },
+      clear: function() { [speedEl, accelEl, confEl].forEach(function(el){ el.textContent = DASH; el.title = ""; }); hideBadge(trkBadgeEl); setLiveDeviceLine("trk", null); },
       render: function(sample) {
         show(speedEl, sample.speed_mps, function(v){ return v.toFixed(1) + " m/s"; }, "speed_mps");
         show(accelEl, sample.acceleration_mps2, function(v){ return (v > 0 ? "+" : "") + v.toFixed(1) + " m/s²"; }, "acceleration_mps2");
         show(confEl, sample.tracking_confidence, function(v){ return Math.round(v * 100) + "%"; }, "tracking_confidence");
         var src = sampleSourceLabel(sample); // older tracking records carry no source: "not reported", never assumed
         setBadge(trkBadgeEl, src);
+        setLiveDeviceLine("trk", selection.id, sample.device_id);
         return "Live · " + src.status + " · x " + (isNum(sample.x_position) ? sample.x_position.toFixed(1) : DASH) + " m, y " + (isNum(sample.y_position) ? sample.y_position.toFixed(1) : DASH) + " m";
       }
     });

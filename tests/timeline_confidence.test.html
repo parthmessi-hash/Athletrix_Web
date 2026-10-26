@@ -83,7 +83,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail",
     "axTlPick", "axTlArmStart", "axTlArmEnd", "axTlPickClear", "axTlPointSelect", "axTlSetStart", "axTlSetEnd", "axTlPickStatus", "axTlPickSelected",
     "axEffortSaveA", "axEffortSaveB", "axCompareCard", "axCmpWho", "axCmpStatus", "axCmpASummary", "axCmpBSummary", "axCmpClearA", "axCmpClearB", "axCmpBody",
-    "axTeamCard", "axTeamSelect", "axTeamRefresh", "axTeamStatus", "axTeamGrid",
+    "axTeamCard", "axTeamSelect", "axTeamRefresh", "axTeamStatus", "axTeamGrid", "axLiveHrDevice", "axLiveTrkDevice",
   ];
 
   function boot(opts) {
@@ -1079,11 +1079,11 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(tiles(ctx).length, 3);
     const [t1, t2, t3] = tiles(ctx);
     assert.equal(t1.getAttribute("data-athlete-id"), "a1"); assert.equal(t1.getAttribute("data-hr-state"), "recent"); assert.equal(t1.getAttribute("data-trk-state"), "recent");
-    assert.deepEqual(tileText(t1), ["Alex Example #7 · fictional", "Heart rate: 131 bpm · 1.2 s ago", "Speed: 0.0 m/s · confidence 92% · 0.8 s ago", "heart rate reported source: wearable · tracking reported source: camera"]);
+    assert.deepEqual(tileText(t1), ["Alex Example #7 · fictional", "Heart rate: 131 bpm · 1.2 s ago", "Speed: 0.0 m/s · confidence 92% · 0.8 s ago", "heart rate reported source: wearable · tracking reported source: camera", "no device id reported in the newest samples"]); // this fictional response carries no devices block
     assert.equal(t2.getAttribute("data-hr-state"), "stopped"); assert.equal(t2.getAttribute("data-trk-state"), "stopped");
-    assert.deepEqual(tileText(t2), ["Stale Example #9 · fictional", "Heart rate: not reported in sample · stopped updating · 42.5 s ago (display rule: older than 5 s)", "Speed: 4.1 m/s · confidence 50% · stopped updating · 600.0 s ago (display rule: older than 5 s)", "heart rate reported source: simulated · tracking source not reported"]);
+    assert.deepEqual(tileText(t2), ["Stale Example #9 · fictional", "Heart rate: not reported in sample · stopped updating · 42.5 s ago (display rule: older than 5 s)", "Speed: 4.1 m/s · confidence 50% · stopped updating · 600.0 s ago (display rule: older than 5 s)", "heart rate reported source: simulated · tracking source not reported", "no device id reported in the newest samples"]);
     assert.equal(t3.getAttribute("data-hr-state"), "none"); assert.equal(t3.getAttribute("data-trk-state"), "none");
-    assert.deepEqual(tileText(t3), ["Empty Example #3 · fictional", "Heart rate: no sample", "Speed: no sample", "no samples retained"]);
+    assert.deepEqual(tileText(t3), ["Empty Example #3 · fictional", "Heart rate: no sample", "Speed: no sample", "no samples retained", "no device information"]);
     assert.match(ctx.els.axTeamStatus.textContent, /^Team demo-team · 3 athletes · captured by the engine at 2026-10-25T12:00:00Z UTC · 1 with a reading within 5 s, 1 stopped updating, 1 without samples\./);
     assert.ok(!/healthy|fatigue|disconnected|readiness/i.test(ctx.els.axTeamStatus.textContent + tileText(t2).join(" ")), "freshness is a display rule only");
     const n = ctx.pending.length;
@@ -1147,6 +1147,53 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     ctx.els["view-dashboard"].classes.delete("active-view");
     await ctx.tick();
     assert.equal(teamUrls(ctx).length, 0, "nothing while the dashboard is not visible");
+  });
+
+  // ---- reported device status ------------------------------------------------------------------------------
+
+  const dstatus = (id, connected, battery, signal) => ({ device_id: id, timestamp: "2026-10-25T11:59:57Z", connected, battery_percent: battery, signal_quality: signal });
+  const dev = (id, streams, status, age) => ({ device_id: id, streams, status, status_age_seconds: age });
+  const devLine = tile => tile.children.find(c => c.getAttribute("class") === "ax-team-dev");
+
+  test("device status: tiles show the latest report per reported device id with age, zeros, nulls, outdated and no-status states", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/teams/demo-team/live", teamBody("demo-team", [
+      member("a1", "Alex Example", 7, { physiological: Object.assign(phys(0, 131), { device_id: "w-1" }), physiological_age_seconds: 1.0, tracking: Object.assign(trk(0, 1, 0.9), { device_id: "c-1" }), tracking_age_seconds: 1.0,
+        devices: [dev("w-1", ["physiological"], dstatus("w-1", true, 0, 0.0), 3.0), dev("c-1", ["tracking"], dstatus("c-1", false, null, null), 120.5)] }),
+      member("x2", "Shared Example", 2, { physiological: Object.assign(phys(0, 120), { device_id: "unit-7" }), physiological_age_seconds: 1.0, tracking: Object.assign(trk(0, 1, 0.9), { device_id: "unit-7" }), tracking_age_seconds: 1.0, devices: [dev("unit-7", ["physiological", "tracking"], null, null)] }),
+      member("x3", "Legacy Example", 3, { tracking: trk(0, 2, 0.9), tracking_age_seconds: 1.0, devices: [] }),
+      member("x4", "Empty Example", 4),
+    ]));
+    const [t1, t2, t3, t4] = tiles(ctx);
+    assert.equal(devLine(t1).textContent, "device w-1: last reported connected 3.0 s ago · battery 0% · signal quality 0.00 (physiological) · device c-1: last reported disconnected 120.5 s ago · battery not reported · signal quality not reported · outdated report (older than 60 s, display rule; says nothing about the connection now) (tracking)");
+    assert.equal(devLine(t1).getAttribute("data-device-state"), "reported,outdated");
+    assert.equal(devLine(t2).textContent, "device unit-7: no status report received (physiological + tracking)"); assert.equal(devLine(t2).getAttribute("data-device-state"), "no-status");
+    assert.equal(devLine(t3).textContent, "no device id reported in the newest samples"); assert.equal(devLine(t3).getAttribute("data-device-state"), "no-id");
+    assert.equal(devLine(t4).textContent, "no device information");
+    assert.ok(!/currently connected|is connected|online|offline/i.test(devLine(t1).textContent), "no present-tense connection claim");
+  });
+
+  test("device status: the selected-athlete cards take the device line from the team response and clear it on athlete change", async () => {
+    const ctx = boot();
+    await start(ctx);
+    const now = new Date().toISOString();
+    await ctx.respond("/physiological/latest", Object.assign(phys(0, 150), { timestamp: now, device_id: "w-1" }));
+    assert.equal(ctx.els.axLiveHrDevice.textContent, "Device w-1: status not available here (the athlete is not on the selected team's overview).");
+    assert.equal(ctx.els.axLiveHrDevice.getAttribute("data-device-state"), "unavailable");
+    await ctx.respond("/teams/demo-team/live", teamBody("demo-team", [member("a1", "Alex Example", 7, { physiological: Object.assign(phys(0, 150), { device_id: "w-1" }), physiological_age_seconds: 0.5, devices: [dev("w-1", ["physiological"], dstatus("w-1", true, 72, 0.6), 2.5)] })]));
+    assert.equal(ctx.els.axLiveHrDevice.textContent, "Device w-1: last reported connected 2.5 s ago · battery 72% · signal quality 0.60", "a later team response refreshes the card's line");
+    assert.equal(ctx.els.axLiveHrDevice.getAttribute("data-device-state"), "reported");
+    await ctx.respond("/tracking/latest", { athlete_id: "a1", timestamp: now, x_position: 1, y_position: 2, speed_mps: 3, acceleration_mps2: 0, tracking_confidence: 0.9 });
+    assert.equal(ctx.els.axLiveTrkDevice.textContent, "No device id reported in this sample."); assert.equal(ctx.els.axLiveTrkDevice.getAttribute("data-device-state"), "no-id");
+    await select(ctx, "a2");
+    assert.equal(ctx.els.axLiveHrDevice.textContent, "", "cleared with the card on athlete change"); assert.equal(ctx.els.axLiveHrDevice.getAttribute("data-device-state"), null);
+    await ctx.respond("/a2/physiological/latest", Object.assign(phys(0, 99), { athlete_id: "a2", timestamp: now, device_id: "w-2" }));
+    assert.equal(ctx.els.axLiveHrDevice.textContent, "Device w-2: status not available here (the athlete is not on the selected team's overview).");
+    ctx.els.axTeamSelect.value = "team-b"; ctx.els.axTeamSelect.dispatch("change"); await ctx.flush();
+    await ctx.respond("/teams/team-b/live", teamBody("team-b", [member("a2", "Sam Sample", 9, { physiological: Object.assign(phys(0, 99), { device_id: "w-2" }), physiological_age_seconds: 0.2, devices: [dev("w-2", ["physiological"], dstatus("w-2", true, null, 0.0), 400)] })]));
+    assert.match(ctx.els.axLiveHrDevice.textContent, /^Device w-2: last reported connected 400\.0 s ago · battery not reported · signal quality 0\.00 · outdated report/);
+    assert.equal(ctx.els.axLiveHrDevice.getAttribute("data-device-state"), "outdated");
   });
 
   // ---- run --------------------------------------------------------------------------------------------

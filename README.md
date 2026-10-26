@@ -339,7 +339,26 @@ reported sources of those samples. The three states are kept apart:
   not a judgment about the athlete or the device.
 
 A null heart rate reads "not reported in sample" and a zero speed reads
-`0.0 m/s`. Clicking a tile selects that athlete exactly as the Athlete
+`0.0 m/s`.
+
+**Reported device status.** Each tile also lists the device ids named by
+the athlete's newest samples (one line per id; an id shared by both streams
+appears once with "physiological + tracking") with that device's latest
+status report from the engine: "last reported connected 3.0 s ago · battery
+72% · signal quality 0.60". The same line appears under the Live Heart Rate
+and Live Tracking cards for the selected athlete, taken from the team
+response rather than extra requests. The association is only that the
+sample named the id: it is a reported association, not a verified identity
+or a permanent assignment. A status is a report about its own moment, so the
+wording is always "last reported ..." with the report's age; a report older
+than 60 s is marked outdated (a display rule), and nothing on the page
+infers that a device is connected or disconnected from samples arriving or
+stopping. Battery 0% and signal quality 0.00 are real readings; "not
+reported" is a null. "No status report received" means the id was named but
+no report exists; "no device id reported" means the newest samples named
+none. The simulator sends such reports only with `--with-device-status`.
+
+Clicking a tile selects that athlete exactly as the Athlete
 selector does and opens the detailed cards. Switching team drops any late
 answer for the previous team; an empty team, an unreachable engine and an
 HTTP error are shown in the status line and retried on the next refresh;
@@ -490,8 +509,11 @@ with stale results unsaveable); and the live team overview (team ids from
 the roster, one request per refresh, tiles with readings, recency states,
 zero speed and sources, tile clicks opening the athlete, team switching
 with late responses dropped, empty teams, errors and retries, roster
-reloads, and silence in Recorded mode and while hidden). Expect "45 tests,
-45 passed".
+reloads, and silence in Recorded mode and while hidden); and reported
+device status (per-device lines with age, zeros, nulls, outdated and
+no-status states on the tiles, and the selected-athlete cards taking their
+device line from the team response and clearing it on athlete change).
+Expect "47 tests, 47 passed".
 
 ## Project handoff
 
