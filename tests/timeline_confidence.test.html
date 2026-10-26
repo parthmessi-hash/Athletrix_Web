@@ -80,6 +80,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axRetainedDownload", "axRetainedDownloadStatus", "axSumAvail", "axTlAvail", "axEffortAvail",
     "axRecordingCard", "axRecName", "axRecAthletes", "axRecStart", "axRecStop", "axRecStatus", "axRecActive", "axRecRefresh", "axRecListStatus", "axRecList",
     "axModeSession", "axSessionBanner", "axSessionLabel", "axSessionExit", "axRetainedTitle", "axReviewBannerNote", "axRetainedNote",
+    "axNavGroup", "axNavFirst", "axNavPrev", "axNavNext", "axNavLast", "axSessionBounds", "axEffortPeriod", "axPeriodsBlock", "axPeriodLabel", "axPeriodSave", "axPeriodRefresh", "axPeriodStatus", "axPeriodListStatus", "axPeriodList",
     "axLiveTrkBadge", "axSumSourceBadge", "axSumSources", "axTlSourceBadge", "axTlSources",
     "axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp",
     "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
@@ -1461,6 +1462,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.match(ctx.els.axReviewStatus.textContent, /^Choose a recording in the Local recording card below/);
     assert.equal(ctx.els.axSessionBanner.style.display, "none");
     reviewButton(ctx, 0).dispatch("click"); await ctx.flush();
+    await ctx.respond("/athletes/a1/recorded-data", recordedData(stream(1800, "2026-10-26T20:00:00Z", "2026-10-26T20:29:59Z"), stream(0)));   // the bounds lookup made on entering
     assert.equal(ctx.els.axSessionBanner.style.display, "block");
     assert.match(ctx.els.axSessionLabel.textContent, /^"Tuesday practice" \(rec-20261026T200000Z-abc123\) · recorded 2026-10-26T20:00:00Z to 2026-10-26T20:30:00Z UTC \(backend clock\) · athletes: Alex Example #7, Saved Only #99$/);
     assert.equal(ctx.els.axModeSession.getAttribute("aria-pressed"), "true"); assert.equal(ctx.els.axModeLive.getAttribute("aria-pressed"), "false");
@@ -1474,7 +1476,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axReviewEnd.value, "2026-10-26T20:30:00Z", "prefilled with the recording's stop time");
     const base = "/api/v1/recordings/rec-20261026T200000Z-abc123/athletes/a1/";
     const q = "?seconds=60&end=2026-10-26T20%3A30%3A00Z";
-    assert.deepEqual(urls(ctx).filter(u => u.includes("/recordings/") && u.includes("/athletes/")).map(u => u.replace(/^.*\/api\/v1\//, "")).sort(), ["recordings/rec-20261026T200000Z-abc123/athletes/a1/summary" + q, "recordings/rec-20261026T200000Z-abc123/athletes/a1/window" + q]);
+    assert.deepEqual(urls(ctx).filter(u => u.includes("/recordings/") && (u.includes("/summary") || u.includes("/window"))).map(u => u.replace(/^.*\/api\/v1\//, "")).sort(), ["recordings/rec-20261026T200000Z-abc123/athletes/a1/summary" + q, "recordings/rec-20261026T200000Z-abc123/athletes/a1/window" + q]);
     const ses = { recording: { id: "rec-20261026T200000Z-abc123", name: "Tuesday practice", status: "stopped", started_at: "2026-10-26T20:00:00Z", stopped_at: "2026-10-26T20:30:00Z" } };
     const p = [{ athlete_id: "a1", timestamp: "2026-10-26T20:29:00Z", source: "wearable", device_id: "w", heart_rate_bpm: 120 }];
     await ctx.respond(base + "window", Object.assign({ athlete_id: "a1", window_start: "2026-10-26T20:29:00Z", window_end: "2026-10-26T20:30:00Z", physiological_samples: p, tracking_samples: [], tracking_rules: { min_confidence: 0.5 }, availability: null,
@@ -1556,6 +1558,134 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await pub.flush();
     assert.equal(pub.pending.length, 0, "public mode: no engine request at all");
     assert.equal(pub.els.axRecordingCard.style.display, "none");
+  });
+
+  // ---- recording navigation and saved periods -----------------------------------------------------------------
+  const periodBody = o => Object.assign({ id: "per-20261026T203500Z-aaaaaa", recording_id: "rec-20261026T200000Z-abc123", athlete_id: "a1", label: "second sprint", effort_start: "2026-10-26T20:10:00Z", effort_end: "2026-10-26T20:10:20Z", duration_seconds: 20.0, created_at: "2026-10-26T20:35:00Z" }, o || {});
+  const recordedData = (p, t) => ({ recording: { id: "rec-20261026T200000Z-abc123", name: "Tuesday practice", status: "stopped", started_at: "2026-10-26T20:00:00Z", stopped_at: "2026-10-26T20:30:00Z" }, athlete: ROSTER[0], physiological: p, tracking: t });
+  async function enterTuesday(ctx) { // boot, open the stopped recording "Tuesday practice", answer the first window and summary
+    await start(ctx);
+    await ctx.respond("/recordings/active", { recording: null });
+    await ctx.respond("/api/v1/recordings", [recording()]);
+    reviewButton(ctx, 0).dispatch("click"); await ctx.flush();
+  }
+  const RB = "/api/v1/recordings/rec-20261026T200000Z-abc123/athletes/a1/";
+
+  test("recording navigation: per-stream recorded bounds from recorded-data, First/Previous/Next/Last move the 60 s window on sample timestamps, empty windows are stated", async () => {
+    const ctx = boot();
+    await enterTuesday(ctx);
+    assert.equal(ctx.els.axNavGroup.style.display, "inline-flex", "navigation is a recording-review control");
+    assert.equal(ctx.els.axSessionBounds.textContent, "Recorded sample bounds: looking up…");
+    assert.ok(urls(ctx).some(u => u.endsWith(RB + "recorded-data")), "bounds are looked up on entering the recording");
+    await click(ctx, "axNavLast");
+    assert.match(ctx.els.axReviewStatus.textContent, /^The recorded sample bounds are not loaded yet/);
+    await ctx.respond(RB + "recorded-data", recordedData(stream(1200, "2026-10-26T20:05:00Z", "2026-10-26T20:24:59Z"), stream(0)));
+    assert.equal(ctx.els.axSessionBounds.textContent, "Recorded sample bounds for Alex Example #7 · heart rate: 1200 samples, 2026-10-26T20:05:00Z → 2026-10-26T20:24:59Z UTC · tracking: none recorded", "sample timestamps, not the recording's 20:00 to 20:30 backend times");
+    const endsOf = () => urls(ctx).filter(u => u.includes(RB + "window")).map(u => decodeURIComponent(u.split("end=")[1]));
+    await click(ctx, "axNavFirst");
+    assert.equal(ctx.els.axReviewEnd.value, "2026-10-26T20:06:00Z", "the 60 s beginning at the earliest recorded sample");
+    assert.match(ctx.els.axReviewStatus.textContent, /^Reviewing the first 60 s of recorded samples: 60 s ending 2026-10-26T20:06:00Z/);
+    await click(ctx, "axNavNext");
+    assert.equal(ctx.els.axReviewEnd.value, "2026-10-26T20:07:00Z");
+    await click(ctx, "axNavPrev"); await click(ctx, "axNavPrev");
+    assert.equal(ctx.els.axReviewEnd.value, "2026-10-26T20:05:00Z");
+    assert.match(ctx.els.axReviewStatus.textContent, /^Reviewing the previous 60 s: 60 s ending 2026-10-26T20:05:00Z for Alex Example #7\.$/, "a window ending at the first sample still touches the samples; nothing is claimed about emptiness");
+    await click(ctx, "axNavPrev");
+    assert.equal(ctx.els.axReviewEnd.value, "2026-10-26T20:04:00Z");
+    assert.match(ctx.els.axReviewStatus.textContent, /This window lies outside the recorded samples \(2026-10-26T20:05:00Z to 2026-10-26T20:24:59Z UTC\), so it will be empty\.$/);
+    await click(ctx, "axNavLast");
+    assert.equal(ctx.els.axReviewEnd.value, "2026-10-26T20:24:59Z");
+    assert.deepEqual(endsOf().slice(-6), ["2026-10-26T20:06:00Z", "2026-10-26T20:07:00Z", "2026-10-26T20:06:00Z", "2026-10-26T20:05:00Z", "2026-10-26T20:04:00Z", "2026-10-26T20:24:59Z"], "each move requested the recording's window at that end");
+    // an empty window keeps its requested bounds explicit
+    await ctx.respond(RB + "window?seconds=60&end=2026-10-26T20%3A24%3A59Z", Object.assign({ athlete_id: "a1", window_start: "2026-10-26T20:23:59Z", window_end: "2026-10-26T20:24:59Z", physiological_samples: [], tracking_samples: [], tracking_rules: { min_confidence: 0.5 }, session_availability: { physiological: sessionAvail({ recorded_count: 1200, recorded_earliest: "2026-10-26T20:05:00Z", recorded_latest: "2026-10-26T20:24:59Z" }), tracking: sessionAvail() } }, { recording: recordedData(stream(0), stream(0)).recording }));
+    assert.match(ctx.els.axTlWindow.textContent, /^Recorded window .*\(60 s, engine time, selected end\)$/);
+    assert.match(ctx.els.axReviewBounds.textContent, /^60 s from .* to .* \(engine time\)$/);
+    // the athlete without recorded samples: bounds say so and navigation refuses
+    ctx.els.axAthleteSelect.value = "a9"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
+    await ctx.respond("/athletes/a9/recorded-data", recordedData(stream(0), stream(0)));
+    assert.match(ctx.els.axSessionBounds.textContent, /heart rate: none recorded · tracking: none recorded$/);
+    await click(ctx, "axNavFirst");
+    assert.match(ctx.els.axReviewStatus.textContent, /^Nothing is recorded for Saved Only #99 in this recording, so there is no window to move to\.$/);
+    // a late bounds reply for the earlier athlete is dropped; bounds and navigation vanish outside recording review
+    ctx.els.axAthleteSelect.value = "a1"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
+    const late = ctx.pending.filter(p => p.url.endsWith(RB + "recorded-data")).pop();
+    ctx.els.axAthleteSelect.value = "a9"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
+    await ctx.resolveLate(late, recordedData(stream(5, "2026-10-26T20:05:00Z", "2026-10-26T20:05:04Z"), stream(0)));
+    assert.equal(ctx.els.axSessionBounds.textContent, "Recorded sample bounds: looking up…", "the earlier athlete's bounds never show under the new one");
+    await click(ctx, "axModeLive");
+    assert.equal(ctx.els.axNavGroup.style.display, "none"); assert.equal(ctx.els.axSessionBounds.textContent, "");
+  });
+
+  test("saved periods: listed per recording and athlete, saved from the typed bounds with a label, opened at their exact bounds, labelled with the result, cleared on changes, hidden for active recordings", async () => {
+    const ctx = boot();
+    await enterTuesday(ctx);
+    assert.equal(ctx.els.axPeriodsBlock.style.display, "block", "a stopped recording: periods can be saved");
+    assert.ok(urls(ctx).some(u => u.endsWith(RB + "periods")), "the list is loaded on entering the recording");
+    await ctx.respond(RB + "periods", []);
+    assert.equal(ctx.els.axPeriodListStatus.textContent, "No saved periods for Alex Example #7 in this recording yet.");
+    // page validation before any request
+    const n = cardPending(ctx);
+    await click(ctx, "axPeriodSave");
+    assert.match(ctx.els.axPeriodStatus.textContent, /^Effort start is empty/);
+    setEffort(ctx, "2026-10-26T20:10:00Z", "2026-10-26T20:10:20Z");
+    await click(ctx, "axPeriodSave");
+    assert.equal(ctx.els.axPeriodStatus.textContent, "Enter a label for the period (a short description; it need not be unique).");
+    assert.equal(cardPending(ctx), n, "nothing was requested for an invalid form");
+    ctx.els.axPeriodLabel.value = " second sprint ";
+    ctx.els.axPeriodLabel.dispatch("keydown"); // no Enter key: nothing happens
+    await click(ctx, "axPeriodSave");
+    const req = ctx.pending[ctx.pending.length - 1];
+    assert.ok(req.url.endsWith(RB + "periods") && req.opts.method === "POST");
+    assert.deepEqual(JSON.parse(req.opts.body), { label: "second sprint", effort_start: "2026-10-26T20:10:00Z", effort_end: "2026-10-26T20:10:20Z" });
+    assert.equal(ctx.els.axPeriodSave.disabled, true);
+    await ctx.respond(RB + "periods", { detail: "effort duration 200.000 s must be between 1 and 120 seconds" }, 422);
+    assert.equal(ctx.els.axPeriodStatus.textContent, "Engine refused: effort duration 200.000 s must be between 1 and 120 seconds");
+    assert.equal(ctx.els.axPeriodSave.disabled, false);
+    await click(ctx, "axPeriodSave");
+    await ctx.respond(RB + "periods", periodBody(), 201);
+    assert.match(ctx.els.axPeriodStatus.textContent, /^Saved "second sprint" \(per-20261026T203500Z-aaaaaa\): 2026-10-26T20:10:00Z to 2026-10-26T20:10:20Z\. A selection only; reviews of it use the engine's rules at review time\.$/);
+    assert.equal(ctx.els.axPeriodLabel.value, "");
+    await ctx.respond(RB + "periods", [periodBody({ id: "per-1", label: "warm-up", effort_start: "2026-10-26T20:06:00Z", effort_end: "2026-10-26T20:06:30Z", duration_seconds: 30 }), periodBody(), periodBody({ id: "per-3", label: "second sprint", effort_start: "2026-10-26T20:12:00+02:00", effort_end: "2026-10-26T20:12:10+02:00", duration_seconds: 10 })]);
+    assert.match(ctx.els.axPeriodListStatus.textContent, /^3 saved periods for Alex Example #7 in this recording, by start instant\./);
+    assert.equal(ctx.els.axPeriodList.children.length, 3);
+    assert.equal(ctx.els.axPeriodList.children[1].children[0].textContent, '"second sprint" · 2026-10-26T20:10:00Z to 2026-10-26T20:10:20Z · 20.0 s · saved 2026-10-26T20:35:00Z UTC · per-20261026T203500Z-aaaaaa');
+    assert.equal(ctx.els.axPeriodList.children[2].children[0].textContent, '"second sprint" · 2026-10-26T20:12:00+02:00 to 2026-10-26T20:12:10+02:00 · 10.0 s · saved 2026-10-26T20:35:00Z UTC · per-3', "identical labels coexist; the bounds keep their offsets");
+    // open restores the exact bounds, runs the session effort review and labels the result
+    setEffort(ctx, "", "");
+    ctx.els.axPeriodList.children[2].children[1].dispatch("click"); await ctx.flush();
+    assert.equal(ctx.els.axEffortStart.value, "2026-10-26T20:12:00+02:00"); assert.equal(ctx.els.axEffortEnd.value, "2026-10-26T20:12:10+02:00");
+    assert.ok(urls(ctx).some(u => u.includes(RB + "effort-review?effort_start=2026-10-26T20%3A12%3A00%2B02%3A00")));
+    await ctx.respond(RB + "effort-review", Object.assign(effortBody(), { effort_start: "2026-10-26T20:12:00+02:00", effort_end: "2026-10-26T20:12:10+02:00", effort_duration_seconds: 10, availability: null, session_availability: { movement: sessionAvail(), heart_rate: { before: sessionAvail(), during: sessionAvail(), after: sessionAvail() } }, recording: recordedData(stream(0), stream(0)).recording }));
+    assert.equal(ctx.els.axEffortPeriod.style.display, "block");
+    assert.match(ctx.els.axEffortPeriod.textContent, /^Saved period "second sprint" \(per-3\) · bounds exactly as saved: 2026-10-26T20:12:00\+02:00 to 2026-10-26T20:12:10\+02:00 · calculated now with the engine's current rules \(captured 2026-10-25T12:00:00Z UTC\); the saved selection never freezes the rules\.$/);
+    assert.ok(!/recover|fatigue|readiness/i.test(ctx.els.axEffortPeriod.textContent + ctx.els.axPeriodStatus.textContent));
+    // editing a bound drops the link to the saved period; a fresh review is unlabelled
+    ctx.els.axEffortEnd.value = "2026-10-26T20:12:12+02:00"; ctx.els.axEffortEnd.dispatch("input"); await ctx.flush();
+    assert.equal(ctx.els.axEffortPeriod.style.display, "none");
+    await click(ctx, "axEffortGo");
+    await ctx.respond(RB + "effort-review", Object.assign(effortBody(), { session_availability: { movement: sessionAvail(), heart_rate: { before: sessionAvail(), during: sessionAvail(), after: sessionAvail() } } }));
+    assert.equal(ctx.els.axEffortPeriod.style.display, "none");
+    // a late list reply for the previous athlete is dropped; the list is reloaded per athlete; Enter saves
+    const lateList = ctx.pending.filter(p => p.url.endsWith(RB + "periods")).pop();
+    ctx.els.axAthleteSelect.value = "a9"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
+    assert.equal(ctx.els.axPeriodList.children.length, 0, "cleared on athlete change");
+    assert.ok(urls(ctx).some(u => u.endsWith("/athletes/a9/periods")));
+    if (lateList) await ctx.resolveLate(lateList, [periodBody()]);
+    assert.equal(ctx.els.axPeriodList.children.length, 0, "the earlier athlete's periods never show under the new one");
+    await ctx.respond("/athletes/a9/periods", []);
+    setEffort(ctx, "2026-10-26T20:20:00Z", "2026-10-26T20:20:05Z"); ctx.els.axPeriodLabel.value = "rest";
+    ctx.els.axPeriodLabel.listeners.keydown[0]({ key: "Enter", target: ctx.els.axPeriodLabel }); await ctx.flush();
+    assert.ok(urls(ctx).some(u => u.endsWith("/athletes/a9/periods") && ctx.pending.find(p => p.url === u && p.opts.method === "POST")), "Enter in the label field saves");
+    await ctx.fail("/athletes/a9/periods");
+    assert.match(ctx.els.axPeriodStatus.textContent, /^Cannot reach backend .* nothing is known to have been saved\./);
+    // an active recording: no saving
+    await click(ctx, "axModeLive");
+    await click(ctx, "axRecRefresh");
+    await ctx.resolveLate(ctx.pending.filter(p => p.url.endsWith("/api/v1/recordings")).pop(), [recording({ status: "active", stopped_at: null })]);
+    const listRequests = urls(ctx).filter(u => u.endsWith("/periods")).length;
+    reviewButton(ctx, 0).dispatch("click"); await ctx.flush();
+    assert.equal(ctx.els.axPeriodsBlock.style.display, "none", "periods are saved only in stopped recordings");
+    assert.equal(urls(ctx).filter(u => u.endsWith("/periods")).length, listRequests, "no list request for an active recording");
   });
 
   // ---- run --------------------------------------------------------------------------------------------

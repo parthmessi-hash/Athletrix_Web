@@ -221,6 +221,37 @@ comparison slots and any timeline point selection are cleared on every such
 change, so figures from different data contexts cannot be mixed. In public mode the card is hidden
 and, as before, no engine request is made.
 
+### Moving through a recording and saved periods
+
+While reviewing a recording, the green banner also shows the selected
+athlete's **recorded sample bounds** per stream (count and oldest/newest
+sample timestamps from `GET .../recorded-data`), which are sample timestamps,
+not the backend times the recording started and stopped. **First window**,
+**Previous window**, **Next window** and **Last window** move the 60 s window
+end on those bounds (First: the 60 s beginning at the earliest recorded
+sample; Last: ending at the latest; Previous/Next: 60 s steps from the
+current end). The window end stays visible and editable, the requested
+bounds are shown even when a window is empty, and a step beyond the
+recorded samples says the window will be empty. The API's 300 s window
+limit is unchanged (the dashboard always uses 60 s).
+
+In a **stopped** recording the effort card gains a **Saved periods** block:
+type or pick an effort start and end as usual, give it a label and click
+**Save this period** (or press Enter in the label field). The page validates
+the bounds and the label first and sends `POST .../periods`; engine refusals
+(blank label, invalid period, active recording) and network errors are shown
+with the engine's reason. The list (`GET .../periods`, per recording and
+athlete, by start instant) offers **Open** on each saved period: it writes the
+exact saved bounds back into the effort inputs, runs the existing session
+effort review and labels the result with the period's label, id and bounds.
+A saved period is a selection you made, not a detected event and not a
+frozen result: opening it calculates with the engine's rules in force now,
+and the note says so. Identical labels may coexist; the id identifies a
+period. Editing a bound, changing athlete, recording or mode clears the
+opened period, the effort result and the comparison slots, and late replies
+for an earlier athlete or recording are dropped. The block is hidden for an
+active recording and in public mode nothing is requested.
+
 ## Selected effort review (Recorded mode)
 
 In Recorded mode a **Selected effort review** card sits below the timeline.
@@ -606,7 +637,11 @@ Recording review (page validation, request bodies, engine refusals, start
 and stop, state polling with late replies dropped, the saved roster in the
 selector, every card scoped to the recording, session wording, exit back to
 Live, late replies from an earlier recording dropped, public mode hidden).
-Expect "56 tests, 56 passed". The
+plus recording navigation (per-stream bounds, First/Previous/Next/Last,
+empty windows stated, late bounds dropped) and saved periods (validation,
+request body, refusals, open at exact bounds with the labelled result,
+clearing on changes, Enter to save, hidden for active recordings).
+Expect "58 tests, 58 passed". The
 runner fails a test that does not finish within 10 s and yields through a
 MessageChannel, so the run does not crawl in a background tab.
 

@@ -3593,12 +3593,19 @@
               <b>Reviewing a recording</b> &middot; <span id="axSessionLabel">none chosen</span>
               <button type="button" id="axSessionExit" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;margin-left:8px;">Exit recording review</button>
               <div class="card-sub" style="margin:4px 0 0;">Athletes come from the recording's saved roster. The summary, timeline, effort review, data lookup and download below read only this recording's samples (no rolling history, no other recording, no retention cap). The recording's own start and stop times are the backend's clock; samples keep their recorded timestamps; the window end you enter is the analysis period.</div>
+              <div class="card-sub" id="axSessionBounds" style="margin:4px 0 0;font-family:monospace;font-size:0.78rem;color:#e5e7eb;">Recorded sample bounds: looking up&hellip;</div>
             </div>
             <div id="axReviewForm" style="display:none;flex-wrap:wrap;align-items:center;gap:8px 10px;">
               <label for="axReviewEnd" class="card-sub" style="margin:0;">Window end, ISO 8601 with timezone</label>
               <input type="text" id="axReviewEnd" class="coach-select" placeholder="2026-10-20T10:00:02Z" spellcheck="false" autocomplete="off" style="min-width:240px;max-width:100%;font-family:monospace;">
               <button type="button" id="axReviewGo" class="btn btn-primary" style="padding:5px 12px;font-size:0.8rem;">Review</button>
               <button type="button" id="axReviewRefresh" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Refresh</button>
+              <span id="axNavGroup" role="group" aria-label="Move the 60 s window through the recorded samples" style="display:none;gap:6px;flex-wrap:wrap;">
+                <button type="button" id="axNavFirst" class="btn btn-ghost" style="padding:5px 10px;font-size:0.8rem;">First window</button>
+                <button type="button" id="axNavPrev" class="btn btn-ghost" style="padding:5px 10px;font-size:0.8rem;">Previous window</button>
+                <button type="button" id="axNavNext" class="btn btn-ghost" style="padding:5px 10px;font-size:0.8rem;">Next window</button>
+                <button type="button" id="axNavLast" class="btn btn-ghost" style="padding:5px 10px;font-size:0.8rem;">Last window</button>
+              </span>
             </div>
             <div class="card-sub" id="axReviewStatus" style="flex-basis:100%;margin-top:2px;">Live: the cards poll the engine for the current readings and the last 60 seconds.</div>
           </div>
@@ -3795,7 +3802,21 @@
             <button type="button" id="axEffortRefresh" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Refresh</button>
           </div>
           <div class="card-sub" id="axEffortStatus" style="margin-bottom:8px;">Enter the effort start and end and click Review effort.</div>
+          <div id="axPeriodsBlock" style="display:none;margin:0 0 10px;padding:10px 12px;border:1px solid rgba(34,197,94,0.4);background:rgba(34,197,94,0.07);font-size:0.85rem;line-height:1.5;">
+            <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;">
+              <b style="color:#fff;">Saved periods</b>
+              <label class="card-sub" style="margin:0;display:flex;flex-direction:column;gap:4px;flex:1 1 200px;min-width:0;">Label for the period entered above
+                <input type="text" id="axPeriodLabel" class="coach-select" placeholder="second sprint" maxlength="80" autocomplete="off" style="width:100%;box-sizing:border-box;"></label>
+              <button type="button" id="axPeriodSave" class="btn btn-primary" style="padding:5px 12px;font-size:0.8rem;">Save this period</button>
+              <button type="button" id="axPeriodRefresh" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Refresh list</button>
+              <span class="card-sub" id="axPeriodStatus" style="margin:0;flex-basis:100%;">Enter an effort start and end above, give it a label and click Save this period.</span>
+            </div>
+            <div class="card-sub" id="axPeriodListStatus" style="margin:6px 0 0;">Loading saved periods&hellip;</div>
+            <div id="axPeriodList" style="display:flex;flex-direction:column;gap:6px;margin-top:6px;font-size:0.82rem;color:#e5e7eb;"></div>
+            <div class="card-sub" style="margin:6px 0 0;font-size:0.76rem;color:#8a9097;">A saved period is a selection you made (label and exact start and end), not a detected event and not a frozen result. Opening it runs the engine's effort review again with the rules in force now, so a later change to the engine's distance or threshold settings changes the figures; the saved bounds never change. Empty or partial phases are a valid outcome.</div>
+          </div>
           <div id="axEffortResult" style="display:none;">
+            <div class="card-sub" id="axEffortPeriod" style="display:none;font-family:monospace;font-size:0.8rem;color:#bbf7d0;margin-bottom:4px;"></div>
             <div class="card-sub" id="axEffortBounds" style="font-family:monospace;font-size:0.8rem;color:#e5e7eb;margin-bottom:4px;"></div>
             <div class="card-sub" id="axEffortFollowUp" style="margin-bottom:6px;"></div>
             <div class="card-sub" id="axEffortAvail" style="margin-bottom:10px;font-size:0.78rem;color:#b6bcc4;"></div>
@@ -10282,6 +10303,7 @@ function initializePlayerFatigue(team) {
     clearRetained();                      // retained-data metadata belongs to one athlete; never shown under another
     clearEffort("Athlete changed: enter the effort start and end and click Review effort.");
     clearCompare("Athlete changed: both comparison snapshots were cleared because they belonged to the previous athlete.");
+    if (sessionReview()) { clearSessionBounds(); clearPeriods(); loadSessionBounds(); loadPeriods(); }
     if (reviewing() && selection.reviewEnd !== null) setReviewStatus("Reviewing the 60 s ending " + selection.reviewEnd + " for " + (label || "the selected athlete") + ".", COLORS.muted);
     refreshCards();
   }
@@ -10550,6 +10572,7 @@ function initializePlayerFatigue(team) {
   // current-reading cards are hidden while reviewing, and a review is never labelled "Live".
   var modeLiveEl = byId("axModeLive"), modeRecEl = byId("axModeRecorded"), modeSessionEl = byId("axModeSession"), sessionBannerEl = byId("axSessionBanner"), sessionLabelEl = byId("axSessionLabel"), sessionExitEl = byId("axSessionExit"), reviewFormEl = byId("axReviewForm"), reviewEndEl = byId("axReviewEnd");
   var reviewGoEl = byId("axReviewGo"), reviewRefreshEl = byId("axReviewRefresh"), reviewStatusEl = byId("axReviewStatus"), reviewBannerEl = byId("axReviewBanner"), reviewBoundsEl = byId("axReviewBounds");
+  var navGroupEl = byId("axNavGroup"), navFirstEl = byId("axNavFirst"), navPrevEl = byId("axNavPrev"), navNextEl = byId("axNavNext"), navLastEl = byId("axNavLast"), sessionBoundsEl = byId("axSessionBounds");
   var liveCardsEl = byId("axLiveCards");
   var retainedBlockEl = byId("axRetainedBlock"), retainedFindEl = byId("axRetainedFind"), retainedLatestEl = byId("axRetainedLatest"), retainedStatusEl = byId("axRetainedStatus");
   var retainedListEl = byId("axRetainedList"), retainedPhysEl = byId("axRetainedPhys"), retainedTrkEl = byId("axRetainedTrk"), retainedCapEl = byId("axRetainedCap");
@@ -10577,6 +10600,7 @@ function initializePlayerFatigue(team) {
     for (var i = 0; i < pressed.length; i++) { pressed[i][0].setAttribute("aria-pressed", pressed[i][1] ? "true" : "false"); pressed[i][0].className = pressed[i][1] ? "btn btn-primary" : "btn btn-ghost"; }
     sessionBannerEl.style.display = ses ? "block" : "none";
     sessionLabelEl.textContent = ses && selection.session ? sessionText(selection.session) : "none chosen";
+    if (navGroupEl) navGroupEl.style.display = ses ? "inline-flex" : "none"; // window navigation follows the recorded samples of a recording
     refreshEl.disabled = ses || rosterState === "loading";   // the selector shows the saved roster while reviewing a recording
     retainedFindEl.textContent = ses ? "Find recorded data" : "Find retained data";
     if (retainedTitleEl) retainedTitleEl.textContent = ses ? "Recorded data" : "Retained data";
@@ -10593,6 +10617,7 @@ function initializePlayerFatigue(team) {
   }
   function leaveSession() { // back to the engine roster; the recording's saved roster was only for its review
     selection.session = null;
+    clearSessionBounds(); clearPeriods();
     rosterById = {};
     for (var i = 0; i < liveRoster.length; i++) rosterById[String(liveRoster[i].id)] = liveRoster[i];
     renderOptions(liveRoster);
@@ -10627,15 +10652,77 @@ function initializePlayerFatigue(team) {
     renderOptions(list);
     selectEl.disabled = !list.length;
     clearRetained(); clearEffort(); clearCompare("Reviewing a recording: both comparison snapshots were cleared; they belonged to a different review.", true);
+    clearSessionBounds(); clearPeriods();
     applyModeUi();
-    if (!list.length) { selection.id = null; selection.label = ""; setReviewStatus("This recording has no athletes in its saved roster.", COLORS.warn); refreshCards(); return; }
+    if (!list.length) { selection.id = null; selection.label = ""; setReviewStatus("This recording has no athletes in its saved roster.", COLORS.warn); setSessionBounds("Recorded sample bounds: no athlete."); refreshCards(); return; }
     var first = String(list[0].id);
     selectEl.value = first; selection.id = first; selection.label = athleteLabel(list[0]);
     for (var j = 0; j < cards.length; j++) cards[j].setWho(selection.label);
+    loadSessionBounds(); loadPeriods();
     reviewEndEl.value = rec.status === "stopped" && typeof rec.stopped_at === "string" ? availUtc(rec.stopped_at) : "";
     if (reviewEndEl.value) { setReviewStatus("Reviewing recording \"" + rec.name + "\": the 60 s ending at its stop time. Change the window end or use Find recorded data.", COLORS.muted); review(); }
     else { setReviewBounds("enter a window end and click Review"); setReviewStatus("Reviewing recording \"" + rec.name + "\" while it is still active: " + FORMAT_HINT, COLORS.muted); refreshCards(); }
   }
+  // ---- recorded sample bounds and window navigation (recording review) ----
+  // The bounds come from the recording's recorded-data for the selected athlete (sample timestamps per stream), never
+  // from the backend times the recording started or stopped. Navigation moves the 60 s window end on those bounds.
+  var bounds = { seq: 0, data: null };
+  function setSessionBounds(text) { if (sessionBoundsEl) sessionBoundsEl.textContent = text; }
+  function boundsText(d) {
+    function one(label, s) { return label + ": " + (s && s.sample_count > 0 ? s.sample_count + " samples, " + availUtc(s.earliest_timestamp) + " → " + availUtc(s.latest_timestamp) + " UTC" : "none recorded"); }
+    return "Recorded sample bounds for " + (selection.label || "this athlete") + " · " + one("heart rate", d.physiological) + " · " + one("tracking", d.tracking);
+  }
+  function boundsRange(d) { // earliest and latest recorded sample across both streams, in ms; null when nothing is recorded
+    var lo = null, hi = null;
+    [d && d.physiological, d && d.tracking].forEach(function(s) {
+      if (!s || !(s.sample_count > 0)) return;
+      var a = availMs(s.earliest_timestamp), b = availMs(s.latest_timestamp);
+      if (a !== null && (lo === null || a < lo)) lo = a;
+      if (b !== null && (hi === null || b > hi)) hi = b;
+    });
+    return lo === null || hi === null ? null : { lo: lo, hi: hi };
+  }
+  function clearSessionBounds() { bounds.seq += 1; bounds.data = null; setSessionBounds(sessionReview() ? "Recorded sample bounds: looking up…" : ""); }
+  function loadSessionBounds() {
+    if (!sessionReview() || selection.id === null) return;
+    var seq = ++bounds.seq, id = selection.id, sk = sessionKey();
+    bounds.data = null;
+    setSessionBounds("Recorded sample bounds: looking up…");
+    var stale = function() { return seq !== bounds.seq || id !== selection.id || sk !== sessionKey() || !sessionReview(); };
+    fetch(athleteUrl(id, "/recorded-data"), { cache: "no-store" }).then(function(res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }).then(function(data) {
+      if (stale()) return;
+      if (!data || typeof data !== "object" || !data.physiological || !data.tracking) throw new Error("unexpected response shape");
+      bounds.data = data;
+      setSessionBounds(boundsText(data));
+    }).catch(function(err) {
+      if (stale()) return;
+      setSessionBounds("Recorded sample bounds: cannot read them from " + API_BASE + " (" + err.message + "). Navigation needs them; use Refresh or Find recorded data to try again.");
+    });
+  }
+  function navigateWindow(kind) {
+    if (!sessionReview()) return;
+    var range = boundsRange(bounds.data);
+    if (bounds.data === null) { setReviewStatus("The recorded sample bounds are not loaded yet (see the banner above); try again in a moment.", COLORS.warn); return; }
+    if (range === null) { setReviewStatus("Nothing is recorded for " + (selection.label || "this athlete") + " in this recording, so there is no window to move to.", COLORS.warn); return; }
+    var span = WINDOW_S * 1000, endMs;
+    if (kind === "first") endMs = range.lo + span;                     // the 60 s beginning at the earliest recorded sample
+    else if (kind === "last") endMs = range.hi;                        // the 60 s ending at the latest recorded sample
+    else {
+      var current = availMs(selection.reviewEnd !== null ? selection.reviewEnd : reviewEndEl.value);
+      if (current === null) { setReviewStatus("Enter or choose a window end first; Previous and Next move from the current window.", COLORS.warn); return; }
+      endMs = kind === "prev" ? current - span : current + span;
+    }
+    var end = new Date(endMs).toISOString().replace(/\.000Z$/, "Z");
+    reviewEndEl.value = end;                                           // the exact instant being reviewed stays visible and editable
+    review();
+    var note = kind === "first" ? "the first 60 s of recorded samples" : kind === "last" ? "the 60 s ending at the latest recorded sample" : (kind === "prev" ? "the previous 60 s" : "the next 60 s");
+    var outside = endMs - span > range.hi || endMs < range.lo ? " This window lies outside the recorded samples (" + availUtc(new Date(range.lo).toISOString()) + " to " + availUtc(new Date(range.hi).toISOString()) + " UTC), so it will be empty." : "";
+    setReviewStatus("Reviewing " + note + ": 60 s ending " + end + " for " + (selection.label || "the selected athlete") + "." + outside, outside ? COLORS.warn : COLORS.muted);
+  }
+  if (navFirstEl) { navFirstEl.addEventListener("click", function() { navigateWindow("first"); }); navPrevEl.addEventListener("click", function() { navigateWindow("prev"); }); navNextEl.addEventListener("click", function() { navigateWindow("next"); }); navLastEl.addEventListener("click", function() { navigateWindow("last"); }); }
   function review() {
     var parsed = parseReviewEnd(reviewEndEl.value);
     if (parsed.error) { setReviewStatus(parsed.error, COLORS.error); return; }
@@ -11433,13 +11520,14 @@ function initializePlayerFatigue(team) {
   // rate before, during and after it. Every figure shown is the engine's own calculation; nothing is recalculated here.
   // Requests happen only on Review effort / Refresh (never on a timer, never in public mode). Editing an input, changing
   // athlete or mode, or submitting again invalidates earlier results, and a late response for an earlier selection is dropped.
-  var EFFORT_IDS = ["axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp", "axEffortAvail",
+  var EFFORT_IDS = ["axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp", "axEffortAvail", "axEffortPeriod",
+    "axPeriodsBlock", "axPeriodLabel", "axPeriodSave", "axPeriodRefresh", "axPeriodStatus", "axPeriodListStatus", "axPeriodList",
     "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
     "axEffHrBeforeCount", "axEffHrDuringCount", "axEffHrAfterCount", "axEffHrBeforeMean", "axEffHrDuringMean", "axEffHrAfterMean", "axEffHrBeforePeak", "axEffHrDuringPeak", "axEffHrAfterPeak",
     "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail", "axEffortSaveA", "axEffortSaveB"];
   var effortEl = {}, effortReady = true;
   for (var ei = 0; ei < EFFORT_IDS.length; ei++) { effortEl[EFFORT_IDS[ei]] = byId(EFFORT_IDS[ei]); if (!effortEl[EFFORT_IDS[ei]]) effortReady = false; }
-  var effort = { seq: 0, last: null, result: null }; // seq: submission counter; last: {start, end} for Refresh; result: the response currently displayed (null while loading, failed or obsolete)
+  var effort = { seq: 0, last: null, result: null, period: null }; // seq: submission counter; last: {start, end} for Refresh; result: the response currently displayed (null while loading, failed or obsolete); period: the saved period opened, if any
   var EFFORT_IDLE = "Enter the effort start and end and click Review effort.";
   var EFFORT_HINT = "Both must be ISO 8601 timestamps with a timezone, for example 2026-10-20T10:00:01Z and 2026-10-20T10:00:04Z, 1 to 120 s apart.";
   function setEffortStatus(text, color) { effortEl.axEffortStatus.textContent = text; effortEl.axEffortStatus.style.color = color; }
@@ -11452,11 +11540,17 @@ function initializePlayerFatigue(team) {
     if (isNaN(new Date(text).getTime())) return { error: label + " is not a valid date-time. " + EFFORT_HINT };
     return { value: text };
   }
-  function applyEffortUi() { if (!effortReady) return; effortEl.axEffortCard.style.display = reviewing() ? "block" : "none"; if (compareReady) compareEl.axCompareCard.style.display = reviewing() ? "block" : "none"; }
+  function stoppedSession() { return sessionReview() && !!selection.session && selection.session.status === "stopped"; }
+  function applyEffortUi() {
+    if (!effortReady) return;
+    effortEl.axEffortCard.style.display = reviewing() ? "block" : "none";
+    effortEl.axPeriodsBlock.style.display = stoppedSession() ? "block" : "none"; // periods are saved only in stopped recordings
+    if (compareReady) compareEl.axCompareCard.style.display = reviewing() ? "block" : "none";
+  }
   function clearEffort(reason) {
     if (!effortReady) return;
-    effort.seq += 1; effort.last = null; effort.result = null;   // any in-flight review is now obsolete; nothing displayable to save
-    effortEl.axEffortResult.style.display = "none"; effortEl.axEffortAvail.textContent = ""; setSaveButtons();
+    effort.seq += 1; effort.last = null; effort.result = null; effort.period = null;   // any in-flight review is now obsolete; nothing displayable to save
+    effortEl.axEffortResult.style.display = "none"; effortEl.axEffortAvail.textContent = ""; effortEl.axEffortPeriod.style.display = "none"; effortEl.axEffortPeriod.textContent = ""; setSaveButtons();
     effortEl.axEffortGo.disabled = false; effortEl.axEffortRefresh.disabled = false;
     setEffortStatus(reason || EFFORT_IDLE, COLORS.muted);
   }
@@ -11511,6 +11605,11 @@ function initializePlayerFatigue(team) {
       + "Applied rules: intervals longer than " + effortNum(dr.max_gap_seconds, "s", 1) + " or with confidence below " + (isNum(dr.min_confidence) ? dr.min_confidence : NA) + " at either end are excluded and never bridged; high-speed threshold " + thr + "; before " + effortNum(rules.before_seconds, "s", 0) + ", after " + effortNum(rules.after_seconds, "s", 0) + " (engineering defaults).";
     effortEl.axEffMvSources.textContent = "Reported sources of the tracking samples: " + breakdownText(m.sources) + ".";
     renderEffortPeriod("Before", hr.before); renderEffortPeriod("During", hr.during); renderEffortPeriod("After", hr.after);
+    var sp = effort.period; // the saved period this review was opened from, if the bounds are still exactly its own
+    if (sp && sp.effort_start === effortEl.axEffortStart.value && sp.effort_end === effortEl.axEffortEnd.value) {
+      effortEl.axEffortPeriod.textContent = "Saved period \"" + sp.label + "\" (" + sp.id + ") · bounds exactly as saved: " + sp.effort_start + " to " + sp.effort_end + " · calculated now with the engine's current rules (captured " + utcText(body.captured_at) + " UTC); the saved selection never freezes the rules.";
+      effortEl.axEffortPeriod.style.display = "block";
+    } else { effortEl.axEffortPeriod.style.display = "none"; effortEl.axEffortPeriod.textContent = ""; }
     effortEl.axEffortResult.style.display = "block";
     effort.result = { body: body, label: label, athleteId: selection.id }; setSaveButtons();
     setEffortStatus("Reviewed the " + effortNum(body.effort_duration_seconds, "s", 1) + " effort ending " + utcText(body.effort_end) + " UTC for " + label + (body.recording && body.recording.name ? " in recording \"" + body.recording.name + "\"" : "") + ". Descriptive figures only.", COLORS.muted);
@@ -11519,7 +11618,8 @@ function initializePlayerFatigue(team) {
     if (!reviewing()) { setEffortStatus("Switch Review to Recorded to review an effort.", COLORS.warn); return; }
     if (selection.id === null) { setEffortStatus(noSelectionText(), COLORS.warn); return; }
     var seq = ++effort.seq, gen = selection.generation, id = selection.id, label = selection.label || id;
-    effort.last = { start: start, end: end }; effort.result = null;
+    var keepPeriod = effort.period && effort.period.effort_start === start && effort.period.effort_end === end ? effort.period : null;
+    effort.last = { start: start, end: end }; effort.result = null; effort.period = keepPeriod;
     effortEl.axEffortResult.style.display = "none"; setSaveButtons();
     effortEl.axEffortGo.disabled = true; effortEl.axEffortRefresh.disabled = true;
     setEffortStatus("Asking the engine about the effort " + start + " to " + end + " for " + label + "…", COLORS.muted);
@@ -11537,8 +11637,96 @@ function initializePlayerFatigue(team) {
       done(); setEffortStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running? Click Review effort to try again.", COLORS.error);
     });
   }
+  // ---- saved periods (stopped recordings only) ----
+  // A saved period is a selection: label plus exact bounds. The list is loaded on entering a recording and on athlete
+  // change, saving posts the inputs above as typed, and opening one writes its exact bounds back and runs the existing
+  // session effort review. Every response is checked against a sequence number, the athlete and the recording.
+  var periods = { seq: 0, saveSeq: 0, list: [] };
+  function setPeriodStatus(text, color) { if (!effortReady) return; effortEl.axPeriodStatus.textContent = text; effortEl.axPeriodStatus.style.color = color; }
+  function setPeriodListStatus(text, color) { if (!effortReady) return; effortEl.axPeriodListStatus.textContent = text; effortEl.axPeriodListStatus.style.color = color; }
+  function clearPeriods() {
+    if (!effortReady) return;
+    periods.seq += 1; periods.saveSeq += 1; periods.list = [];
+    effortEl.axPeriodList.textContent = ""; effortEl.axPeriodSave.disabled = false; effortEl.axPeriodRefresh.disabled = false;
+    setPeriodStatus("Enter an effort start and end above, give it a label and click Save this period.", COLORS.muted);
+    setPeriodListStatus(stoppedSession() ? "Loading saved periods…" : "", COLORS.muted);
+  }
+  function periodLine(p) { return "\"" + String(p.label) + "\" · " + p.effort_start + " to " + p.effort_end + " · " + effortNum(p.duration_seconds, "s", 1) + " · saved " + utcText(p.created_at) + " UTC · " + p.id; }
+  function renderPeriods(list) {
+    effortEl.axPeriodList.textContent = "";
+    periods.list = list;
+    if (!list.length) { setPeriodListStatus("No saved periods for " + (selection.label || "this athlete") + " in this recording yet.", COLORS.muted); return; }
+    setPeriodListStatus(list.length + (list.length === 1 ? " saved period" : " saved periods") + " for " + (selection.label || "this athlete") + " in this recording, by start instant. Open restores the exact bounds and reviews them with the engine's current rules.", COLORS.muted);
+    for (var i = 0; i < list.length; i++) {
+      (function(p) {
+        var row = document.createElement("div"), text = document.createElement("span"), open = document.createElement("button");
+        row.setAttribute("style", "display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 10px;border:1px solid rgba(255,255,255,0.12);");
+        text.textContent = periodLine(p); text.setAttribute("style", "flex:1 1 240px;min-width:0;overflow-wrap:anywhere;font-family:monospace;font-size:0.78rem;");
+        open.type = "button"; open.className = "btn btn-ghost"; open.setAttribute("style", "padding:4px 10px;font-size:0.78rem;"); open.textContent = "Open"; open.setAttribute("data-period-id", p.id);
+        open.addEventListener("click", function() { openPeriod(p); });
+        row.appendChild(text); row.appendChild(open); effortEl.axPeriodList.appendChild(row);
+      })(list[i]);
+    }
+  }
+  function loadPeriods() {
+    if (!effortReady || !stoppedSession() || selection.id === null) return;
+    var seq = ++periods.seq, id = selection.id, sk = sessionKey();
+    effortEl.axPeriodRefresh.disabled = true;
+    setPeriodListStatus("Loading saved periods…", COLORS.muted);
+    var stale = function() { return seq !== periods.seq || id !== selection.id || sk !== sessionKey() || !sessionReview(); };
+    fetch(athleteUrl(id, "/periods"), { cache: "no-store" }).then(function(res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }).then(function(list) {
+      if (stale()) return;
+      effortEl.axPeriodRefresh.disabled = false;
+      if (!Array.isArray(list)) throw new Error("unexpected response shape");
+      renderPeriods(list);
+    }).catch(function(err) {
+      if (stale()) return;
+      effortEl.axPeriodRefresh.disabled = false;
+      setPeriodListStatus("Cannot load saved periods from " + API_BASE + " (" + err.message + "). Click Refresh list to try again.", COLORS.error);
+    });
+  }
+  function savePeriod() {
+    if (!stoppedSession()) { setPeriodStatus("Periods can be saved only while reviewing a stopped recording.", COLORS.warn); return; }
+    if (selection.id === null) { setPeriodStatus(noSelectionText(), COLORS.warn); return; }
+    var label = String(effortEl.axPeriodLabel.value || "").trim();
+    var a = parseEffortInput(effortEl.axEffortStart.value, "Effort start"), b = parseEffortInput(effortEl.axEffortEnd.value, "Effort end");
+    if (a.error) { setPeriodStatus(a.error, COLORS.error); return; }
+    if (b.error) { setPeriodStatus(b.error, COLORS.error); return; }
+    if (new Date(a.value).getTime() >= new Date(b.value).getTime()) { setPeriodStatus("Effort start must precede effort end. " + EFFORT_HINT, COLORS.error); return; }
+    if (!label) { setPeriodStatus("Enter a label for the period (a short description; it need not be unique).", COLORS.error); return; }
+    var seq = ++periods.saveSeq, id = selection.id, sk = sessionKey(), who = selection.label || id;
+    effortEl.axPeriodSave.disabled = true;
+    setPeriodStatus("Saving \"" + label + "\" (" + a.value + " to " + b.value + ") for " + who + "…", COLORS.muted);
+    var stale = function() { return seq !== periods.saveSeq || id !== selection.id || sk !== sessionKey() || !sessionReview(); };
+    var done = function() { effortEl.axPeriodSave.disabled = false; };
+    fetch(athleteUrl(id, "/periods"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ label: label, effort_start: a.value, effort_end: b.value }), cache: "no-store" }).then(function(res) {
+      if (stale()) return;
+      if (res.status === 409 || res.status === 422 || res.status === 404) return rejectionText(res).then(function(why) { if (!stale()) { done(); setPeriodStatus("Engine refused: " + why, COLORS.error); } });
+      if (!res.ok) { done(); setPeriodStatus("Backend error: HTTP " + res.status + " while saving the period.", COLORS.error); return; }
+      return res.json().then(function(p) {
+        if (stale()) return;
+        done(); effortEl.axPeriodLabel.value = "";
+        setPeriodStatus("Saved \"" + p.label + "\" (" + p.id + "): " + p.effort_start + " to " + p.effort_end + ". A selection only; reviews of it use the engine's rules at review time.", COLORS.muted);
+        loadPeriods();
+      });
+    }).catch(function(err) {
+      if (stale()) return;
+      done(); setPeriodStatus("Cannot reach backend at " + API_BASE + " (" + err.message + ") while saving; nothing is known to have been saved. Click Save this period to try again.", COLORS.error);
+    });
+  }
+  function openPeriod(p) {
+    if (!sessionReview()) return;
+    effortEl.axEffortStart.value = p.effort_start; effortEl.axEffortEnd.value = p.effort_end;   // the exact saved instants, as stored
+    effort.period = p;
+    setPeriodStatus("Opened \"" + p.label + "\": reviewing " + p.effort_start + " to " + p.effort_end + " with the engine's current rules.", COLORS.muted);
+    submitEffort(p.effort_start, p.effort_end);
+  }
   function effortInputsChanged() { // typed or picked: an earlier result no longer applies
     if (!effortReady) return;
+    effort.period = null;
     if (effort.last || effortEl.axEffortResult.style.display !== "none") clearEffort("Inputs changed: the earlier result no longer applies. Click Review effort to run the new selection.");
   }
   function reviewEffort() {
@@ -11558,6 +11746,9 @@ function initializePlayerFatigue(team) {
       input.addEventListener("keydown", function(e) { if (e.key === "Enter") reviewEffort(); });
       input.addEventListener("input", effortInputsChanged);
     });
+    effortEl.axPeriodSave.addEventListener("click", savePeriod);
+    effortEl.axPeriodRefresh.addEventListener("click", loadPeriods);
+    effortEl.axPeriodLabel.addEventListener("keydown", function(e) { if (e.key === "Enter") savePeriod(); });
     cards.push({ reset: function() {}, poll: function() {}, setWho: function(l) { effortEl.axEffortWho.textContent = l; } }); // label only: never polled
     applyEffortUi();
   }
