@@ -3609,10 +3609,10 @@
               <li id="axRetainedPhys"></li>
               <li id="axRetainedTrk"></li>
             </ul>
-            <div class="card-sub" id="axRetainedNote" style="margin:6px 0 0;">Times are UTC. Counts and ranges describe the records the engine currently retains (newest <span id="axRetainedCap">300</span> per stream), not continuous coverage or a full archive; an empty stream does not show whether data was never sent or has since been removed. The two streams may cover different times, so the latest 60 s window may contain only one of them. The download is a snapshot of currently retained samples across both streams, not just the 60 s review or a selected effort, and not a recording archive or database backup: samples already removed by the cap cannot be recovered. It is saved directly to this computer and uploaded nowhere.</div>
+            <div class="card-sub" id="axRetainedNote" style="margin:6px 0 0;">Times are UTC. Counts and ranges describe the records the engine currently retains (up to each stream's own cap, as reported by the engine: <span id="axRetainedCap">not looked up yet</span>), not continuous coverage or a full archive; an empty stream does not show whether data was never sent or has since been removed. The two streams may cover different times, so the latest 60 s window may contain only one of them. The download is a snapshot of currently retained samples across both streams, not just the 60 s review or a selected effort, and not a recording archive or database backup: samples already removed by the cap cannot be recovered. It is saved directly to this computer and uploaded nowhere.</div>
           </div>
           <div id="axReviewBanner" role="status" style="display:none;margin-top:10px;padding:8px 12px;border:1px solid rgba(215,150,11,0.5);background:rgba(215,150,11,0.12);color:#f1d08a;font-size:0.85rem;line-height:1.5;">
-            <b>Recorded-time review</b> &middot; <span id="axReviewBounds">enter a window end and click Review</span>. Shows only the samples the engine still retains (newest 300 per athlete per stream); older records may already have been removed. Not a live feed.
+            <b>Recorded-time review</b> &middot; <span id="axReviewBounds">enter a window end and click Review</span>. Shows only the samples the engine still retains (the newest per stream, up to the engine's own retention caps; see Available data under each card); older records may already have been removed. Not a live feed.
           </div>
         </div>
         <div class="card" id="axTeamCard" style="margin-bottom:18px;border-left:4px solid #3b82f6;">
@@ -3703,6 +3703,7 @@
             </div>
           </div>
           <div class="card-sub" id="axSumStatus">Waiting for roster&hellip;</div>
+          <div class="card-sub" id="axSumAvail" style="margin-top:6px;font-size:0.78rem;color:#b6bcc4;"></div>
           <div class="card-sub" id="axSumDistanceRules" style="margin-top:6px;font-size:0.76rem;color:#8a9097;"></div>
         </div>
         <div class="card" id="axLiveTl" style="margin-bottom:24px;border-left:4px solid #3b82f6;">
@@ -3743,6 +3744,7 @@
             </div>
           </div>
           <div class="card-sub" id="axTlStatus" style="margin-top:8px;">Waiting for roster&hellip;</div>
+          <div class="card-sub" id="axTlAvail" style="margin-top:6px;font-size:0.78rem;color:#b6bcc4;"></div>
           <div class="card-sub" id="axTlRules" style="margin-top:6px;font-size:0.76rem;color:#8a9097;">Display rules: filled points are recorded samples; a hollow amber marker on the heart-rate baseline is a sample with no heart rate; a hollow amber marker on the speed chart is a tracking sample below the engine's confidence rule, which arrives in the same window response as the samples (<code>tracking_rules.min_confidence</code>). If that rule is missing or invalid, confidence filtering is unavailable: every speed point is drawn as a dashed grey unclassified marker at its recorded value and no line is drawn. Lines connect consecutive samples only when both are usable and they are no more than 3 s apart (a display rule); nothing is drawn across gaps or removed points. Confidence filtering compares each sample's reported tracking confidence with the engine's rule; it does not validate the accuracy of the underlying speed measurement. The two charts group recorded timestamps on one time axis; they do not correct device clocks or establish any physiological relationship.</div>
         </div>
         <div class="card" id="axEffortCard" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
@@ -3764,7 +3766,8 @@
           <div class="card-sub" id="axEffortStatus" style="margin-bottom:8px;">Enter the effort start and end and click Review effort.</div>
           <div id="axEffortResult" style="display:none;">
             <div class="card-sub" id="axEffortBounds" style="font-family:monospace;font-size:0.8rem;color:#e5e7eb;margin-bottom:4px;"></div>
-            <div class="card-sub" id="axEffortFollowUp" style="margin-bottom:10px;"></div>
+            <div class="card-sub" id="axEffortFollowUp" style="margin-bottom:6px;"></div>
+            <div class="card-sub" id="axEffortAvail" style="margin-bottom:10px;font-size:0.78rem;color:#b6bcc4;"></div>
             <div class="vital-label" style="margin-bottom:6px;">Movement during the effort</div>
             <div class="vitals-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:6px;">
               <div class="vital"><div class="vital-label">Tracking samples</div><div class="vital-value" id="axEffMvCount">&mdash;</div></div>
@@ -3795,7 +3798,7 @@
               <button type="button" id="axEffortSaveA" class="btn btn-ghost" disabled style="padding:4px 10px;font-size:0.78rem;">Save as Comparison A</button>
               <button type="button" id="axEffortSaveB" class="btn btn-ghost" disabled style="padding:4px 10px;font-size:0.78rem;">Save as Comparison B</button>
             </div>
-            <div class="card-sub" id="axEffortNote" style="font-size:0.76rem;color:#8a9097;">All figures are the engine's calculations over retained samples (newest 300 per stream); nothing is recalculated here. Measurements count non-null heart rates out of the samples in each period; means are arithmetic, not time-weighted; nothing is interpolated or extrapolated and excluded tracking intervals are never bridged. "Follow-up elapsed" means only that 30 s of backend time passed after the effort end: it does not show that samples were received, retained or complete. A heart-rate difference between periods is a description of recorded samples, not a recovery measure or a change in condition. The 10 s and 30 s periods are engineering defaults. Recorded timestamps are used without device-clock correction or lag estimation. Times are UTC.</div>
+            <div class="card-sub" id="axEffortNote" style="font-size:0.76rem;color:#8a9097;">All figures are the engine's calculations over retained samples (the newest per stream up to the engine's retention caps; the Available data line above says what was retained and selected); nothing is recalculated here. Measurements count non-null heart rates out of the samples in each period; means are arithmetic, not time-weighted; nothing is interpolated or extrapolated and excluded tracking intervals are never bridged. "Follow-up elapsed" means only that 30 s of backend time passed after the effort end: it does not show that samples were received, retained or complete. A heart-rate difference between periods is a description of recorded samples, not a recovery measure or a change in condition. The 10 s and 30 s periods are engineering defaults. Recorded timestamps are used without device-clock correction or lag estimation. Times are UTC.</div>
           </div>
         </div>
         <div class="card" id="axCompareCard" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
@@ -10566,13 +10569,20 @@ function initializePlayerFatigue(team) {
   // UTC recorded timestamps of the oldest and newest retained rows. It is fetched only on that click, never on a
   // timer and never in public mode. "Review latest retained" opens the existing 60 s recorded review ending at the
   // newest timestamp across the non-empty streams, using the engine's exact UTC text as the window end. The result
-  // describes retained rows (newest 300 per stream), not coverage or an archive, and it is cleared whenever the
+  // describes retained rows (up to each stream's own cap, as the engine reports it), not coverage or an archive, and it is cleared whenever the
   // athlete or the mode changes; a late response for an earlier athlete, mode or lookup is dropped unseen.
   var retained = { seq: 0, data: null }; // seq: lookup counter; data: the last response shown, or null
   var STREAMS = [["physiological", "Heart rate (physiological)", retainedPhysEl], ["tracking", "Tracking", retainedTrkEl]];
   var RETAINED_IDLE = "Click Find retained data to see what the engine still stores for this athlete.";
   function setRetainedStatus(text, color) { retainedStatusEl.textContent = text; retainedStatusEl.style.color = color; }
   function retainedStream(data, key) { var s = data && data[key]; return s && typeof s === "object" ? s : null; }
+  function streamCap(data, key) { // the stream's own cap as the engine reported it, else an older engine's shared value; null when neither exists (nothing is guessed)
+    var s = retainedStream(data, key);
+    if (s && isNum(s.max_samples)) return s.max_samples;
+    return data && isNum(data.max_samples_per_stream) ? data.max_samples_per_stream : null;
+  }
+  function capText(cap) { return "cap " + (cap === null ? "not reported" : cap); }
+  function capsText(data) { return "physiological " + (streamCap(data, "physiological") === null ? "not reported" : streamCap(data, "physiological")) + ", tracking " + (streamCap(data, "tracking") === null ? "not reported" : streamCap(data, "tracking")); }
   function retainedLatestEnd(data) { // newest latest_timestamp across the streams that retain anything, as the engine wrote it; null if none
     var best = null, bestMs = -Infinity;
     for (var i = 0; i < STREAMS.length; i++) {
@@ -10587,7 +10597,7 @@ function initializePlayerFatigue(team) {
     if (!retainedStatusEl) return;          // called from selectAthlete before this section ran (never the case after load)
     clearDownload();
     retained.seq += 1; retained.data = null;
-    retainedListEl.style.display = "none"; retainedPhysEl.textContent = ""; retainedTrkEl.textContent = "";
+    retainedListEl.style.display = "none"; retainedPhysEl.textContent = ""; retainedTrkEl.textContent = ""; retainedCapEl.textContent = "not looked up yet";
     retainedLatestEl.disabled = true; retainedFindEl.disabled = false;
     setRetainedStatus(RETAINED_IDLE, COLORS.muted);
   }
@@ -10596,11 +10606,11 @@ function initializePlayerFatigue(team) {
     var nonEmpty = 0;
     for (var i = 0; i < STREAMS.length; i++) {
       var s = retainedStream(data, STREAMS[i][0]), el = STREAMS[i][2];
-      if (!s || !(s.sample_count > 0)) { el.textContent = STREAMS[i][1] + ": none retained"; continue; }
+      if (!s || !(s.sample_count > 0)) { el.textContent = STREAMS[i][1] + ": none retained (" + capText(streamCap(data, STREAMS[i][0])) + ")"; continue; }
       nonEmpty += 1;
-      el.textContent = STREAMS[i][1] + ": " + s.sample_count + " retained · " + String(s.latest_timestamp === s.earliest_timestamp ? s.latest_timestamp : s.earliest_timestamp + " → " + s.latest_timestamp) + " UTC";
+      el.textContent = STREAMS[i][1] + ": " + s.sample_count + " retained (" + capText(streamCap(data, STREAMS[i][0])) + ") · " + String(s.latest_timestamp === s.earliest_timestamp ? s.latest_timestamp : s.earliest_timestamp + " → " + s.latest_timestamp) + " UTC";
     }
-    if (typeof data.max_samples_per_stream === "number") retainedCapEl.textContent = String(data.max_samples_per_stream);
+    retainedCapEl.textContent = capsText(data);
     retainedListEl.style.display = "block";
     var end = retainedLatestEnd(data);
     retainedLatestEl.disabled = end === null;
@@ -10776,9 +10786,41 @@ function initializePlayerFatigue(team) {
     });
   })();
 
+  // ---- available data: what the engine retains versus what a request selected ----
+  // Every figure comes from the response's `availability` block (per stream: the engine's cap, retained count and
+  // bounds, selected count and first/last). Nothing is computed from an assumed rate: no expected count, no coverage
+  // percentage, no interpolation, and a selection whose bounds reach the period is never called complete. The engine's
+  // only evidence about removal is `at_cap`; otherwise the text says the engine cannot tell. An engine that does not
+  // send the block (older version) gets a plain note and no guessed cap. Times are UTC; "s" figures are seconds.
+  function availUtc(iso) { var d = new Date(iso); return isNaN(d.getTime()) ? String(iso) : d.toISOString().replace(/\.000Z$/, "Z"); }
+  function availMs(iso) { var v = typeof iso === "string" ? new Date(iso).getTime() : NaN; return isNaN(v) ? null : v; }
+  function availabilityText(label, a, periodStart, periodEnd, periodName) {
+    if (!a || typeof a !== "object") return label + ": available-data details were not provided by this engine version (no cap is assumed).";
+    var cap = isNum(a.max_samples) ? "cap " + a.max_samples : "cap not reported";
+    var retained = isNum(a.retained_count) ? a.retained_count : null, selected = isNum(a.selected_count) ? a.selected_count : null;
+    if (retained === null || selected === null) return label + ": available-data details are incomplete in the engine response (" + cap + ").";
+    if (retained === 0) return label + ": no retained samples at all (" + cap + "). The engine cannot say whether data was never received or has since been removed.";
+    var rLo = availMs(a.retained_earliest), rHi = availMs(a.retained_latest), pLo = availMs(periodStart), pHi = availMs(periodEnd);
+    var span = (typeof a.retained_earliest === "string" && typeof a.retained_latest === "string") ? availUtc(a.retained_earliest) + " to " + availUtc(a.retained_latest) + " UTC" : "unknown bounds";
+    var capNote = a.at_cap === true ? " (the stream is at its cap, so any older sample that was received is no longer retained)" : " (nothing older is retained; the engine cannot say whether earlier data was received or has been removed)";
+    var notes = [];
+    if (rLo !== null && pLo !== null && rLo > pLo) notes.push("retained history begins " + ((rLo - pLo) / 1000).toFixed(1) + " s after the " + periodName + " starts" + capNote);
+    if (rHi !== null && pHi !== null && rHi < pHi) notes.push("retained history ends " + ((pHi - rHi) / 1000).toFixed(1) + " s before the " + periodName + " ends");
+    if (selected === 0) {
+      var where = (rLo !== null && pHi !== null && rLo > pHi) ? ", which begins after the " + periodName + " ends" + capNote
+        : (rHi !== null && pLo !== null && rHi < pLo) ? ", which ends before the " + periodName + " starts"
+        : ", which overlaps the " + periodName + " without a sample inside it";
+      return label + ": no samples in this " + periodName + "; " + retained + " retained sample" + (retained === 1 ? "" : "s") + " span " + span + where + " (" + cap + ").";
+    }
+    var sel = selected + " of " + retained + " retained sample" + (retained === 1 ? "" : "s") + " fall in this " + periodName;
+    var bounds = (typeof a.selected_first === "string" && typeof a.selected_last === "string") ? " (first " + availUtc(a.selected_first) + ", last " + availUtc(a.selected_last) + " UTC; " + cap + ")" : " (" + cap + ")";
+    return label + ": " + sel + bounds + (notes.length ? "; " + notes.join("; ") : "") + ". Retained history spans " + span + ".";
+  }
+  var AVAIL_NOTE = " Counts describe retained samples only: first/last bounds do not show that every instant between them was sampled.";
+
   // ---- Summary card (last 60 s, refreshed every 5 s) ----
   (function(){
-    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho","axSumDistance","axSumDistanceBasis","axSumDistanceDetail","axSumDistanceRules","axSumHsTime","axSumHsTimeBasis","axSumHsDist","axSumHsDistBasis","axSumHsTimeLabel","axSumHsDistLabel","axSumTitle","axSumSub","axSumModeBadge","axSumHrAgeLabel","axSumTrkAgeLabel","axSumSourceBadge","axSumSources"];
+    var ids = ["axSumHrMean","axSumHrPeak","axSumSpeedPeak","axSumHrCount","axSumHrAge","axSumHrGap","axSumTrkCount","axSumTrkAge","axSumTrkGap","axSumStatus","axLiveSumWho","axSumAvail","axSumDistance","axSumDistanceBasis","axSumDistanceDetail","axSumDistanceRules","axSumHsTime","axSumHsTimeBasis","axSumHsDist","axSumHsDistBasis","axSumHsTimeLabel","axSumHsDistLabel","axSumTitle","axSumSub","axSumModeBadge","axSumHrAgeLabel","axSumTrkAgeLabel","axSumSourceBadge","axSumSources"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     function fmt(v, unit, digits) { return isNum(v) ? v.toFixed(digits) + (unit ? " " + unit : "") : NA; } // null -> Not available; real 0 formatted
@@ -10789,7 +10831,12 @@ function initializePlayerFatigue(team) {
       el.axSumDistance.textContent = DASH; el.axSumDistanceBasis.textContent = ""; el.axSumDistanceDetail.textContent = DASH; el.axSumDistanceRules.textContent = "";
       el.axSumHsTime.textContent = DASH; el.axSumHsDist.textContent = DASH; el.axSumHsTimeBasis.textContent = ""; el.axSumHsDistBasis.textContent = "";
       el.axSumHsTimeLabel.textContent = "Time at or above threshold"; el.axSumHsDistLabel.textContent = "Distance at or above threshold";
-      hideBadge(el.axSumSourceBadge); el.axSumSources.textContent = "";
+      hideBadge(el.axSumSourceBadge); el.axSumSources.textContent = ""; el.axSumAvail.textContent = "";
+    }
+    function renderAvailability(sum) { // from this response only; never carried over from another request or athlete
+      var av = sum.availability && typeof sum.availability === "object" ? sum.availability : null;
+      el.axSumAvail.textContent = "Available data · " + availabilityText("Heart rate", av ? av.physiological : null, sum.window_start, sum.window_end, "window")
+        + " " + availabilityText("Tracking", av ? av.tracking : null, sum.window_start, sum.window_end, "window") + AVAIL_NOTE;
     }
     function renderSources(p, t) { // the engine's own per-stream breakdown of the summarised samples; nothing is inferred here
       var pb = p.sources, tb = t.sources;
@@ -10848,11 +10895,12 @@ function initializePlayerFatigue(team) {
       el.axSumTrkGap.textContent = fmt(t.max_inter_sample_gap_seconds, "s", 1);
       renderDistance(t, WINDOW_S);
       renderSources(p, t);
+      renderAvailability(sum);
       var rec = reviewing(), endText = whenText(sum.window_end);
       var empty = !(p.sample_count > 0) && !(t.sample_count > 0);
       if (rec) {
         setReviewBounds(WINDOW_S + " s from " + whenText(sum.window_start) + " to " + endText + " (engine time)");
-        if (empty) setStatus("Recorded-time review · no retained samples for " + label + " in the " + WINDOW_S + " s ending " + endText + ". Samples older than the engine's retention cap are gone; check the time or the athlete.", COLORS.muted);
+        if (empty) setStatus("Recorded-time review · no samples for " + label + " in the " + WINDOW_S + " s ending " + endText + ". See Available data below for what the engine retains; check the time or the athlete.", COLORS.muted);
         else setStatus("Recorded-time review · window ended " + endText + " · " + describeRecency(p, t) + " (ages are seconds before the selected window end, not before now).", COLORS.muted);
       } else if (empty) setStatus("No samples recorded for " + label + " in the " + WINDOW_S + " s ending " + endText + ". Run the simulator to send data.", COLORS.muted);
       else setStatus("Summary window ended " + endText + " · " + describeRecency(p, t) + ".", COLORS.muted);
@@ -10890,7 +10938,7 @@ function initializePlayerFatigue(team) {
   // ---- Timeline card (window of 60 s, refreshed every 5 s; two SVG charts on one time axis) ----
   (function(){
     var TL_MS = 5000, TL_WINDOW_S = 60, DISPLAY_GAP_S = 3;  // DISPLAY_GAP_S: lines are not drawn across longer gaps (display rule only)
-    var ids = ["axLiveTlWho","axTlWindow","axTlHrSvg","axTlSpSvg","axTlHrNote","axTlSpNote","axTlStatus","axTlSub","axTlModeBadge","axTlSourceBadge","axTlSources",
+    var ids = ["axLiveTlWho","axTlWindow","axTlHrSvg","axTlSpSvg","axTlHrNote","axTlSpNote","axTlStatus","axTlSub","axTlModeBadge","axTlSourceBadge","axTlSources","axTlAvail",
                "axTlPick","axTlArmStart","axTlArmEnd","axTlPickClear","axTlPointSelect","axTlSetStart","axTlSetEnd","axTlPickStatus","axTlPickSelected"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
@@ -10914,7 +10962,7 @@ function initializePlayerFatigue(team) {
       return n;
     }
     function message(svg, text) { clearSvg(svg); svg.appendChild(node("text", { x: W / 2, y: H / 2 + 4, "text-anchor": "middle", fill: "#8a9097", "font-size": "12", "font-family": "Inter, sans-serif" }, text)); }
-    function clearAll() { message(el.axTlHrSvg, "—"); message(el.axTlSpSvg, "—"); el.axTlWindow.textContent = DASH; el.axTlHrNote.textContent = ""; el.axTlSpNote.textContent = ""; hideBadge(el.axTlSourceBadge); el.axTlSources.textContent = ""; clearPick(null, true); }
+    function clearAll() { message(el.axTlHrSvg, "—"); message(el.axTlSpSvg, "—"); el.axTlWindow.textContent = DASH; el.axTlHrNote.textContent = ""; el.axTlSpNote.textContent = ""; hideBadge(el.axTlSourceBadge); el.axTlSources.textContent = ""; el.axTlAvail.textContent = ""; clearPick(null, true); }
     function ms(iso) { var v = new Date(iso).getTime(); return isNaN(v) ? null : v; }
 
     // ---- effort selection from the timeline (Recorded mode only) ----
@@ -11100,6 +11148,9 @@ function initializePlayerFatigue(team) {
       var ws = win.sources && typeof win.sources === "object" ? win.sources : {}; // the window's own breakdown of the samples drawn
       setBadge(el.axTlSourceBadge, breakdownLabel(tallySources([ws.physiological, ws.tracking])));
       el.axTlSources.textContent = "Reported sources · heart rate: " + breakdownText(ws.physiological) + " · tracking: " + breakdownText(ws.tracking) + ".";
+      var av = win.availability && typeof win.availability === "object" ? win.availability : null; // this window's own block, never carried over
+      el.axTlAvail.textContent = "Available data · " + availabilityText("Heart rate", av ? av.physiological : null, win.window_start, win.window_end, "window")
+        + " " + availabilityText("Tracking", av ? av.tracking : null, win.window_start, win.window_end, "window") + AVAIL_NOTE;
       var hrMissing = phys.length - hrVals.length;
       var spLow = track.filter(function(p){ return !p.usable && !p.unclassified && isNum(p.v); }).length;
       var spUnclassified = track.filter(function(p){ return p.unclassified; }).length;
@@ -11149,7 +11200,7 @@ function initializePlayerFatigue(team) {
   // rate before, during and after it. Every figure shown is the engine's own calculation; nothing is recalculated here.
   // Requests happen only on Review effort / Refresh (never on a timer, never in public mode). Editing an input, changing
   // athlete or mode, or submitting again invalidates earlier results, and a late response for an earlier selection is dropped.
-  var EFFORT_IDS = ["axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp",
+  var EFFORT_IDS = ["axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp", "axEffortAvail",
     "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
     "axEffHrBeforeCount", "axEffHrDuringCount", "axEffHrAfterCount", "axEffHrBeforeMean", "axEffHrDuringMean", "axEffHrAfterMean", "axEffHrBeforePeak", "axEffHrDuringPeak", "axEffHrAfterPeak",
     "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail", "axEffortSaveA", "axEffortSaveB"];
@@ -11172,9 +11223,23 @@ function initializePlayerFatigue(team) {
   function clearEffort(reason) {
     if (!effortReady) return;
     effort.seq += 1; effort.last = null; effort.result = null;   // any in-flight review is now obsolete; nothing displayable to save
-    effortEl.axEffortResult.style.display = "none"; setSaveButtons();
+    effortEl.axEffortResult.style.display = "none"; effortEl.axEffortAvail.textContent = ""; setSaveButtons();
     effortEl.axEffortGo.disabled = false; effortEl.axEffortRefresh.disabled = false;
     setEffortStatus(reason || EFFORT_IDLE, COLORS.muted);
+  }
+  function effortAvailabilityText(body) { // movement over the effort, heart rate per period; all from this response's availability block
+    var av = body.availability && typeof body.availability === "object" ? body.availability : null, hr = body.heart_rate || {};
+    var parts = [availabilityText("Tracking", av ? av.movement : null, body.effort_start, body.effort_end, "effort")];
+    var hra = av && av.heart_rate && typeof av.heart_rate === "object" ? av.heart_rate : null;
+    if (!hra) parts.push(availabilityText("Heart rate", null));
+    else {
+      var names = [["before", "Before"], ["during", "During"], ["after", "After"]];
+      for (var i = 0; i < names.length; i++) {
+        var p = hr[names[i][0]] || {};
+        parts.push(availabilityText("Heart rate " + names[i][1], hra[names[i][0]], p.period_start, p.period_end, names[i][1] + " period"));
+      }
+    }
+    return "Available data · " + parts.join(" ") + AVAIL_NOTE;
   }
   function periodText(p) {
     var open = p.start_inclusive ? "[" : "(", close = p.end_inclusive ? "]" : ")";
@@ -11198,6 +11263,7 @@ function initializePlayerFatigue(team) {
       ? "Follow-up period elapsed: the " + effortNum(rules.after_seconds, "s", 0) + " after the effort end lie at or before the capture time. Elapsed time does not establish that samples were received, retained or complete."
       : "Follow-up pending: the " + effortNum(rules.after_seconds, "s", 0) + " after the effort end had not fully elapsed at capture time, so the after period is capped at " + afterEnd + " UTC. Elapsed time would not establish completeness either.";
     effortEl.axEffortFollowUp.style.color = body.follow_up_elapsed === true ? COLORS.muted : COLORS.warn;
+    effortEl.axEffortAvail.textContent = effortAvailabilityText(body);
     var noTracking = !(m.sample_count > 0);
     effortEl.axEffMvCount.textContent = isNum(m.sample_count) ? String(m.sample_count) : NA;
     effortEl.axEffMvPeak.textContent = noTracking ? NA : effortNum(m.speed_peak_mps, "m/s", 1);
@@ -11207,7 +11273,7 @@ function initializePlayerFatigue(team) {
     var thr = isNum(dr.high_speed_threshold_mps) ? dr.high_speed_threshold_mps.toFixed(1) + " m/s" : "threshold";
     effortEl.axEffMvHsTimeLabel.textContent = "Time at or above " + thr; effortEl.axEffMvHsDistLabel.textContent = "Distance at or above " + thr;
     effortEl.axEffMvHsTime.textContent = effortNum(m.high_speed_duration_seconds, "s", 1); effortEl.axEffMvHsDist.textContent = effortNum(m.high_speed_distance_m, "m", 1);
-    effortEl.axEffMvRules.textContent = noTracking ? "No tracking samples recorded in the effort; distance and high-speed figures are not available." :
+    effortEl.axEffMvRules.textContent = noTracking ? "No tracking samples in the effort (see Available data above); distance and high-speed figures are not available." :
       (isNum(m.estimated_distance_m) ? "" : "No eligible interval, so distance and high-speed figures are not available. ")
       + "Applied rules: intervals longer than " + effortNum(dr.max_gap_seconds, "s", 1) + " or with confidence below " + (isNum(dr.min_confidence) ? dr.min_confidence : NA) + " at either end are excluded and never bridged; high-speed threshold " + thr + "; before " + effortNum(rules.before_seconds, "s", 0) + ", after " + effortNum(rules.after_seconds, "s", 0) + " (engineering defaults).";
     effortEl.axEffMvSources.textContent = "Reported sources of the tracking samples: " + breakdownText(m.sources) + ".";

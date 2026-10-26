@@ -75,7 +75,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axSumTitle", "axSumSub", "axSumModeBadge", "axSumHrAgeLabel", "axSumTrkAgeLabel", "axTlSub", "axTlModeBadge",
     "axReviewBar", "axModeLive", "axModeRecorded", "axReviewForm", "axReviewEnd", "axReviewGo", "axReviewRefresh", "axReviewStatus", "axReviewBanner", "axReviewBounds",
     "axRetainedBlock", "axRetainedFind", "axRetainedLatest", "axRetainedStatus", "axRetainedList", "axRetainedPhys", "axRetainedTrk", "axRetainedCap",
-    "axRetainedDownload", "axRetainedDownloadStatus",
+    "axRetainedDownload", "axRetainedDownloadStatus", "axSumAvail", "axTlAvail", "axEffortAvail",
     "axLiveTrkBadge", "axSumSourceBadge", "axSumSources", "axTlSourceBadge", "axTlSources",
     "axEffortCard", "axEffortWho", "axEffortStart", "axEffortEnd", "axEffortGo", "axEffortRefresh", "axEffortStatus", "axEffortResult", "axEffortBounds", "axEffortFollowUp",
     "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
@@ -100,7 +100,10 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const intervalStub = fn => { timers.push(fn); return 0; };
     // Shadow the globals the script uses, so it runs against the stub rather than this page.
     new Function("window", "document", "location", "fetch", "setInterval", SRC)(sandbox, doc, { hostname, search: "" }, fetchStub, intervalStub);
-    const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)); };
+    // Yield to the page script's promise chains without setTimeout: a background tab throttles timers to once a second,
+    // which would make the run crawl, while a MessageChannel task is not throttled.
+    const yieldTask = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
+    const flush = async () => { for (let i = 0; i < 8; i++) await yieldTask(); };
     const take = part => { const i = pending.findIndex(p => p.url.includes(part)); assert.ok(i >= 0, "expected a pending request containing " + part + ", have: " + pending.map(p => p.url).join(", ")); return pending.splice(i, 1)[0]; };
     const respond = async (part, body, status) => { status = status || 200; take(part).resolve({ ok: status < 400, status, json: async () => body }); await flush(); };
     const fail = async part => { take(part).reject(new Error("network")); await flush(); };
@@ -403,7 +406,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await click(ctx, "axModeRecorded");
     await reviewAt(ctx, END);
     await ctx.respond("/summary?seconds=60&" + END_Q, sum());
-    assert.match(ctx.els.axSumStatus.textContent, /^Recorded-time review · no retained samples for Alex Example #7/);
+    assert.match(ctx.els.axSumStatus.textContent, /^Recorded-time review · no samples for Alex Example #7 .* See Available data below for what the engine retains/);
     await ctx.respond("/window?seconds=60&" + END_Q, rwin());
     assert.match(ctx.els.axTlStatus.textContent, /no retained samples in this window/);
     assert.equal(ctx.els.axTlSpSvg.byTag("text")[0].textContent, "No tracking samples in this window");
@@ -437,9 +440,9 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await ctx.respond("/a1/retained-data", retainedBody({ physiological: stream(5, "2026-10-20T10:00:00Z", "2026-10-20T10:00:04Z"), tracking: stream(7, "2026-10-20T10:00:00Z", "2026-10-20T10:00:06Z"), max_samples_per_stream: 300 }));
     assert.equal(ctx.els.axRetainedFind.disabled, false);
     assert.equal(ctx.els.axRetainedList.style.display, "block");
-    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): 5 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:04Z UTC");
-    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 7 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:06Z UTC");
-    assert.equal(ctx.els.axRetainedCap.textContent, "300");
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): 5 retained (cap 300) · 2026-10-20T10:00:00Z → 2026-10-20T10:00:04Z UTC");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 7 retained (cap 300) · 2026-10-20T10:00:00Z → 2026-10-20T10:00:06Z UTC");
+    assert.equal(ctx.els.axRetainedCap.textContent, "physiological 300, tracking 300", "an older engine's shared cap is shown as each stream's cap, never guessed");
     assert.match(ctx.els.axRetainedStatus.textContent, /ending 2026-10-20T10:00:06Z \(UTC\), the newest retained sample across both streams\. The streams may cover different times/);
     assert.equal(ctx.els.axRetainedLatest.disabled, false);
     const before = ctx.pending.length;
@@ -456,7 +459,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     // manual entry still works afterwards and leaves the retained display alone
     await reviewAt(ctx, "2026-10-20T10:00:04Z");
     assert.ok(urls(ctx).slice(-2).every(u => u.includes("end=2026-10-20T10%3A00%3A04Z")));
-    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 7 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:06Z UTC");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 7 retained (cap 300) · 2026-10-20T10:00:00Z → 2026-10-20T10:00:06Z UTC");
   });
 
   test("retained data: empty result disables Review latest retained and says what the emptiness does not show", async () => {
@@ -465,8 +468,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await click(ctx, "axModeRecorded");
     await click(ctx, "axRetainedFind");
     await ctx.respond("/a1/retained-data", retainedBody());
-    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): none retained");
-    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: none retained");
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): none retained (cap 300)");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: none retained (cap 300)");
     assert.equal(ctx.els.axRetainedLatest.disabled, true);
     assert.match(ctx.els.axRetainedStatus.textContent, /^No retained samples for Alex Example #7 in either stream\. This does not show whether data was never sent or has since been removed\./);
     const n = ctx.pending.length;
@@ -481,8 +484,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await click(ctx, "axModeRecorded");
     await click(ctx, "axRetainedFind");
     await ctx.respond("/a1/retained-data", retainedBody({ tracking: stream(1, "2026-10-20T10:00:04Z", "2026-10-20T10:00:04Z") }));
-    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): none retained");
-    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 1 retained · 2026-10-20T10:00:04Z UTC", "a single retained row shows one timestamp");
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): none retained (cap 300)");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 1 retained (cap 300) · 2026-10-20T10:00:04Z UTC", "a single retained row shows one timestamp");
     assert.match(ctx.els.axRetainedStatus.textContent, /^One stream has retained samples\. Review latest retained opens the 60 s ending 2026-10-20T10:00:04Z \(UTC\); the other stream will be empty there\./);
     assert.equal(ctx.els.axRetainedLatest.disabled, false);
     await click(ctx, "axRetainedLatest");
@@ -508,7 +511,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.match(ctx.els.axRetainedStatus.textContent, /unexpected response shape/);
     await click(ctx, "axRetainedFind");
     await ctx.respond("/a1/retained-data", retainedBody({ physiological: stream(2, "2026-10-20T10:00:00Z", "2026-10-20T10:00:01Z") }));
-    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): 2 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:01Z UTC");
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): 2 retained (cap 300) · 2026-10-20T10:00:00Z → 2026-10-20T10:00:01Z UTC");
     assert.equal(ctx.els.axRetainedLatest.disabled, false);
   });
 
@@ -527,7 +530,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await click(ctx, "axRetainedFind");
     assert.ok(retainedUrls(ctx).slice(-1)[0].includes("/a2/retained-data"));
     await ctx.respond("/a2/retained-data", retainedBody({ athlete_id: "a2", tracking: stream(3, "2026-10-21T08:00:00Z", "2026-10-21T08:00:02Z") }));
-    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 3 retained · 2026-10-21T08:00:00Z → 2026-10-21T08:00:02Z UTC");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 3 retained (cap 300) · 2026-10-21T08:00:00Z → 2026-10-21T08:00:02Z UTC");
     // mode change clears it; a lookup left pending when leaving Recorded is dropped when it answers
     await click(ctx, "axRetainedFind");
     const r3 = ctx.pending.find(p => p.url.includes("/a2/retained-data") && p !== r1);
@@ -549,7 +552,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await ctx.resolveLate(r4, retainedBody({ athlete_id: "a2", tracking: stream(1, "2026-10-21T08:00:00Z", "2026-10-21T08:00:00Z") }));
     assert.equal(ctx.els.axRetainedList.style.display, "none", "superseded lookup dropped");
     await ctx.resolveLate(r5, retainedBody({ athlete_id: "a2", tracking: stream(2, "2026-10-21T08:00:00Z", "2026-10-21T08:00:01Z") }));
-    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 2 retained · 2026-10-21T08:00:00Z → 2026-10-21T08:00:01Z UTC");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 2 retained (cap 300) · 2026-10-21T08:00:00Z → 2026-10-21T08:00:01Z UTC");
   });
 
   // ---- source labels ------------------------------------------------------------------------------------
@@ -787,7 +790,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await ctx.respond("/a1/effort-review", effortBody({ movement: { sample_count: 0, speed_peak_mps: null, first_sample_at: null, last_sample_at: null, latest_sample_age_seconds: null, max_inter_sample_gap_seconds: null, estimated_distance_m: null, included_duration_seconds: 0, included_window_fraction: 0, excluded_interval_count: 0, high_speed_duration_seconds: null, high_speed_distance_m: null, sources: { reported: {}, not_reported: 0 } }, before: {}, during: {}, after: {} }));
     assert.equal(ctx.els.axEffMvCount.textContent, "0"); assert.equal(ctx.els.axEffMvPeak.textContent, "Not available"); assert.equal(ctx.els.axEffMvDist.textContent, "Not available");
     assert.equal(ctx.els.axEffMvIncl.textContent, "0.0 s · 0% of effort"); assert.equal(ctx.els.axEffMvHsTime.textContent, "Not available");
-    assert.match(ctx.els.axEffMvRules.textContent, /^No tracking samples recorded in the effort; distance and high-speed figures are not available\.$/);
+    assert.match(ctx.els.axEffMvRules.textContent, /^No tracking samples in the effort \(see Available data above\); distance and high-speed figures are not available\.$/);
     for (const k of ["Before", "During", "After"]) { assert.equal(ctx.els["axEffHr" + k + "Count"].textContent, "0 of 0 samples"); assert.equal(ctx.els["axEffHr" + k + "Mean"].textContent, "Not available"); assert.equal(ctx.els["axEffHr" + k + "Peak"].textContent, "Not available"); assert.equal(ctx.els["axEffHr" + k + "Gap"].textContent, "Not available"); }
     assert.match(ctx.els.axEffHrDuringDetail.textContent, /no samples in this period · sources: no samples$/);
     // real zeros and nulls: a stationary effort with heart-rate samples that carry no measurement
@@ -1250,11 +1253,134 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(pub.pending.length, 0);
   });
 
+  // ---- available data: retained versus selected, per stream ----------------------------------------------
+  const avail = o => Object.assign({ max_samples: 300, retained_count: 0, retained_earliest: null, retained_latest: null, at_cap: false, selected_count: 0, selected_first: null, selected_last: null }, o || {});
+  const availFor = (samples, o) => { // what the engine reports when exactly these samples were selected
+    const ts = samples.map(s => s.timestamp).sort();
+    return avail(Object.assign({ selected_count: ts.length, selected_first: ts[0] || null, selected_last: ts[ts.length - 1] || null }, o || {}));
+  };
+
+  test("available data on the summary: engine caps shown as sent, no retained versus none in the window, partial history with and without cap evidence, older engines", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/a1/window", win());
+    // nothing retained at all versus retained elsewhere
+    await ctx.respond("/a1/summary", sum({ start: iso(-60), end: iso(0) }));
+    assert.match(ctx.els.axSumAvail.textContent, /^Available data · Heart rate: available-data details were not provided by this engine version \(no cap is assumed\)\. Tracking: available-data details were not provided/, "an older engine without the block gets a plain note");
+    assert.ok(!/300/.test(ctx.els.axSumAvail.textContent), "no cap is guessed");
+    await ctx.tick();
+    await ctx.respond("/a1/window", win());
+    await ctx.respond("/a1/summary", Object.assign(sum({ start: iso(-60), end: iso(0) }), { availability: { physiological: avail(), tracking: avail({ max_samples: 3000, retained_count: 12, retained_earliest: iso(30), retained_latest: iso(41) }) } }));
+    const t1 = ctx.els.axSumAvail.textContent;
+    assert.match(t1, /Heart rate: no retained samples at all \(cap 300\)\. The engine cannot say whether data was never received or has since been removed\./);
+    assert.match(t1, /Tracking: no samples in this window; 12 retained samples span 2026-10-24T12:00:30Z to 2026-10-24T12:00:41Z UTC, which begins after the window ends \(nothing older is retained; the engine cannot say whether earlier data was received or has been removed\) \(cap 3000\)\./);
+    assert.match(t1, /first\/last bounds do not show that every instant between them was sampled\.$/);
+    // partial history: retained begins inside the window and the stream is at its cap (the engine's only evidence of removal)
+    await ctx.tick();
+    await ctx.respond("/a1/window", win());
+    const p = [phys(-20, 100), phys(-10, 101), phys(0, 102)];
+    await ctx.respond("/a1/summary", Object.assign(sum({ start: iso(-60), end: iso(0), physiological: { sample_count: 3, heart_rate_count: 3, first_sample_at: iso(-20), last_sample_at: iso(0) } }),
+      { availability: { physiological: availFor(p, { retained_count: 300, retained_earliest: iso(-20), retained_latest: iso(0), at_cap: true }), tracking: availFor([trk(-5, 1, 1)], { max_samples: 3000, retained_count: 40, retained_earliest: iso(-100), retained_latest: iso(-5) }) } }));
+    const t2 = ctx.els.axSumAvail.textContent;
+    assert.match(t2, /Heart rate: 3 of 300 retained samples fall in this window \(first 2026-10-24T11:59:40Z, last 2026-10-24T12:00:00Z UTC; cap 300\); retained history begins 40\.0 s after the window starts \(the stream is at its cap, so any older sample that was received is no longer retained\)\. Retained history spans 2026-10-24T11:59:40Z to 2026-10-24T12:00:00Z UTC\./);
+    assert.match(t2, /Tracking: 1 of 40 retained samples fall in this window \(first 2026-10-24T11:59:55Z, last 2026-10-24T11:59:55Z UTC; cap 3000\); retained history ends 5\.0 s before the window ends\. Retained history spans/);
+    assert.ok(!/complete|coverage|expected|%/.test(t2), "no completeness, coverage or expected-count claim");
+    // a selection reaching both bounds is still not called complete
+    await ctx.tick();
+    await ctx.respond("/a1/window", win());
+    await ctx.respond("/a1/summary", Object.assign(sum({ start: iso(-60), end: iso(0) }), { availability: { physiological: availFor([phys(-60, 1), phys(0, 2)], { retained_count: 2, retained_earliest: iso(-60), retained_latest: iso(0) }), tracking: avail() } }));
+    assert.match(ctx.els.axSumAvail.textContent, /^Available data · Heart rate: 2 of 2 retained samples fall in this window \(first 2026-10-24T11:59:00Z, last 2026-10-24T12:00:00Z UTC; cap 300\)\. Retained history spans 2026-10-24T11:59:00Z to 2026-10-24T12:00:00Z UTC\. Tracking: no retained samples at all/);
+    assert.ok(!/complete/.test(ctx.els.axSumAvail.textContent));
+    // cleared on failure and on athlete change; a late response for the earlier athlete never writes it
+    await ctx.tick();
+    await ctx.respond("/a1/window", win());
+    await ctx.fail("/a1/summary");
+    assert.equal(ctx.els.axSumAvail.textContent, "");
+    await ctx.tick();
+    const late = ctx.pending.find(p => p.url.includes("/a1/summary"));
+    ctx.els.axAthleteSelect.value = "a2"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
+    await ctx.resolveLate(late, Object.assign(sum({ athlete: "a1" }), { availability: { physiological: avail({ retained_count: 5 }), tracking: avail() } }));
+    assert.equal(ctx.els.axSumAvail.textContent, "", "obsolete response dropped");
+    const pub = boot({ hostname: "assistantcoachai.net" });
+    await pub.flush();
+    assert.equal(pub.pending.length, 0, "public mode: no engine request");
+  });
+
+  test("available data on the timeline: from the window's own block, retained-elsewhere wording, cleared on athlete change and with late responses dropped", async () => {
+    const ctx = boot();
+    await start(ctx);
+    const t = [trk(-30, 2, 1), trk(-29, 3, 1)];
+    await ctx.respond("/a1/window", Object.assign(win({ tracking: t }), { availability: { physiological: avail({ retained_count: 9, retained_earliest: iso(-200), retained_latest: iso(-100) }), tracking: availFor(t, { max_samples: 3000, retained_count: 2, retained_earliest: iso(-30), retained_latest: iso(-29) }) } }));
+    const txt = ctx.els.axTlAvail.textContent;
+    assert.match(txt, /^Available data · Heart rate: no samples in this window; 9 retained samples span 2026-10-24T11:56:40Z to 2026-10-24T11:58:20Z UTC, which ends before the window starts \(cap 300\)\. Tracking: 2 of 2 retained samples fall in this window \(first 2026-10-24T11:59:30Z, last 2026-10-24T11:59:31Z UTC; cap 3000\); retained history begins 30\.0 s after the window starts \(nothing older is retained; the engine cannot say whether earlier data was received or has been removed\); retained history ends 29\.0 s before the window ends\. Retained history spans/);
+    await ctx.respond("/a1/summary", sum());
+    // an engine without the block: plain note, nothing guessed
+    await ctx.tick();
+    await ctx.respond("/a1/window", win({ tracking: t }));
+    await ctx.respond("/a1/summary", sum());
+    assert.match(ctx.els.axTlAvail.textContent, /^Available data · Heart rate: available-data details were not provided by this engine version \(no cap is assumed\)\. Tracking: available-data details were not provided/);
+    assert.ok(!/300|3000/.test(ctx.els.axTlAvail.textContent));
+    await ctx.tick();
+    const late = ctx.pending.find(p => p.url.includes("/a1/window"));
+    ctx.els.axAthleteSelect.value = "a2"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
+    assert.equal(ctx.els.axTlAvail.textContent, "", "cleared on athlete change");
+    await ctx.resolveLate(late, Object.assign(win({ tracking: t }), { availability: { physiological: avail({ retained_count: 7 }), tracking: avail() } }));
+    assert.equal(ctx.els.axTlAvail.textContent, "", "a late response for the earlier athlete is dropped");
+  });
+
+  test("available data on the effort review: movement over the effort and heart rate per period, retained facts shown once per period, nothing called complete, older engines", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    setEffort(ctx, E_START, E_END); await click(ctx, "axEffortGo");
+    const hrRetained = { retained_count: 300, retained_earliest: "2026-10-20T10:00:00Z", retained_latest: "2026-10-20T10:04:59Z", at_cap: true };
+    await ctx.respond("/a1/effort-review", Object.assign(effortBody(), { availability: {
+      movement: avail({ max_samples: 3000, retained_count: 2500, retained_earliest: "2026-10-20T10:00:01Z", retained_latest: "2026-10-20T10:04:10Z", selected_count: 4, selected_first: E_START, selected_last: E_END }),
+      heart_rate: {
+        before: avail(Object.assign({ selected_count: 1, selected_first: "2026-10-20T10:00:00Z", selected_last: "2026-10-20T10:00:00Z" }, hrRetained)),
+        during: avail(Object.assign({ selected_count: 4, selected_first: E_START, selected_last: E_END }, hrRetained)),
+        after: avail(hrRetained),
+      } } }));
+    const txt = ctx.els.axEffortAvail.textContent;
+    assert.match(txt, /^Available data · Tracking: 4 of 2500 retained samples fall in this effort \(first 2026-10-20T10:00:01Z, last 2026-10-20T10:00:04Z UTC; cap 3000\)\. Retained history spans 2026-10-20T10:00:01Z to 2026-10-20T10:04:10Z UTC\. /);
+    assert.match(txt, /Heart rate Before: 1 of 300 retained samples fall in this Before period \(first 2026-10-20T10:00:00Z, last 2026-10-20T10:00:00Z UTC; cap 300\); retained history begins 9\.0 s after the Before period starts \(the stream is at its cap, so any older sample that was received is no longer retained\)\./);
+    assert.match(txt, /Heart rate During: 4 of 300 retained samples fall in this During period \(first 2026-10-20T10:00:01Z, last 2026-10-20T10:00:04Z UTC; cap 300\)\. Retained history spans/);
+    assert.match(txt, /Heart rate After: no samples in this After period; 300 retained samples span 2026-10-20T10:00:00Z to 2026-10-20T10:04:59Z UTC, which overlaps the After period without a sample inside it \(cap 300\)\./);
+    assert.ok(!/complete|coverage|expected|%/.test(txt), "no completeness claim even where first/last reach the bounds");
+    assert.equal(ctx.els.axEffHrDuringCount.textContent, "3 of 4 samples", "period figures unchanged");
+    assert.ok(!/newest 300|300 samples per|300 per stream/.test(html), "no unconditional 300-sample wording anywhere in the page");
+    // inputs changed: the line goes with the result; an engine without the block gets the plain note
+    ctx.els.axEffortStart.dispatch("input"); await ctx.flush();
+    assert.equal(ctx.els.axEffortAvail.textContent, "");
+    await click(ctx, "axEffortGo");
+    await ctx.respond("/a1/effort-review", effortBody());
+    assert.match(ctx.els.axEffortAvail.textContent, /^Available data · Tracking: available-data details were not provided by this engine version \(no cap is assumed\)\. Heart rate: available-data details were not provided/);
+  });
+
+  test("retained data: each stream's own cap is shown as the engine reports it, differing caps included; missing caps are said to be missing", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await click(ctx, "axModeRecorded");
+    assert.equal(ctx.els.axRetainedCap.textContent, "not looked up yet");
+    await click(ctx, "axRetainedFind");
+    await ctx.respond("/a1/retained-data", retainedBody({ physiological: Object.assign(stream(5, "2026-10-20T10:00:00Z", "2026-10-20T10:00:04Z"), { max_samples: 300 }), tracking: Object.assign(stream(2800, "2026-10-20T10:00:00Z", "2026-10-20T10:04:39Z"), { max_samples: 3000 }), max_samples_per_stream: null }));
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): 5 retained (cap 300) · 2026-10-20T10:00:00Z → 2026-10-20T10:00:04Z UTC");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 2800 retained (cap 3000) · 2026-10-20T10:00:00Z → 2026-10-20T10:04:39Z UTC");
+    assert.equal(ctx.els.axRetainedCap.textContent, "physiological 300, tracking 3000");
+    await click(ctx, "axRetainedFind");
+    await ctx.respond("/a1/retained-data", { athlete_id: "a1", physiological: stream(0), tracking: stream(1, "2026-10-20T10:00:04Z", "2026-10-20T10:00:04Z") });
+    assert.equal(ctx.els.axRetainedPhys.textContent, "Heart rate (physiological): none retained (cap not reported)");
+    assert.equal(ctx.els.axRetainedTrk.textContent, "Tracking: 1 retained (cap not reported) · 2026-10-20T10:00:04Z UTC");
+    assert.equal(ctx.els.axRetainedCap.textContent, "physiological not reported, tracking not reported", "no cap is guessed for an engine that reports none");
+    ctx.els.axAthleteSelect.value = "a2"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
+    assert.equal(ctx.els.axRetainedCap.textContent, "not looked up yet", "cleared with the rest on athlete change");
+  });
+
   // ---- run --------------------------------------------------------------------------------------------
   const list = document.getElementById("results");
   for (const t of tests) {
     const li = document.createElement("li");
-    try { await t.fn(); results.push({ name: t.name, ok: true }); li.className = "pass"; li.textContent = "PASS " + t.name; }
+    try { await Promise.race([t.fn(), new Promise((_, reject) => setTimeout(() => reject(new Error("test did not finish within 10 s (a stalled await)")), 10000))]); results.push({ name: t.name, ok: true }); li.className = "pass"; li.textContent = "PASS " + t.name; }
     catch (e) { results.push({ name: t.name, ok: false, error: String(e && e.message || e) }); li.className = "fail"; li.textContent = "FAIL " + t.name; const pre = document.createElement("pre"); pre.textContent = String(e && e.stack || e); li.appendChild(pre); }
     list.appendChild(li);
   }

@@ -83,7 +83,8 @@ All three cards switch together. **Refresh roster** reloads the athlete list
 from the backend and keeps your current selection when it is still present.
 
 The backend persists the athlete registry, device statuses and the newest
-300 samples per athlete per stream in a local SQLite file (`data/athletrix.db`
+samples per athlete per stream, up to each stream's configurable retention
+cap (default 300 each), in a local SQLite file (`data/athletrix.db`
 in the engine repository by default), so they survive backend restarts. The
 roster script is a one-time step per database file and is safe to rerun.
 After a restart the dashboard reconnects on its own and shows the retained
@@ -167,7 +168,8 @@ readings with their real age; run a simulator again for fresh values.
   explicit message when its stream is empty, and the card states that the
   charts group recorded timestamps only, without correcting device clocks
   or implying a physiological relationship. The window is bounded by the
-  engine's 300-sample history cap per stream.
+  engine's per-stream retention caps; an **Available data** line under each
+  card says what the engine retains and what the window selected (below).
 
 The two live cards poll once per second and the summary and timeline cards
 every 5 seconds, only while the dashboard is visible, and each reports its
@@ -409,9 +411,42 @@ engine refuses (for example one in the future) is shown as
 "Engine rejected the request: ..." with the engine's reason.
 
 **Recorded review shows retained samples, not a recording archive.** The
-engine keeps only the newest 300 samples per athlete per stream, so a window
-can only show what is still stored; older records may already have been
-removed, and an empty review window says so.
+engine keeps only the newest samples per athlete per stream, up to each
+stream's own cap (default 300; configurable in the engine), so a window can
+only show what is still stored; older records may already have been removed,
+and an empty review window says so.
+
+### Available data: requested period versus retained history
+
+The summary card, the timeline card and the Selected effort review each show
+a compact **Available data** line built only from the engine's
+`availability` block (per stream: the engine's cap, the retained count and
+oldest/newest timestamps, and the count and first/last timestamps of the
+samples the request selected). Examples:
+
+- `Heart rate: no retained samples at all (cap 300). The engine cannot say
+  whether data was never received or has since been removed.`
+- `Tracking: no samples in this window; 12 retained samples span … UTC,
+  which begins after the window ends (cap 3000).`
+- `Heart rate: 3 of 300 retained samples fall in this window (first …, last …
+  UTC; cap 300); retained history begins 40.0 s after the window starts (the
+  stream is at its cap, so any older sample that was received is no longer
+  retained).`
+
+Rules the page follows: no samples in the selected period is always
+distinguished from no retained samples at all; when retained history begins
+after the period starts or ends before it finishes, the line says by how
+much; removal is claimed only when the engine reports the stream at its cap,
+otherwise the line says the engine cannot tell whether earlier data was
+received or removed; no expected sample count, sampling rate, coverage
+percentage or interpolation is ever derived, and a selection whose first and
+last samples reach the period bounds is never called complete. The effort
+review shows the line for the tracking samples in the effort and for the
+heart-rate Before, During and After periods, without changing the periods'
+figures. The caps are always the engine's reported values, never a number
+assumed by the page; an engine that does not send the block gets a plain
+"details were not provided by this engine version" note, and a retained-data
+lookup from such an engine shows "cap not reported".
 
 ### Finding retained data
 
@@ -423,7 +458,8 @@ guesswork:
   what it currently stores for the selected athlete and shows, per stream,
   the count of retained samples and the recorded timestamps of the oldest
   and newest, in UTC (for example
-  `Tracking: 5 retained · 2026-10-20T10:00:00Z → 2026-10-20T10:00:04Z UTC`),
+  `Tracking: 5 retained (cap 300) · 2026-10-20T10:00:00Z → 2026-10-20T10:00:04Z UTC`,
+  each stream with its own cap as the engine reports it),
   together with the retention cap. It is fetched only when you click, never
   by a timer, and only in engine mode; public mode still makes no engine
   request.
@@ -447,7 +483,7 @@ and a late answer for an earlier athlete, mode or lookup is dropped unseen.
   not just the 60 s review or a selected effort, and can be replayed into
   another local engine with `scripts/replay_samples.py`. It is a snapshot
   of retained rows, not a recording archive or a database backup: samples
-  already removed by the newest-300 cap cannot be recovered. The button
+  already removed by a retention cap cannot be recovered. The button
   works only in Recorded mode and only on click; while fetching it is
   disabled; "no retained samples" (the engine's 404) and backend or network
   errors are shown with a retry hint; and a response that arrives after the
@@ -456,7 +492,7 @@ and a late answer for an earlier athlete, mode or lookup is dropped unseen.
 
 **Counts and ranges describe retained records only.** They are not a session
 list, do not show continuous coverage between the bounds, and are not a full
-archive: nothing is inferred about gaps or about rows the newest-300 rule has
+archive: nothing is inferred about gaps or about rows the retention caps have
 removed, and an empty stream does not establish whether data was never
 collected or has since been removed. The two streams are independent and may
 cover different times, so the latest 60 s window may contain only one of
@@ -527,8 +563,13 @@ It also covers the coherent live snapshot (one request per poll feeding
 both cards, engine-provided ages, no eligible sample, an earlier eligible
 sample with a newer one ahead, stopped updating, errors, no duplicate
 pollers, late responses dropped after athlete and mode changes, Live
-resuming after Recorded, public mode silent). Expect "49 tests, 49
-passed".
+resuming after Recorded, public mode silent); and the Available data lines
+(engine caps shown as sent, nothing retained versus nothing in the period,
+partial history with and without cap evidence, per-period effort context,
+older engines without the block, per-stream caps in the retained-data
+lookup, obsolete responses dropped). Expect "53 tests, 53 passed". The
+runner fails a test that does not finish within 10 s and yields through a
+MessageChannel, so the run does not crawl in a background tab.
 
 ## Project handoff
 
