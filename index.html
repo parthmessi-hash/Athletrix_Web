@@ -11252,7 +11252,7 @@ function initializePlayerFatigue(team) {
       if (!pick.arm) { setPickStatus("Click Pick effort start or Pick effort end first, then a point.", COLORS.warn); return; }
       setPickBound(pick.arm, point);
     }
-    function windowKey(win) { return String(win.athlete_id) + "|" + String(win.window_start) + "|" + String(win.window_end); }
+    function windowKey(win) { return selection.mode + "|" + String(sessionKey() || "") + "|" + String(win.athlete_id) + "|" + String(win.window_start) + "|" + String(win.window_end); } // the data context is part of the key: a pick never survives a change of mode or recording
     function rebuildPointList(points) {
       while (el.axTlPointSelect.firstChild) el.axTlPointSelect.removeChild(el.axTlPointSelect.firstChild);
       var o0 = document.createElement("option"); o0.value = ""; o0.textContent = "— recorded points (" + points.length + ") —"; el.axTlPointSelect.appendChild(o0);

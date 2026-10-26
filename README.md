@@ -216,7 +216,9 @@ The Available data lines say "recorded" and "no cap in a recording" instead
 of retention wording. **Exit recording review** (or Live / Recorded) restores
 the engine roster and the rolling endpoints. Request generations are bumped
 on every athlete, mode and recording change, so a late reply from an earlier
-recording never lands under a newer one. In public mode the card is hidden
+recording never lands under a newer one; the effort inputs' result, both
+comparison slots and any timeline point selection are cleared on every such
+change, so figures from different data contexts cannot be mixed. In public mode the card is hidden
 and, as before, no engine request is made.
 
 ## Selected effort review (Recorded mode)

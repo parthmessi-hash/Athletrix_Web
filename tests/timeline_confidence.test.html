@@ -1501,6 +1501,18 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await ctx.respond(base + "effort-review", Object.assign(effortBody(), { availability: null, session_availability: { movement: sessionAvail({ recorded_count: 4, recorded_earliest: E_START, recorded_latest: E_END, selected_count: 4, selected_first: E_START, selected_last: E_END }), heart_rate: { before: sessionAvail(), during: sessionAvail(), after: sessionAvail() } } }, ses));
     assert.match(ctx.els.axEffortStatus.textContent, /in recording "Tuesday practice"\. Descriptive figures only\.$/);
     assert.match(ctx.els.axEffortAvail.textContent, /^Available data · Tracking: 4 of 4 recorded samples fall in this effort .*no cap in a recording.* Heart rate Before: nothing recorded for this athlete in this recording/);
+    // a timeline pick made in this recording is dropped when the data context changes, even to a rolling window with the same athlete and bounds
+    await click(ctx, "axTlArmStart");
+    ctx.els.axTlHrSvg.byTag("circle")[0].dispatch("click"); await ctx.flush();
+    assert.match(ctx.els.axTlPickSelected.textContent, /^Selected: start 2026-10-26T20:29:00Z/);
+    await click(ctx, "axModeRecorded");
+    await reviewAt(ctx, "2026-10-26T20:30:00Z");
+    await ctx.respond("/api/v1/athletes/a1/window?seconds=60&end=", { athlete_id: "a1", window_start: "2026-10-26T20:29:00Z", window_end: "2026-10-26T20:30:00Z", physiological_samples: p, tracking_samples: [], tracking_rules: { min_confidence: 0.5 } });
+    assert.equal(ctx.els.axTlPickSelected.textContent, "", "same athlete and bounds, different data context: the pick is cleared");
+    assert.match(ctx.els.axTlPickStatus.textContent, /^(Timeline changed: the earlier point selection was cleared|Click Pick effort start or Pick effort end)/, "cleared by the card reset on the mode change, or by the window key if a render came first");
+    reviewButton(ctx, 0).dispatch("click"); await ctx.flush();      // back into the recording
+    await ctx.respond(base + "window", Object.assign({ athlete_id: "a1", window_start: "2026-10-26T20:29:00Z", window_end: "2026-10-26T20:30:00Z", physiological_samples: [], tracking_samples: [], tracking_rules: { min_confidence: 0.5 }, session_availability: { physiological: sessionAvail(), tracking: sessionAvail() } }, ses));
+    await ctx.respond(base + "summary", Object.assign(sum({ start: "2026-10-26T20:29:00Z", end: "2026-10-26T20:30:00Z" }), { session_availability: { physiological: sessionAvail(), tracking: sessionAvail() } }, ses));
     // switching to the saved-roster athlete that is no longer registered still works, scoped to the recording
     ctx.els.axAthleteSelect.value = "a9"; ctx.els.axAthleteSelect.dispatch("change"); await ctx.flush();
     assert.ok(urls(ctx).some(u => u.includes("/recordings/rec-20261026T200000Z-abc123/athletes/a9/summary")));
