@@ -81,6 +81,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axEffMvCount", "axEffMvPeak", "axEffMvDist", "axEffMvIncl", "axEffMvExcl", "axEffMvHsTimeLabel", "axEffMvHsTime", "axEffMvHsDistLabel", "axEffMvHsDist", "axEffMvRules", "axEffMvSources",
     "axEffHrBeforeCount", "axEffHrDuringCount", "axEffHrAfterCount", "axEffHrBeforeMean", "axEffHrDuringMean", "axEffHrAfterMean", "axEffHrBeforePeak", "axEffHrDuringPeak", "axEffHrAfterPeak",
     "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail",
+    "axTlPick", "axTlArmStart", "axTlArmEnd", "axTlPickClear", "axTlPointSelect", "axTlSetStart", "axTlSetEnd", "axTlPickStatus", "axTlPickSelected",
   ];
 
   function boot(opts) {
@@ -848,6 +849,118 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axEffortResult.style.display, "none", "nothing carried over from the previous mode");
     assert.match(ctx.els.axEffortStatus.textContent, /^Enter the effort start and end/);
     assert.equal(ctx.els.axEffortCard.style.display, "block");
+  });
+
+  // ---- effort selection from the timeline ---------------------------------------------------------------------
+
+  const circleFor = (svg, iso) => svg.byTag("circle").find(c => c.getAttribute("data-iso") === iso);
+  const roles = svg => svg.children.filter(c => c.getAttribute("data-role")).map(c => c.getAttribute("data-role"));
+  const picked = svg => svg.byTag("circle").filter(c => c.getAttribute("data-picked")).map(c => [c.getAttribute("data-iso"), c.getAttribute("data-picked")]);
+  const P1 = "2026-10-20T09:59:58Z", P2 = "2026-10-20T12:00:00+02:00", P3 = "2026-10-20T10:00:01Z", P4 = "2026-10-20T10:00:02Z"; // P2 is 10:00:00Z written with an offset
+  const sampleWindow = () => rwin({ physiological: [Object.assign(phys(0, 120), { timestamp: P1 }), Object.assign(phys(0, null), { timestamp: P2 }), Object.assign(phys(0, 130), { timestamp: P4 })], tracking: [Object.assign(rtrk(0, 2, 0.9), { timestamp: P2 }), Object.assign(rtrk(0, 3, 0.2), { timestamp: P3 }), Object.assign(rtrk(0, 4, 0.9), { timestamp: P4 })] });
+  const openRecorded = async ctx => { await click(ctx, "axModeRecorded"); await reviewAt(ctx, END); await ctx.respond("/a1/window?seconds=60&" + END_Q, sampleWindow()); };
+
+  test("timeline selection: Recorded mode only; chart clicks copy the sample's recorded timestamp text into the effort form; shading on both charts; nothing requested", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.equal(ctx.els.axTlPick.style.display, "none", "hidden in Live mode");
+    await openRecorded(ctx);
+    assert.equal(ctx.els.axTlPick.style.display, "block");
+    assert.deepEqual(states(ctx.els.axTlHrSvg), ["usable", "no-value", "usable"], "existing markers unchanged");
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable", "below-confidence", "usable"]);
+    const before = ctx.pending.length;
+    circleFor(ctx.els.axTlHrSvg, P1).dispatch("click"); await ctx.flush();
+    assert.match(ctx.els.axTlPickStatus.textContent, /^Click Pick effort start or Pick effort end first/, "a click without arming does nothing");
+    assert.equal(ctx.els.axEffortStart.value, "");
+    await click(ctx, "axTlArmStart");
+    assert.equal(ctx.els.axTlArmStart.getAttribute("aria-pressed"), "true");
+    circleFor(ctx.els.axTlSpSvg, P2).dispatch("click"); await ctx.flush();   // a tracking point whose timestamp carries an offset
+    assert.equal(ctx.els.axEffortStart.value, P2, "the recorded text, offset included, not a normalised or interpolated time");
+    assert.equal(ctx.els.axTlArmEnd.getAttribute("aria-pressed"), "true", "arming moves on to the end");
+    assert.match(ctx.els.axTlPickStatus.textContent, /^Effort start set from the timeline\. Now pick the effort end/);
+    assert.deepEqual(roles(ctx.els.axTlHrSvg), ["effort-start"], "a start line on both charts"); assert.deepEqual(roles(ctx.els.axTlSpSvg), ["effort-start"]);
+    circleFor(ctx.els.axTlHrSvg, P4).dispatch("click"); await ctx.flush();
+    assert.equal(ctx.els.axEffortEnd.value, P4);
+    assert.match(ctx.els.axTlPickStatus.textContent, /^Selected effort of 2\.0 s copied into the effort form\. Click Review effort below to request the review; nothing has been requested yet\.$/);
+    assert.match(ctx.els.axTlPickSelected.textContent, /^Selected: start 2026-10-20T12:00:00\+02:00 \(2026-10-20T10:00:00Z UTC\) · end 2026-10-20T10:00:02Z \(2026-10-20T10:00:02Z UTC\) · duration 2\.000 s$/);
+    for (const svg of [ctx.els.axTlHrSvg, ctx.els.axTlSpSvg]) {
+      assert.deepEqual(roles(svg).sort(), ["effort-end", "effort-selection", "effort-selection-label", "effort-start"], "shaded span and bound lines on both charts");
+      const rect = svg.children.find(c => c.getAttribute("data-role") === "effort-selection");
+      assert.ok(Number(rect.getAttribute("width")) > 0);
+    }
+    assert.deepEqual(picked(ctx.els.axTlSpSvg), [[P2, "start"], [P4, "end"]]); assert.deepEqual(picked(ctx.els.axTlHrSvg), [[P2, "start"], [P4, "end"]]);
+    assert.equal(ctx.els.axTlArmStart.getAttribute("aria-pressed"), "false"); assert.equal(ctx.els.axTlArmEnd.getAttribute("aria-pressed"), "false");
+    assert.equal(ctx.pending.length, before, "picking never requests anything");
+    assert.equal(ctx.pending.filter(p => p.url.includes("effort-review")).length, 0);
+    await click(ctx, "axEffortGo");
+    assert.ok(urls(ctx).slice(-1)[0].includes("effort-review?effort_start=2026-10-20T12%3A00%3A00%2B02%3A00&effort_end=2026-10-20T10%3A00%3A02Z"), "Review effort sends the picked bounds");
+  });
+
+  test("timeline selection: reversed, equal and too-short picks are explained; typed entry still works; the keyboard list sets bounds", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await openRecorded(ctx);
+    await click(ctx, "axTlArmStart"); circleFor(ctx.els.axTlHrSvg, P4).dispatch("click"); await ctx.flush();
+    circleFor(ctx.els.axTlHrSvg, P1).dispatch("click"); await ctx.flush();  // end before start
+    assert.match(ctx.els.axTlPickStatus.textContent, /^The selected start is after the selected end \(4\.000 s\)\. Pick again/);
+    await click(ctx, "axTlArmEnd"); circleFor(ctx.els.axTlHrSvg, P4).dispatch("click"); await ctx.flush();
+    assert.match(ctx.els.axTlPickStatus.textContent, /^Start and end are the same sample \(duration 0 s\); the engine needs at least 1 s/);
+    assert.equal(ctx.els.axEffortStart.value, P4); assert.equal(ctx.els.axEffortEnd.value, P4, "the form still holds what was picked; the engine stays authoritative");
+    // keyboard path: the list carries every recorded instant with its UTC text and values
+    const options = ctx.els.axTlPointSelect.children;
+    assert.deepEqual(options.map(o => o.value), ["", P1, P2, P3, P4]);
+    assert.equal(options[1].textContent, "2026-10-20T09:59:58Z UTC · 120 bpm");
+    assert.equal(options[2].textContent, "2026-10-20T10:00:00Z UTC · heart rate null · 2.0 m/s");
+    assert.equal(options[3].textContent, "2026-10-20T10:00:01Z UTC · 3.0 m/s");
+    ctx.els.axTlPointSelect.value = P1; await click(ctx, "axTlSetStart");
+    assert.equal(ctx.els.axEffortStart.value, P1);
+    assert.match(ctx.els.axTlPickStatus.textContent, /^Selected effort of 4\.0 s copied/);
+    ctx.els.axTlPointSelect.value = ""; await click(ctx, "axTlSetEnd");
+    assert.match(ctx.els.axTlPickStatus.textContent, /^Choose a recorded point in the list first\./);
+    // typed entry is preserved and still invalidates an earlier effort result
+    ctx.els.axEffortEnd.value = "2026-10-20T10:00:03Z"; ctx.els.axEffortEnd.dispatch("input"); await ctx.flush();
+    assert.equal(ctx.els.axEffortEnd.value, "2026-10-20T10:00:03Z");
+    await click(ctx, "axTlPickClear");
+    assert.deepEqual(roles(ctx.els.axTlHrSvg), [], "highlighting cleared"); assert.deepEqual(picked(ctx.els.axTlSpSvg), []);
+    assert.equal(ctx.els.axEffortStart.value, P1, "Clear selection keeps the form text");
+    assert.match(ctx.els.axTlPickStatus.textContent, /^Selection cleared; the effort form keeps its text\./);
+    assert.equal(ctx.els.axTlPointSelect.children.length, 5, "the point list stays available");
+  });
+
+  test("timeline selection: cleared on athlete change, on a new window and on leaving Recorded mode; a picked bound invalidates an earlier effort result", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await openRecorded(ctx);
+    setEffort(ctx, E_START, E_END); await click(ctx, "axEffortGo");
+    await ctx.respond("/a1/effort-review", effortBody());
+    assert.equal(ctx.els.axEffortResult.style.display, "block");
+    await click(ctx, "axTlArmStart"); circleFor(ctx.els.axTlHrSvg, P1).dispatch("click"); await ctx.flush();
+    assert.equal(ctx.els.axEffortResult.style.display, "none", "an earlier effort result no longer applies once a bound is picked");
+    assert.match(ctx.els.axEffortStatus.textContent, /^Inputs changed/);
+    circleFor(ctx.els.axTlHrSvg, P4).dispatch("click"); await ctx.flush();
+    assert.deepEqual(roles(ctx.els.axTlSpSvg).sort(), ["effort-end", "effort-selection", "effort-selection-label", "effort-start"]);
+    await select(ctx, "a2");
+    assert.deepEqual(roles(ctx.els.axTlSpSvg), [], "cleared with the chart on athlete change");
+    assert.equal(ctx.els.axTlPickSelected.textContent, "");
+    await ctx.respond("/a2/window?seconds=60&" + END_Q, rwin({ athlete: "a2", tracking: [rtrk(0, 1, 1), rtrk(-1, 1, 1)] }));
+    assert.deepEqual(roles(ctx.els.axTlSpSvg), [], "no old selection on the new athlete's timeline");
+    assert.equal(ctx.els.axTlPointSelect.children.length, 3);
+    await click(ctx, "axTlArmEnd"); circleFor(ctx.els.axTlSpSvg, riso(0)).dispatch("click"); await ctx.flush();
+    assert.equal(ctx.els.axEffortEnd.value, riso(0));
+    assert.deepEqual(roles(ctx.els.axTlSpSvg), ["effort-end"]);
+    await reviewAt(ctx, "2026-10-20T10:00:01Z");                                   // a new window replaces the timeline
+    assert.deepEqual(roles(ctx.els.axTlSpSvg), [], "selection dropped with the old window");
+    await ctx.respond("/a2/window?seconds=60&end=2026-10-20T10%3A00%3A01Z", rwin({ athlete: "a2", tracking: [rtrk(-1, 1, 1)] }));
+    assert.deepEqual(roles(ctx.els.axTlSpSvg), [], "nothing carried onto the new window");
+    await click(ctx, "axTlArmStart"); circleFor(ctx.els.axTlSpSvg, riso(-1)).dispatch("click"); await ctx.flush();
+    assert.deepEqual(roles(ctx.els.axTlSpSvg), ["effort-start"]);
+    await click(ctx, "axModeLive");
+    assert.equal(ctx.els.axTlPick.style.display, "none");
+    await ctx.respond("/a2/window?seconds=60", win({ athlete: "a2", tracking: [trk(0, 1, 0.9)] }));
+    assert.deepEqual(roles(ctx.els.axTlSpSvg), [], "nothing selected in Live mode");
+    assert.deepEqual(states(ctx.els.axTlSpSvg), ["usable"]);
+    await click(ctx, "axModeRecorded");
+    assert.equal(ctx.els.axTlPickSelected.textContent, "");
   });
 
   // ---- run --------------------------------------------------------------------------------------------

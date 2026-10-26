@@ -3698,6 +3698,22 @@
           </div>
           <div class="card-sub" id="axTlSources" style="margin-bottom:6px;"></div>
           <div class="card-sub" id="axTlWindow" style="margin-bottom:8px;">&mdash;</div>
+          <div id="axTlPick" style="display:none;margin-bottom:10px;padding:8px 10px;border:1px solid rgba(215,150,11,0.35);background:rgba(215,150,11,0.06);font-size:0.82rem;line-height:1.5;">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;">
+              <b style="color:#fff;">Select an effort from the timeline</b>
+              <button type="button" id="axTlArmStart" class="btn btn-ghost" aria-pressed="false" style="padding:4px 10px;font-size:0.78rem;">Pick effort start</button>
+              <button type="button" id="axTlArmEnd" class="btn btn-ghost" aria-pressed="false" style="padding:4px 10px;font-size:0.78rem;">Pick effort end</button>
+              <button type="button" id="axTlPickClear" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Clear selection</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:6px;">
+              <label for="axTlPointSelect" class="card-sub" style="margin:0;">Keyboard: choose a recorded point</label>
+              <select id="axTlPointSelect" class="coach-select" aria-label="Recorded points in this window" style="max-width:100%;font-family:monospace;font-size:0.78rem;"><option value="">— recorded points —</option></select>
+              <button type="button" id="axTlSetStart" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Use as start</button>
+              <button type="button" id="axTlSetEnd" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Use as end</button>
+            </div>
+            <div class="card-sub" id="axTlPickStatus" style="margin:6px 0 0;">Click Pick effort start or Pick effort end, then a point on either chart; or choose a point in the list. Picking only fills the effort form: click Review effort below to request the review. The shaded span marks your selection, not a detected sprint.</div>
+            <div class="card-sub" id="axTlPickSelected" style="margin:4px 0 0;font-family:monospace;font-size:0.78rem;color:#e5e7eb;"></div>
+          </div>
           <div style="display:grid;gap:10px;">
             <div>
               <div class="vital-label" style="margin-bottom:4px;">Heart rate (bpm) &middot; <span id="axTlHrNote" style="color:#8a9097;"></span></div>
@@ -10677,7 +10693,8 @@ function initializePlayerFatigue(team) {
   // ---- Timeline card (window of 60 s, refreshed every 5 s; two SVG charts on one time axis) ----
   (function(){
     var TL_MS = 5000, TL_WINDOW_S = 60, DISPLAY_GAP_S = 3;  // DISPLAY_GAP_S: lines are not drawn across longer gaps (display rule only)
-    var ids = ["axLiveTlWho","axTlWindow","axTlHrSvg","axTlSpSvg","axTlHrNote","axTlSpNote","axTlStatus","axTlSub","axTlModeBadge","axTlSourceBadge","axTlSources"];
+    var ids = ["axLiveTlWho","axTlWindow","axTlHrSvg","axTlSpSvg","axTlHrNote","axTlSpNote","axTlStatus","axTlSub","axTlModeBadge","axTlSourceBadge","axTlSources",
+               "axTlPick","axTlArmStart","axTlArmEnd","axTlPickClear","axTlPointSelect","axTlSetStart","axTlSetEnd","axTlPickStatus","axTlPickSelected"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     var W = 640, H = 120, PAD = { l: 44, r: 10, t: 8, b: 18 };
@@ -10700,8 +10717,113 @@ function initializePlayerFatigue(team) {
       return n;
     }
     function message(svg, text) { clearSvg(svg); svg.appendChild(node("text", { x: W / 2, y: H / 2 + 4, "text-anchor": "middle", fill: "#8a9097", "font-size": "12", "font-family": "Inter, sans-serif" }, text)); }
-    function clearAll() { message(el.axTlHrSvg, "—"); message(el.axTlSpSvg, "—"); el.axTlWindow.textContent = DASH; el.axTlHrNote.textContent = ""; el.axTlSpNote.textContent = ""; hideBadge(el.axTlSourceBadge); el.axTlSources.textContent = ""; }
+    function clearAll() { message(el.axTlHrSvg, "—"); message(el.axTlSpSvg, "—"); el.axTlWindow.textContent = DASH; el.axTlHrNote.textContent = ""; el.axTlSpNote.textContent = ""; hideBadge(el.axTlSourceBadge); el.axTlSources.textContent = ""; clearPick(null, true); }
     function ms(iso) { var v = new Date(iso).getTime(); return isNaN(v) ? null : v; }
+
+    // ---- effort selection from the timeline (Recorded mode only) ----
+    // A pick copies the chosen sample's recorded timestamp text, exactly as the engine returned it, into the effort form;
+    // nothing is interpolated and nothing is requested until Review effort is clicked. The selection belongs to the
+    // window it was made on (athlete + bounds): a different window, athlete or mode clears it, so an old selection can
+    // never appear to belong to a new timeline. The shaded span marks a user selection, not a detected sprint.
+    var pick = { arm: null, start: null, end: null, windowKey: null, points: [] }; // start/end: { iso, t }
+    var PICK_IDLE = "Click Pick effort start or Pick effort end, then a point on either chart; or choose a point in the list. Picking only fills the effort form: click Review effort below to request the review. The shaded span marks your selection, not a detected sprint.";
+    var EFFORT_MIN_S = 1, EFFORT_MAX_S = 120; // the engine's limits, repeated here only for an early message; the engine's validation is authoritative
+    function setPickStatus(text, color) { el.axTlPickStatus.textContent = text; el.axTlPickStatus.style.color = color; }
+    function utcIso(iso) { var d = new Date(iso); return isNaN(d.getTime()) ? String(iso) : d.toISOString().replace(/\.000Z$/, "Z"); }
+    function applyArmUi() {
+      el.axTlArmStart.setAttribute("aria-pressed", pick.arm === "start" ? "true" : "false"); el.axTlArmEnd.setAttribute("aria-pressed", pick.arm === "end" ? "true" : "false");
+      el.axTlArmStart.className = pick.arm === "start" ? "btn btn-primary" : "btn btn-ghost"; el.axTlArmEnd.className = pick.arm === "end" ? "btn btn-primary" : "btn btn-ghost";
+    }
+    function describePick() {
+      var parts = [];
+      if (pick.start) parts.push("start " + pick.start.iso + " (" + utcIso(pick.start.iso) + " UTC)");
+      if (pick.end) parts.push("end " + pick.end.iso + " (" + utcIso(pick.end.iso) + " UTC)");
+      if (pick.start && pick.end) parts.push("duration " + ((pick.end.t - pick.start.t) / 1000).toFixed(3) + " s");
+      el.axTlPickSelected.textContent = parts.length ? "Selected: " + parts.join(" · ") : "";
+    }
+    function checkPick() { // early, descriptive messages only; the engine decides when Review effort is clicked
+      if (!pick.start || !pick.end) {
+        setPickStatus(pick.start ? "Effort start set from the timeline. Now pick the effort end (a later point)." : "Effort end set from the timeline. Now pick the effort start (an earlier point).", COLORS.muted);
+        return;
+      }
+      var dur = (pick.end.t - pick.start.t) / 1000;
+      if (dur < 0) setPickStatus("The selected start is after the selected end (" + (-dur).toFixed(3) + " s). Pick again so that the start comes first; the engine will refuse the review otherwise.", COLORS.error);
+      else if (dur === 0) setPickStatus("Start and end are the same sample (duration 0 s); the engine needs at least " + EFFORT_MIN_S + " s. Pick a different end.", COLORS.error);
+      else if (dur < EFFORT_MIN_S) setPickStatus("Duration " + dur.toFixed(3) + " s is shorter than the engine's minimum of " + EFFORT_MIN_S + " s. Pick a later end.", COLORS.error);
+      else if (dur > EFFORT_MAX_S) setPickStatus("Duration " + dur.toFixed(3) + " s is longer than the engine's maximum of " + EFFORT_MAX_S + " s. Pick a closer end.", COLORS.error);
+      else setPickStatus("Selected effort of " + dur.toFixed(1) + " s copied into the effort form. Click Review effort below to request the review; nothing has been requested yet.", COLORS.muted);
+    }
+    function setPickBound(which, point) {
+      pick[which] = { iso: point.iso, t: point.t };
+      var input = byId(which === "start" ? "axEffortStart" : "axEffortEnd");
+      if (input) { input.value = point.iso; if (typeof effortInputsChanged === "function") effortInputsChanged(); } // the real recorded text; earlier effort results are now obsolete
+      pick.arm = which === "start" && !pick.end ? "end" : (which === "end" && !pick.start ? "start" : null); // guide the next pick
+      applyArmUi(); describePick(); checkPick(); redrawSelection();
+    }
+    function clearPick(reason, silent) {
+      var had = pick.start || pick.end;
+      pick.arm = null; pick.start = null; pick.end = null; pick.windowKey = null; pick.points = [];
+      while (el.axTlPointSelect.firstChild) el.axTlPointSelect.removeChild(el.axTlPointSelect.firstChild);
+      var o = document.createElement("option"); o.value = ""; o.textContent = "— recorded points —"; el.axTlPointSelect.appendChild(o); el.axTlPointSelect.value = "";
+      applyArmUi(); describePick();
+      if (!silent || had) setPickStatus(reason || PICK_IDLE, reason && had ? COLORS.warn : COLORS.muted);
+    }
+    function pointFromIso(iso) { for (var i = 0; i < pick.points.length; i++) if (pick.points[i].iso === iso) return pick.points[i]; return null; }
+    function onChartPointClick(point) {
+      if (!reviewing()) return;
+      if (!pick.arm) { setPickStatus("Click Pick effort start or Pick effort end first, then a point.", COLORS.warn); return; }
+      setPickBound(pick.arm, point);
+    }
+    function windowKey(win) { return String(win.athlete_id) + "|" + String(win.window_start) + "|" + String(win.window_end); }
+    function rebuildPointList(points) {
+      while (el.axTlPointSelect.firstChild) el.axTlPointSelect.removeChild(el.axTlPointSelect.firstChild);
+      var o0 = document.createElement("option"); o0.value = ""; o0.textContent = "— recorded points (" + points.length + ") —"; el.axTlPointSelect.appendChild(o0);
+      for (var i = 0; i < points.length; i++) {
+        var o = document.createElement("option"); o.value = points[i].iso;
+        o.textContent = utcIso(points[i].iso) + " UTC" + (isNum(points[i].hr) ? " · " + Math.round(points[i].hr) + " bpm" : (points[i].hasPhys ? " · heart rate null" : "")) + (isNum(points[i].speed) ? " · " + points[i].speed.toFixed(1) + " m/s" : "");
+        el.axTlPointSelect.appendChild(o);
+      }
+    }
+    // Shading and markers on both charts, in the same x scale as the samples. Redrawn after every render of the same window.
+    function drawSelectionOn(svg, t0, t1) {
+      var x = function(t) { return PAD.l + (t - t0) / Math.max(1, t1 - t0) * (W - PAD.l - PAD.r); };
+      var yBase = H - PAD.b;
+      if (pick.start && pick.end) {
+        var a = Math.min(pick.start.t, pick.end.t), b = Math.max(pick.start.t, pick.end.t);
+        svg.appendChild(node("rect", { x: x(a).toFixed(1), y: PAD.t, width: Math.max(1, x(b) - x(a)).toFixed(1), height: yBase - PAD.t, fill: "rgba(215,150,11,0.14)", stroke: "#d7960b", "stroke-dasharray": "3 3", "vector-effect": "non-scaling-stroke", "data-role": "effort-selection" }));
+        var labelLeft = x(a) < (W - PAD.r) * 0.7; // keep the label inside the chart when the span sits near the right edge
+        svg.appendChild(node("text", { x: labelLeft ? x(a) + 3 : x(b) - 3, y: PAD.t + 10, "text-anchor": labelLeft ? "start" : "end", fill: "#f1d08a", "font-size": "9", "data-role": "effort-selection-label" }, "selected effort (user selection)"));
+      }
+      [["start", pick.start], ["end", pick.end]].forEach(function(pair) {
+        if (!pair[1]) return;
+        svg.appendChild(node("line", { x1: x(pair[1].t).toFixed(1), y1: PAD.t, x2: x(pair[1].t).toFixed(1), y2: yBase, stroke: "#f1d08a", "stroke-width": "1.5", "vector-effect": "non-scaling-stroke", "data-role": "effort-" + pair[0] }));
+      });
+    }
+    var lastDrawn = null; // { t0, t1 } of the last rendered window, for redrawing the selection
+    function redrawSelection() {
+      if (!lastDrawn) return;
+      [el.axTlHrSvg, el.axTlSpSvg].forEach(function(svg) {
+        var old = []; for (var i = 0; i < svg.children.length; i++) { var c = svg.children[i]; if (c.getAttribute && c.getAttribute("data-role") && c.getAttribute("data-role").indexOf("effort-") === 0) old.push(c); }
+        old.forEach(function(c) { svg.removeChild(c); });
+        drawSelectionOn(svg, lastDrawn.t0, lastDrawn.t1);
+      });
+      // a ring around the picked samples: the chart points themselves stay as drawn (state markers unchanged)
+      [el.axTlHrSvg, el.axTlSpSvg].forEach(function(svg) {
+        for (var i = 0; i < svg.children.length; i++) {
+          var c = svg.children[i];
+          if (!c.getAttribute || c.tagName !== "circle" && c.tag !== "circle") continue;
+          var iso = c.getAttribute("data-iso"); if (!iso) continue;
+          var role = pick.start && pick.start.iso === iso ? "start" : (pick.end && pick.end.iso === iso ? "end" : null);
+          if (role) c.setAttribute("data-picked", role); else c.removeAttribute("data-picked");
+        }
+      });
+    }
+    function applyPickUi() { el.axTlPick.style.display = reviewing() ? "block" : "none"; }
+    el.axTlArmStart.addEventListener("click", function() { pick.arm = pick.arm === "start" ? null : "start"; applyArmUi(); setPickStatus(pick.arm ? "Now click a point on either chart to use its recorded time as the effort start." : PICK_IDLE, COLORS.muted); });
+    el.axTlArmEnd.addEventListener("click", function() { pick.arm = pick.arm === "end" ? null : "end"; applyArmUi(); setPickStatus(pick.arm ? "Now click a point on either chart to use its recorded time as the effort end." : PICK_IDLE, COLORS.muted); });
+    el.axTlPickClear.addEventListener("click", function() { var pts = pick.points, key = pick.windowKey; clearPick("Selection cleared; the effort form keeps its text.", false); pick.points = pts; pick.windowKey = key; rebuildPointList(pts); redrawSelection(); });
+    el.axTlSetStart.addEventListener("click", function() { var pt = pointFromIso(el.axTlPointSelect.value); if (!pt) { setPickStatus("Choose a recorded point in the list first.", COLORS.warn); return; } setPickBound("start", pt); });
+    el.axTlSetEnd.addEventListener("click", function() { var pt = pointFromIso(el.axTlPointSelect.value); if (!pt) { setPickStatus("Choose a recorded point in the list first.", COLORS.warn); return; } setPickBound("end", pt); });
 
     // Draw one stream. pts: [{t: ms, v: number|null, usable: bool, unclassified: bool}] sorted by t.
     // Only usable points are filled and joined. A point that failed the rule or has no value gets a hollow amber
@@ -10730,10 +10852,18 @@ function initializePlayerFatigue(team) {
       // points: filled when usable; hollow amber when below the rule or without a value (then on the baseline);
       // dashed grey at its recorded value when unclassified. data-state is for inspection and tests.
       for (var j = 0; j < pts.length; j++) {
-        var p = pts[j];
-        if (p.usable) svg.appendChild(node("circle", { cx: x(p.t), cy: y(p.v), r: 2.4, fill: color, "data-state": "usable" }));
-        else if (p.unclassified) svg.appendChild(node("circle", { cx: x(p.t), cy: y(p.v), r: 3, fill: "none", stroke: "#8a9097", "stroke-width": "1.5", "stroke-dasharray": "2 2", "vector-effect": "non-scaling-stroke", "data-state": "unclassified" }));
-        else svg.appendChild(node("circle", { cx: x(p.t), cy: isNum(p.v) ? y(p.v) : yBase - 3, r: 3, fill: "none", stroke: "#d7960b", "stroke-width": "1.5", "vector-effect": "non-scaling-stroke", "data-state": isNum(p.v) ? "below-confidence" : "no-value" }));
+        var p = pts[j], c;
+        if (p.usable) c = node("circle", { cx: x(p.t), cy: y(p.v), r: 2.4, fill: color, "data-state": "usable" });
+        else if (p.unclassified) c = node("circle", { cx: x(p.t), cy: y(p.v), r: 3, fill: "none", stroke: "#8a9097", "stroke-width": "1.5", "stroke-dasharray": "2 2", "vector-effect": "non-scaling-stroke", "data-state": "unclassified" });
+        else c = node("circle", { cx: x(p.t), cy: isNum(p.v) ? y(p.v) : yBase - 3, r: 3, fill: "none", stroke: "#d7960b", "stroke-width": "1.5", "vector-effect": "non-scaling-stroke", "data-state": isNum(p.v) ? "below-confidence" : "no-value" });
+        if (p.iso) { // a recorded sample: selectable for the effort form (mouse/touch); the list below is the keyboard path
+          c.setAttribute("data-iso", p.iso); c.setAttribute("data-t", String(p.t)); c.setAttribute("style", "cursor:pointer;");
+          (function(point) { c.addEventListener("click", function(e) { if (e && e.stopPropagation) e.stopPropagation(); onChartPointClick(point); }); })({ iso: p.iso, t: p.t });
+          svg.appendChild(node("rect", { x: (Number(c.getAttribute("cx")) - 7).toFixed(1), y: (Number(c.getAttribute("cy")) - 7).toFixed(1), width: 14, height: 14, fill: "transparent", "data-hit": p.iso, style: "cursor:pointer;" })); // a larger touch target behind the marker
+          var hit = svg.children[svg.children.length - 1];
+          (function(point) { hit.addEventListener("click", function(e) { if (e && e.stopPropagation) e.stopPropagation(); onChartPointClick(point); }); })({ iso: p.iso, t: p.t });
+        }
+        svg.appendChild(c);
       }
     }
 
@@ -10744,12 +10874,24 @@ function initializePlayerFatigue(team) {
       var rec = reviewing();
       el.axTlWindow.textContent = (rec ? "Recorded window " : "Window ") + whenText(win.window_start) + " – " + whenText(win.window_end) + " (" + Math.round((t1 - t0) / 1000) + " s, engine time" + (rec ? ", selected end" : "") + ")";
       if (rec) setReviewBounds(Math.round((t1 - t0) / 1000) + " s from " + whenText(win.window_start) + " to " + whenText(win.window_end) + " (engine time)");
-      var phys = (win.physiological_samples || []).map(function(s) { return { t: ms(s.timestamp), v: isNum(s.heart_rate_bpm) ? s.heart_rate_bpm : null, usable: isNum(s.heart_rate_bpm), unclassified: false }; }).filter(function(p) { return p.t !== null; });
+      var phys = (win.physiological_samples || []).map(function(s) { return { t: ms(s.timestamp), iso: typeof s.timestamp === "string" ? s.timestamp : null, v: isNum(s.heart_rate_bpm) ? s.heart_rate_bpm : null, usable: isNum(s.heart_rate_bpm), unclassified: false }; }).filter(function(p) { return p.t !== null; });
       var track = (win.tracking_samples || []).map(function(s) {
         var hasSpeed = isNum(s.speed_mps);
         var classifiable = hasSpeed && minConfidence !== null && isNum(s.tracking_confidence); // a point can be judged only with a valid rule and a recorded confidence
-        return { t: ms(s.timestamp), v: hasSpeed ? s.speed_mps : null, usable: classifiable && s.tracking_confidence >= minConfidence, unclassified: hasSpeed && !classifiable };
+        return { t: ms(s.timestamp), iso: typeof s.timestamp === "string" ? s.timestamp : null, v: hasSpeed ? s.speed_mps : null, usable: classifiable && s.tracking_confidence >= minConfidence, unclassified: hasSpeed && !classifiable };
       }).filter(function(p) { return p.t !== null; });
+      // the selectable points of this window: one entry per recorded instant, with the sample's own timestamp text
+      var key = windowKey(win), byIso = {}, points = [];
+      phys.concat(track).forEach(function(p, idx) {
+        if (!p.iso) return;
+        var isPhys = idx < phys.length;
+        if (!byIso[p.iso]) { byIso[p.iso] = { iso: p.iso, t: p.t, hr: null, hasPhys: false, speed: null }; points.push(byIso[p.iso]); }
+        if (isPhys) { byIso[p.iso].hasPhys = true; byIso[p.iso].hr = p.v; } else byIso[p.iso].speed = p.v;
+      });
+      points.sort(function(a, b) { return a.t - b.t; });
+      if (pick.windowKey !== key) { clearPick(pick.start || pick.end ? "Timeline changed: the earlier point selection was cleared because it belonged to a different window." : null, true); pick.windowKey = key; }
+      pick.points = points; rebuildPointList(points);
+      lastDrawn = { t0: t0, t1: t1 };
       var hrVals = phys.filter(function(p){ return p.usable; }).map(function(p){ return p.v; });
       var hrMin = hrVals.length ? Math.min(60, Math.floor(Math.min.apply(null, hrVals) / 10) * 10) : 60;
       var hrMax = hrVals.length ? Math.max(120, Math.ceil(Math.max.apply(null, hrVals) / 10) * 10) : 120;
@@ -10757,6 +10899,7 @@ function initializePlayerFatigue(team) {
       var spMax = spVals.length ? Math.max(2, Math.ceil(Math.max.apply(null, spVals) * 1.1 * 2) / 2) : 2;
       draw(el.axTlHrSvg, phys, t0, t1, hrMin, hrMax, "#ff4e1b", "bpm", "No physiological samples in this window");
       draw(el.axTlSpSvg, track, t0, t1, 0, spMax, "#3b82f6", "m/s", "No tracking samples in this window");
+      redrawSelection();
       var ws = win.sources && typeof win.sources === "object" ? win.sources : {}; // the window's own breakdown of the samples drawn
       setBadge(el.axTlSourceBadge, breakdownLabel(tallySources([ws.physiological, ws.tracking])));
       el.axTlSources.textContent = "Reported sources · heart rate: " + breakdownText(ws.physiological) + " · tracking: " + breakdownText(ws.tracking) + ".";
@@ -10776,6 +10919,8 @@ function initializePlayerFatigue(team) {
       var rec = reviewing();
       el.axTlSub.textContent = rec ? "Recorded-time review: the 60 s ending at the selected time, from the Athletrix engine window. Fetched on Review, athlete change or Refresh; not refreshed by a timer." : "Last 60 s from the Athletrix engine window, refreshed every 5 seconds. Points are recorded samples on one shared time axis.";
       el.axTlModeBadge.style.display = rec ? "inline-block" : "none";
+      applyPickUi();
+      if (!rec) clearPick(null, true); // leaving Recorded mode drops any selection
     }
 
     function poll(fromTimer) {
@@ -10894,6 +11039,10 @@ function initializePlayerFatigue(team) {
       done(); setEffortStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running? Click Review effort to try again.", COLORS.error);
     });
   }
+  function effortInputsChanged() { // typed or picked: an earlier result no longer applies
+    if (!effortReady) return;
+    if (effort.last || effortEl.axEffortResult.style.display !== "none") clearEffort("Inputs changed: the earlier result no longer applies. Click Review effort to run the new selection.");
+  }
   function reviewEffort() {
     var a = parseEffortInput(effortEl.axEffortStart.value, "Effort start"), b = parseEffortInput(effortEl.axEffortEnd.value, "Effort end");
     if (a.error) { setEffortStatus(a.error, COLORS.error); return; }
@@ -10909,7 +11058,7 @@ function initializePlayerFatigue(team) {
     });
     [effortEl.axEffortStart, effortEl.axEffortEnd].forEach(function(input) {
       input.addEventListener("keydown", function(e) { if (e.key === "Enter") reviewEffort(); });
-      input.addEventListener("input", function() { if (effort.last || effortEl.axEffortResult.style.display !== "none") clearEffort("Inputs changed: the earlier result no longer applies. Click Review effort to run the new selection."); });
+      input.addEventListener("input", effortInputsChanged);
     });
     cards.push({ reset: function() {}, poll: function() {}, setWho: function(l) { effortEl.axEffortWho.textContent = l; } }); // label only: never polled
     applyEffortUi();

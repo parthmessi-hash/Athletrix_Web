@@ -221,10 +221,43 @@ invalidates the earlier result, and a late response for an earlier selection
 is dropped unseen. Live mode and public mode are unchanged: the card is
 hidden in both, and public mode still makes no engine request.
 
+### Selecting the effort from the timeline
+
+In Recorded mode the timeline card shows a **Select an effort from the
+timeline** toolbar once a window is drawn. Click **Pick effort start** or
+**Pick effort end**, then click (or tap) a point on either chart: the
+sample's recorded timestamp text, exactly as the engine returned it (offset
+included, never interpolated), is copied into the effort form, and arming
+moves on to the other bound. The keyboard alternative is the **recorded
+points** list, which names every recorded instant in UTC with its heart
+rate and speed: choose one and press **Use as start** or **Use as end**.
+Typing into the form still works and takes precedence over any earlier pick.
+
+The selected bounds are shown as text (recorded and UTC) under the toolbar
+and marked on both charts with dashed bound lines and a shaded span labelled
+"selected effort (user selection)" on their shared recorded-time axis. The
+shading marks your selection, not a detected sprint or a classification.
+Reversed bounds, two picks of the same sample, and durations outside the
+engine's 1 to 120 s limits are explained at once, but only as hints: the
+form keeps what was picked and the engine's validation decides when you
+click **Review effort**. Picking never requests anything; **Review effort**
+is always an explicit click.
+
+A selection belongs to the window it was made on. Changing athlete,
+reviewing a different window, refreshing the timeline or leaving Recorded
+mode clears the selection and its highlighting, so an old selection can
+never appear to belong to a new timeline; the effort form keeps its text.
+**Clear selection** removes the highlighting without touching the form.
+Confidence markers, null heart-rate markers, gap breaks, source labels and
+the phone layout are unchanged.
+
 To try it with the fictional fixtures from the engine repository, convert
 and replay `fictional_heart_rate.csv` and `fictional_tracking.csv` for
 athlete-1 (see the engine README), switch to **Recorded**, enter
-`2026-10-20T10:00:01Z` and `2026-10-20T10:00:04Z` and click **Review
+`2026-10-20T10:00:04Z` in the review bar and click **Review**, click **Pick
+effort start**, click the `10:00:01Z` point on the speed chart, click the
+`10:00:04Z` point, then click **Review effort**. Or enter
+`2026-10-20T10:00:01Z` and `2026-10-20T10:00:04Z` by hand and click **Review
 effort**: movement shows 4 samples, peak 6.0 m/s, 10.5 m over 2.0 s with one
 excluded interval and 1.5 s / 8.3 m at or above 5 m/s; heart rate shows
 1 measurement before (112), 3 of 4 during (mean 117.8, peak 120.5) and
@@ -386,8 +419,13 @@ input edits, athlete and mode changes with late responses dropped); and
 Download retained samples (click-only request, saving through a download
 link with the engine's filename and counts or a safe fallback name, the
 no-data 404, HTTP and network errors with retry, and responses for an
-earlier athlete, mode or request never being saved). Expect "36 tests,
-36 passed".
+earlier athlete, mode or request never being saved); and timeline effort
+selection (Recorded mode only, chart clicks copying the sample's recorded
+text with offsets intact, shading and bound lines on both charts, no
+request until Review effort, reversed/equal/too-short hints, the keyboard
+list, typed entry preserved, Clear selection, and clearing on athlete
+change, new windows and leaving Recorded mode). Expect "39 tests,
+39 passed".
 
 ## Project handoff
 
