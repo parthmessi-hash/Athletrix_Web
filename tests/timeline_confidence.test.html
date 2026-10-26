@@ -83,6 +83,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axEffHrBeforeGap", "axEffHrDuringGap", "axEffHrAfterGap", "axEffHrBeforeDetail", "axEffHrDuringDetail", "axEffHrAfterDetail",
     "axTlPick", "axTlArmStart", "axTlArmEnd", "axTlPickClear", "axTlPointSelect", "axTlSetStart", "axTlSetEnd", "axTlPickStatus", "axTlPickSelected",
     "axEffortSaveA", "axEffortSaveB", "axCompareCard", "axCmpWho", "axCmpStatus", "axCmpASummary", "axCmpBSummary", "axCmpClearA", "axCmpClearB", "axCmpBody",
+    "axTeamCard", "axTeamSelect", "axTeamRefresh", "axTeamStatus", "axTeamGrid",
   ];
 
   function boot(opts) {
@@ -113,7 +114,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
   // ---- fictional data helpers ------------------------------------------------------------------------
   const T0 = Date.UTC(2026, 9, 24, 12, 0, 0); // window end; samples are placed relative to it
   const iso = s => new Date(T0 + s * 1000).toISOString();
-  const ROSTER = [{ id: "a1", name: "Alex Example", jersey_number: 7, sport: "football" }, { id: "a2", name: "Sam Sample", jersey_number: 9, sport: "basketball" }];
+  const ROSTER = [{ id: "a1", name: "Alex Example", jersey_number: 7, sport: "football", team_id: "demo-team" }, { id: "a2", name: "Sam Sample", jersey_number: 9, sport: "basketball", team_id: "team-b" }];
   const trk = (s, speed, conf) => ({ athlete_id: "a1", timestamp: iso(s), x_position: 0, y_position: 0, speed_mps: speed, acceleration_mps2: 0, tracking_confidence: conf });
   const phys = (s, hr) => ({ athlete_id: "a1", timestamp: iso(s), source: "simulated", device_id: "sim", heart_rate_bpm: hr });
   function win(o) {
@@ -165,6 +166,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axLiveTl.style.display, "none");
     assert.equal(ctx.els.axReviewBar.style.display, "none");
     assert.equal(ctx.els.axEffortCard.style.display, "none");
+    assert.equal(ctx.els.axTeamCard.style.display, "none");
   });
 
   test("timeline needs only the window response and ignores a delayed or failed summary", async () => {
@@ -1053,6 +1055,98 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await click(ctx, "axModeRecorded");
     assert.match(ctx.els.axCmpStatus.textContent, /^Returned to Live: both comparison snapshots were cleared; they are kept only while reviewing recordings\.$/);
     assert.equal(ctx.els.axCmpASummary.textContent, "Not saved yet.");
+  });
+
+  // ---- live team overview ---------------------------------------------------------------------------------
+
+  const teamUrls = ctx => urls(ctx).filter(u => u.includes("/teams/"));
+  const tiles = ctx => ctx.els.axTeamGrid.children;
+  const tileText = tile => tile.children.map(c => c.textContent);
+  const member = (id, name, jersey, o) => Object.assign({ athlete: { id, name, jersey_number: jersey, sport: "fictional", team_id: "demo-team" }, physiological: null, tracking: null, physiological_age_seconds: null, tracking_age_seconds: null }, o || {});
+  const teamBody = (team, athletes) => ({ team_id: team, captured_at: "2026-10-25T12:00:00Z", athletes });
+
+  test("team overview: team ids from the roster, one request per refresh, tiles with readings, recency states, zero speed and sources; a tile opens the athlete", async () => {
+    const ctx = boot();
+    await start(ctx);
+    assert.deepEqual(ctx.els.axTeamSelect.children.map(o => o.value), ["demo-team", "team-b"]);
+    assert.equal(ctx.els.axTeamSelect.value, "demo-team");
+    assert.deepEqual(teamUrls(ctx).map(u => u.replace(/^.*\/api\/v1\//, "")), ["teams/demo-team/live"], "one team request, not one per athlete");
+    await ctx.respond("/teams/demo-team/live", teamBody("demo-team", [
+      member("a1", "Alex Example", 7, { physiological: Object.assign(phys(0, 131), { source: "wearable", device_id: "w-1" }), physiological_age_seconds: 1.2, tracking: Object.assign(trk(0, 0.0, 0.92), { source: "camera", device_id: "c-1" }), tracking_age_seconds: 0.8 }),
+      member("x9", "Stale Example", 9, { physiological: phys(0, null), physiological_age_seconds: 42.5, tracking: trk(0, 4.1, 0.5), tracking_age_seconds: 600 }),
+      member("x3", "Empty Example", 3),
+    ]));
+    assert.equal(tiles(ctx).length, 3);
+    const [t1, t2, t3] = tiles(ctx);
+    assert.equal(t1.getAttribute("data-athlete-id"), "a1"); assert.equal(t1.getAttribute("data-hr-state"), "recent"); assert.equal(t1.getAttribute("data-trk-state"), "recent");
+    assert.deepEqual(tileText(t1), ["Alex Example #7 · fictional", "Heart rate: 131 bpm · 1.2 s ago", "Speed: 0.0 m/s · confidence 92% · 0.8 s ago", "heart rate reported source: wearable · tracking reported source: camera"]);
+    assert.equal(t2.getAttribute("data-hr-state"), "stopped"); assert.equal(t2.getAttribute("data-trk-state"), "stopped");
+    assert.deepEqual(tileText(t2), ["Stale Example #9 · fictional", "Heart rate: not reported in sample · stopped updating · 42.5 s ago (display rule: older than 5 s)", "Speed: 4.1 m/s · confidence 50% · stopped updating · 600.0 s ago (display rule: older than 5 s)", "heart rate reported source: simulated · tracking source not reported"]);
+    assert.equal(t3.getAttribute("data-hr-state"), "none"); assert.equal(t3.getAttribute("data-trk-state"), "none");
+    assert.deepEqual(tileText(t3), ["Empty Example #3 · fictional", "Heart rate: no sample", "Speed: no sample", "no samples retained"]);
+    assert.match(ctx.els.axTeamStatus.textContent, /^Team demo-team · 3 athletes · captured by the engine at 2026-10-25T12:00:00Z UTC · 1 with a reading within 5 s, 1 stopped updating, 1 without samples\./);
+    assert.ok(!/healthy|fatigue|disconnected|readiness/i.test(ctx.els.axTeamStatus.textContent + tileText(t2).join(" ")), "freshness is a display rule only");
+    const n = ctx.pending.length;
+    await ctx.tick();
+    assert.equal(teamUrls(ctx).length, 1, "the timer makes exactly one team request per tick");
+    assert.equal(ctx.pending.length - n, 1 + 4, "team tick plus the four live-card polls");
+    await click(ctx, "axTeamRefresh");
+    assert.equal(teamUrls(ctx).length, 2, "manual refresh requests once more");
+    // clicking a tile uses the normal athlete selection
+    await select(ctx, "a2");
+    assert.equal(ctx.els.axAthleteSelect.value, "a2");
+    t1.dispatch("click"); await ctx.flush();
+    assert.equal(ctx.els.axAthleteSelect.value, "a1"); assert.equal(ctx.els.axLiveTlWho.textContent, "Alex Example #7");
+    assert.ok(urls(ctx).slice(-4).every(u => u.includes("/a1/")), "the detailed cards poll the opened athlete");
+    t3.dispatch("click"); await ctx.flush();
+    assert.equal(ctx.els.axAthleteSelect.value, "a1", "an athlete the roster does not know is not opened");
+  });
+
+  test("team overview: switching teams drops the earlier team's late response; empty teams, backend errors and retries", async () => {
+    const ctx = boot();
+    await start(ctx);
+    const first = ctx.pending.find(p => p.url.includes("/teams/demo-team/live"));
+    ctx.els.axTeamSelect.value = "team-b"; ctx.els.axTeamSelect.dispatch("change"); await ctx.flush();
+    assert.ok(teamUrls(ctx).slice(-1)[0].includes("/teams/team-b/live"));
+    assert.match(ctx.els.axTeamStatus.textContent, /^Loading team team-b/);
+    await ctx.resolveLate(first, teamBody("demo-team", [member("a1", "Alex Example", 7)]));
+    assert.equal(tiles(ctx).length, 0, "demo-team's late answer never shown under team-b");
+    await ctx.respond("/teams/team-b/live", teamBody("team-b", []));
+    assert.match(ctx.els.axTeamStatus.textContent, /^No registered athletes on team team-b\.$/);
+    await ctx.tick();
+    await ctx.fail("/teams/team-b/live");
+    assert.match(ctx.els.axTeamStatus.textContent, /^Cannot reach backend at .* Retrying on the next refresh\.$/);
+    await ctx.tick();
+    assert.equal(teamUrls(ctx).length, 1, "the next tick retries");
+    await ctx.respond("/teams/team-b/live", {}, 500);
+    assert.match(ctx.els.axTeamStatus.textContent, /HTTP 500/);
+    await ctx.tick();
+    await ctx.respond("/teams/team-b/live", teamBody("team-b", [member("a2", "Sam Sample", 9, { tracking: trk(0, 2.5, 0.9), tracking_age_seconds: 0.5 })]));
+    assert.equal(tiles(ctx).length, 1); assert.equal(tiles(ctx)[0].getAttribute("data-trk-state"), "recent");
+    // a roster reload that drops team-b falls back to the first remaining team
+    await click(ctx, "axAthleteRefresh");
+    const roster = ctx.pending.find(p => p.url.endsWith("/api/v1/athletes")); // the roster request itself, not an athlete's card request
+    await ctx.resolveLate(roster, [ROSTER[0]]);
+    assert.deepEqual(ctx.els.axTeamSelect.children.map(o => o.value), ["demo-team"]);
+    assert.ok(teamUrls(ctx).slice(-1)[0].includes("/teams/demo-team/live"));
+  });
+
+  test("team overview: hidden and silent in Recorded mode, resumes on Live; nothing polls while the dashboard is hidden", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/teams/demo-team/live", teamBody("demo-team", [member("a1", "Alex Example", 7)]));
+    await click(ctx, "axModeRecorded");
+    assert.equal(ctx.els.axTeamCard.style.display, "none");
+    await ctx.tick(); await ctx.tick();
+    assert.equal(teamUrls(ctx).length, 0, "no team request in Recorded mode");
+    await click(ctx, "axModeLive");
+    assert.equal(ctx.els.axTeamCard.style.display, "block");
+    assert.equal(teamUrls(ctx).length, 1, "one immediate refresh on returning to Live");
+    await ctx.respond("/teams/demo-team/live", teamBody("demo-team", [member("a1", "Alex Example", 7, { physiological: phys(0, 120), physiological_age_seconds: 0.3 })]));
+    assert.equal(tiles(ctx)[0].getAttribute("data-hr-state"), "recent");
+    ctx.els["view-dashboard"].classes.delete("active-view");
+    await ctx.tick();
+    assert.equal(teamUrls(ctx).length, 0, "nothing while the dashboard is not visible");
   });
 
   // ---- run --------------------------------------------------------------------------------------------

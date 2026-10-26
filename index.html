@@ -3615,6 +3615,22 @@
             <b>Recorded-time review</b> &middot; <span id="axReviewBounds">enter a window end and click Review</span>. Shows only the samples the engine still retains (newest 300 per athlete per stream); older records may already have been removed. Not a live feed.
           </div>
         </div>
+        <div class="card" id="axTeamCard" style="margin-bottom:18px;border-left:4px solid #3b82f6;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Live team overview</div>
+              <div class="card-sub">Every athlete registered on the selected team, from one engine request about every 2 s while this dashboard is visible in Live mode. Each tile shows the newest retained reading per stream with its age. Display rule: a reading older than 5 s is marked "stopped updating"; that is a freshness label, not a judgment about the athlete or the device.</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;">
+              <label for="axTeamSelect" class="card-sub" style="margin:0;">Team</label>
+              <select id="axTeamSelect" class="coach-select" aria-label="Team" style="max-width:100%;"></select>
+              <button type="button" id="axTeamRefresh" class="btn btn-ghost" style="padding:5px 12px;font-size:0.8rem;">Refresh</button>
+              <span class="ax-badge" style="background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.5);white-space:nowrap;">Engine-connected</span>
+            </div>
+          </div>
+          <div class="card-sub" id="axTeamStatus">Waiting for roster&hellip;</div>
+          <div id="axTeamGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:8px;"></div>
+        </div>
         <div id="axLiveCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;margin-bottom:24px;">
           <div class="card" id="axLiveHr" style="border-left:4px solid #3b82f6;">
             <div class="card-header">
@@ -10207,7 +10223,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axReviewBar", "axLiveCards", "axLiveSum", "axLiveTl", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axTeamCard", "axLiveCards", "axLiveSum", "axLiveTl", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -10325,6 +10341,7 @@ function initializePlayerFatigue(team) {
       rosterById = {};
       for (var i = 0; i < list.length; i++) rosterById[String(list[i].id)] = list[i];
       renderOptions(list);
+      rebuildTeamOptions();                 // team ids come from the roster's team_id values
       if (!list.length) {
         rosterState = "empty"; selectEl.disabled = true;
         setRosterStatus(SETUP_HINT, COLORS.warn);
@@ -10351,6 +10368,93 @@ function initializePlayerFatigue(team) {
     if (a && id !== selection.id) selectAthlete(id, athleteLabel(a));
   });
   refreshEl.addEventListener("click", loadRoster);
+
+  // ---- live team overview (engine Live mode) ----
+  // One request per refresh (GET /teams/{id}/live) returns every registered athlete on the team with the newest retained
+  // reading per stream and its age against the engine's captured instant. Polled about every 2 s only while the dashboard
+  // is visible and in Live mode; never in Recorded or public mode. Team ids are derived from the roster. Clicking a tile
+  // uses the normal athlete selection. Recency labels are a display rule (older than STALE_MS = stopped updating), not
+  // a judgment about the athlete or the device; a null stream is "no sample"; a zero speed is a real reading.
+  var TEAM_MS = 2000;
+  var TEAM_IDS = ["axTeamCard", "axTeamSelect", "axTeamRefresh", "axTeamStatus", "axTeamGrid"];
+  var teamEl = {}, teamReady = true;
+  for (var ti = 0; ti < TEAM_IDS.length; ti++) { teamEl[TEAM_IDS[ti]] = byId(TEAM_IDS[ti]); if (!teamEl[TEAM_IDS[ti]]) teamReady = false; }
+  var team = { id: null, generation: 0 };
+  function setTeamStatus(text, color) { teamEl.axTeamStatus.textContent = text; teamEl.axTeamStatus.style.color = color; }
+  function teamIds() { var ids = {}; for (var k in rosterById) if (rosterById[k] && rosterById[k].team_id) ids[String(rosterById[k].team_id)] = true; return Object.keys(ids).sort(); }
+  function clearTeamGrid() { while (teamEl.axTeamGrid.firstChild) teamEl.axTeamGrid.removeChild(teamEl.axTeamGrid.firstChild); }
+  function rebuildTeamOptions() {
+    if (!teamReady) return;
+    var ids = teamIds();
+    while (teamEl.axTeamSelect.firstChild) teamEl.axTeamSelect.removeChild(teamEl.axTeamSelect.firstChild);
+    for (var i = 0; i < ids.length; i++) { var o = document.createElement("option"); o.value = ids[i]; o.textContent = ids[i]; teamEl.axTeamSelect.appendChild(o); }
+    var keep = ids.indexOf(team.id) >= 0 ? team.id : (ids.length ? ids[0] : null);
+    teamEl.axTeamSelect.disabled = !ids.length;
+    if (keep !== null) teamEl.axTeamSelect.value = keep;
+    if (keep !== team.id) setTeam(keep);
+    else if (keep === null) { clearTeamGrid(); setTeamStatus("No registered athletes, so no teams to show. " + SETUP_HINT, COLORS.warn); }
+    else pollTeam(false);                 // same team, refreshed roster: refresh the overview too
+  }
+  function setTeam(id) {
+    team.generation += 1;                 // responses for the previous team are dropped
+    team.id = id; clearTeamGrid();
+    if (id === null) { setTeamStatus("No registered athletes, so no teams to show. " + SETUP_HINT, COLORS.warn); return; }
+    setTeamStatus("Loading team " + id + "…", COLORS.muted);
+    pollTeam(false);
+  }
+  function recency(age) { return !isNum(age) ? "none" : (age * 1000 > STALE_MS ? "stopped" : "recent"); }
+  function recencyText(age) {
+    var r = recency(age);
+    return r === "none" ? "no sample" : (r === "recent" ? age.toFixed(1) + " s ago" : "stopped updating · " + age.toFixed(1) + " s ago (display rule: older than " + (STALE_MS / 1000) + " s)");
+  }
+  function sourceText(sample) { return !sample ? "" : (isSourceName(sample.source) ? "reported source: " + sample.source : "source not reported"); }
+  function teamTile(row) {
+    var a = row.athlete || {}, p = row.physiological, t = row.tracking;
+    var tile = document.createElement("button");
+    tile.setAttribute("type", "button"); tile.setAttribute("class", "ax-team-tile"); tile.setAttribute("data-athlete-id", String(a.id));
+    tile.setAttribute("data-hr-state", recency(row.physiological_age_seconds)); tile.setAttribute("data-trk-state", recency(row.tracking_age_seconds));
+    tile.setAttribute("style", "text-align:left;background:#0b1220;border:1px solid #1f2937;border-radius:8px;padding:8px 10px;color:#e5e7eb;cursor:pointer;font:inherit;" + (String(a.id) === String(selection.id) ? "outline:2px solid #3b82f6;" : ""));
+    tile.setAttribute("aria-label", "Open " + athleteLabel(a));
+    var name = document.createElement("div"); name.setAttribute("style", "font-weight:600;color:#fff;"); name.textContent = athleteLabel(a) + " · " + String(a.sport || ""); tile.appendChild(name);
+    var hr = document.createElement("div"); hr.setAttribute("class", "ax-team-hr"); hr.setAttribute("style", "font-size:0.82rem;margin-top:4px;");
+    hr.textContent = "Heart rate: " + (p ? (isNum(p.heart_rate_bpm) ? Math.round(p.heart_rate_bpm) + " bpm" : "not reported in sample") + " · " + recencyText(row.physiological_age_seconds) : "no sample"); tile.appendChild(hr);
+    var sp = document.createElement("div"); sp.setAttribute("class", "ax-team-trk"); sp.setAttribute("style", "font-size:0.82rem;margin-top:2px;");
+    sp.textContent = "Speed: " + (t ? (isNum(t.speed_mps) ? t.speed_mps.toFixed(1) + " m/s" : "—") + " · confidence " + (isNum(t.tracking_confidence) ? Math.round(t.tracking_confidence * 100) + "%" : "—") + " · " + recencyText(row.tracking_age_seconds) : "no sample"); tile.appendChild(sp);
+    var src = document.createElement("div"); src.setAttribute("class", "ax-team-src"); src.setAttribute("style", "font-size:0.74rem;color:#8a9097;margin-top:2px;");
+    src.textContent = [p ? "heart rate " + sourceText(p) : null, t ? "tracking " + sourceText(t) : null].filter(Boolean).join(" · ") || "no samples retained"; tile.appendChild(src);
+    tile.addEventListener("click", function() {
+      if (!rosterById.hasOwnProperty(String(a.id))) return; // only athletes the roster knows can be opened in the detailed cards
+      selectEl.value = String(a.id);
+      if (String(a.id) !== selection.id) selectAthlete(String(a.id), athleteLabel(rosterById[String(a.id)]));
+    });
+    return tile;
+  }
+  function renderTeam(body) {
+    clearTeamGrid();
+    var rows = Array.isArray(body.athletes) ? body.athletes : [];
+    for (var i = 0; i < rows.length; i++) teamEl.axTeamGrid.appendChild(teamTile(rows[i]));
+    var recent = 0, stopped = 0, none = 0;
+    rows.forEach(function(r) { var states = [recency(r.physiological_age_seconds), recency(r.tracking_age_seconds)]; if (states.indexOf("recent") >= 0) recent++; else if (states.indexOf("stopped") >= 0) stopped++; else none++; });
+    if (!rows.length) setTeamStatus("No registered athletes on team " + body.team_id + ".", COLORS.warn);
+    else setTeamStatus("Team " + body.team_id + " · " + rows.length + (rows.length === 1 ? " athlete" : " athletes") + " · captured by the engine at " + utcText(body.captured_at) + " UTC · " + recent + " with a reading within " + (STALE_MS / 1000) + " s, " + stopped + " stopped updating, " + none + " without samples. Click a tile to open the detailed cards.", COLORS.muted);
+  }
+  function pollTeam(fromTimer) {
+    if (!teamReady || !dashboardVisible() || reviewing() || team.id === null) return;
+    var gen = team.generation, id = team.id;
+    fetch(API_BASE + "/api/v1/teams/" + encodeURIComponent(id) + "/live", { cache: "no-store" }).then(function(res) {
+      if (gen !== team.generation) return;  // team changed while in flight: dropped
+      if (!res.ok) { setTeamStatus("Backend error loading team " + id + ": HTTP " + res.status + ". Retrying on the next refresh.", COLORS.error); return; }
+      return res.json().then(function(body) { if (gen === team.generation && !reviewing()) renderTeam(body); });
+    }).catch(function() {
+      if (gen !== team.generation) return;
+      setTeamStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running? Retrying on the next refresh.", COLORS.error);
+    });
+  }
+  if (teamReady) {
+    teamEl.axTeamSelect.addEventListener("change", function() { var id = teamEl.axTeamSelect.value; if (id && id !== team.id) setTeam(id); });
+    teamEl.axTeamRefresh.addEventListener("click", function() { if (team.id === null) return; setTeamStatus("Refreshing team " + team.id + "…", COLORS.muted); pollTeam(false); });
+    setInterval(function() { pollTeam(true); }, TEAM_MS);
+  }
 
   // ---- review mode (Live / Recorded) ----
   // Recorded review asks the engine for the summary and timeline ending at a chosen past instant. Requests are
@@ -10382,6 +10486,7 @@ function initializePlayerFatigue(team) {
     reviewFormEl.style.display = rec ? "flex" : "none";
     reviewBannerEl.style.display = rec ? "block" : "none";
     retainedBlockEl.style.display = rec ? "block" : "none"; // retained-data lookup exists only for recorded review
+    if (teamReady) teamEl.axTeamCard.style.display = rec ? "none" : "block"; // the team overview is a Live-mode view
     applyEffortUi();
     liveCardsEl.style.display = rec ? "none" : "grid"; // current-reading cards are hidden while reviewing recordings
   }
@@ -10395,6 +10500,7 @@ function initializePlayerFatigue(team) {
     applyModeUi();
     if (mode === "recorded") { setReviewBounds("enter a window end and click Review"); setReviewStatus("Recorded: " + FORMAT_HINT + " The summary and timeline will cover the 60 s ending there.", COLORS.muted); }
     else setReviewStatus("Live: the cards poll the engine for the current readings and the last 60 seconds.", COLORS.muted);
+    if (mode === "live") pollTeam(false);   // the team overview refreshes at once when Live returns
     refreshCards();                         // live: polling resumes at once; recorded: cards clear and wait for a time
   }
   function review() {

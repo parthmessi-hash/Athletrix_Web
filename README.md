@@ -317,6 +317,37 @@ integration exists. The browser-generated demonstration panels (the game
 simulation, the demo load index and its notes) keep their explicit
 "Browser demo · fictional data" labels, which apply only to those panels.
 
+## Live team overview
+
+In engine Live mode a **Live team overview** card sits between the Review
+bar and the single-athlete cards. A **Team** selector lists the team ids
+found in the registered roster (there is no separate team registry: a team
+is whatever `team_id` the athletes were registered with). The page asks the
+engine for `GET /api/v1/teams/{team_id}/live` about every 2 seconds while
+the dashboard is visible in Live mode, one request per refresh for the
+whole team, never one per athlete. **Refresh** asks at once.
+
+Each athlete has a tile with name, jersey number and sport, the newest
+retained heart rate and the newest retained speed and tracking confidence,
+each with its own age against the engine's captured instant, and the
+reported sources of those samples. The three states are kept apart:
+
+- *no sample*: the engine retains nothing for that stream;
+- a recent reading: `1.2 s ago`;
+- *stopped updating*: a reading older than 5 s, shown with its age and
+  marked as a display rule. The 5 s threshold is a freshness label only,
+  not a judgment about the athlete or the device.
+
+A null heart rate reads "not reported in sample" and a zero speed reads
+`0.0 m/s`. Clicking a tile selects that athlete exactly as the Athlete
+selector does and opens the detailed cards. Switching team drops any late
+answer for the previous team; an empty team, an unreachable engine and an
+HTTP error are shown in the status line and retried on the next refresh;
+a roster reload rebuilds the team list and falls back to the first team if
+the selected one is gone. The card is hidden and silent in Recorded mode,
+refreshes immediately when Live returns, and makes no request in public
+mode. Tiles wrap into one column at phone width.
+
 ## Live and Recorded review modes
 
 Above the engine-connected cards a **Review** bar switches between two modes.
@@ -455,7 +486,12 @@ change, new windows and leaving Recorded mode); and the comparison slots
 (explicit saves only, independent deep copies, side-by-side values with
 arithmetic differences and context notes, nulls and zeros, replacing and
 clearing, no polling, and clearing on athlete change and return to Live
-with stale results unsaveable). Expect "42 tests, 42 passed".
+with stale results unsaveable); and the live team overview (team ids from
+the roster, one request per refresh, tiles with readings, recency states,
+zero speed and sources, tile clicks opening the athlete, team switching
+with late responses dropped, empty teams, errors and retries, roster
+reloads, and silence in Recorded mode and while hidden). Expect "45 tests,
+45 passed".
 
 ## Project handoff
 
