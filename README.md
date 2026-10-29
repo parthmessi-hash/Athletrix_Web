@@ -121,6 +121,15 @@ instead of Dashboard and continues in a background tab, where the browser may sl
 Dashboard in the visible foreground tab. See the engine README ("Timing instrumentation") for definitions and one
 measured run.
 
+## Synthetic camera-adapter stream
+
+The engine repository's camera adapter prototype (`scripts/verify_camera_pipeline.py --serve-frontend <this folder>`)
+feeds a generated synthetic-marker video's movement estimates into an isolated engine. The existing cards and
+timelines show it unchanged: the tracking card reads "reported source: simulated · device: synthetic-marker-cam-1"
+(synthetic markers are never labelled as camera measurements). With 10 Hz tracking and the cards' 1 s poll, the cards
+show about one sample in ten; every sample is stored and drawn on the timelines. Nothing on this page detects people
+or identifies players.
+
 ## What the cards show
 
 - **Athlete selector**: roster from the backend's `GET /api/v1/athletes`,
