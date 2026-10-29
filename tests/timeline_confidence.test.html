@@ -90,6 +90,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     "axTlPick", "axTlArmStart", "axTlArmEnd", "axTlPickClear", "axTlPointSelect", "axTlSetStart", "axTlSetEnd", "axTlPickStatus", "axTlPickSelected",
     "axEffortSaveA", "axEffortSaveB", "axCompareCard", "axCmpWho", "axCmpStatus", "axCmpASummary", "axCmpBSummary", "axCmpClearA", "axCmpClearB", "axCmpBody",
     "axTeamCard", "axTeamSelect", "axTeamRefresh", "axTeamStatus", "axTeamGrid", "axLiveHrDevice", "axLiveTrkDevice",
+    "axTimingCard", "axTimingBody", "axTimingStatus", "axTimingClock", "axTimingReset", "axTimingDownload",
   ];
 
   function boot(opts) {
@@ -105,7 +106,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const timers = []; // interval callbacks are captured, never scheduled; a test can fire them by hand
     const intervalStub = fn => { timers.push(fn); return 0; };
     // Shadow the globals the script uses, so it runs against the stub rather than this page.
-    new Function("window", "document", "location", "fetch", "setInterval", SRC)(sandbox, doc, { hostname, search: "" }, fetchStub, intervalStub);
+    new Function("window", "document", "location", "fetch", "setInterval", SRC)(sandbox, doc, { hostname, search: (opts && opts.search) || "" }, fetchStub, intervalStub);
     // Yield to the page script's promise chains without setTimeout: a background tab throttles timers to once a second,
     // which would make the run crawl, while a MessageChannel task is not throttled.
     const yieldTask = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
@@ -1801,6 +1802,54 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const cell = ctx.els.axBatchBody.children[0].children[0];
     assert.ok(cell.textContent.startsWith('"' + evil + '"') && cell.children.length === 0);
     assert.equal(window.__pwned, undefined, "nothing executed");
+  });
+
+  test("developer timing: off by default with no extra request; ?timing=1 shows separate measurements, aligns clocks from a probe, measures first displays only, drops late replies", async () => {
+    const off = boot();
+    await start(off);
+    assert.ok(off.els.axTimingCard.style.display !== "block" && off.sandbox.ATHLETRIX_TIMING === undefined, "the coach view shows and measures nothing");
+    await off.tick();
+    assert.equal(urls(off).filter(u => u.includes("/api/v1/clock")).length, 0, "no clock probes without ?timing=1");
+
+    const ctx = boot({ search: "?timing=1" });
+    assert.equal(ctx.els.axTimingCard.style.display, "block");
+    const probe = ctx.pending.find(p => p.url.endsWith("/api/v1/clock"));
+    assert.ok(probe, "one clock probe at start");
+    ctx.pending.splice(ctx.pending.indexOf(probe), 1);
+    probe.resolve({ ok: true, status: 200, json: async () => ({ backend_time: new Date(Date.now() + 250).toISOString() }) }); // the engine clock runs 250 ms ahead
+    await ctx.flush();
+    const T = ctx.sandbox.ATHLETRIX_TIMING;
+    assert.ok(T.clock && Math.abs(T.clock.offset_ms - 250) <= T.clock.uncertainty_ms + 2, "offset within the stated uncertainty: " + JSON.stringify(T.clock));
+    assert.match(ctx.els.axTimingClock.textContent, /^Clock alignment: engine minus browser wall clock = [0-9.]+ ms ± [0-9.]+ ms/);
+    await start(ctx);
+    const now = Date.now();
+    const body = liveBody({ physiological: Object.assign(phys(0, 140), { timestamp: new Date(now - 1000).toISOString() }), physiological_age_seconds: 1.0,
+      physiological_receipt: { received_at: new Date(now + 250 - 400).toISOString(), origin: "this_engine" } });
+    const raw = b => ({ ok: true, status: 200, headers: { get: n => n.toLowerCase() === "server-timing" ? 'app;dur=3.250;desc="engine receipt to response start"' : null }, json: async () => b });
+    await ctx.respondRaw("/a1/live", raw(body));
+    assert.equal(ctx.els.axLiveHrValue.textContent, "140 bpm", "the cards render as usual");
+    const e = T.entries[0], s = e.streams.physiological;
+    assert.ok(e.engine_ms === 3.25 && e.http_ms >= 0 && e.dom_ms >= 0 && e.visible === true, JSON.stringify(e));
+    assert.ok(Math.abs(s.receipt_to_dom_ms - 400) <= s.uncertainty_ms + 100, "receipt to DOM is an estimate near 400 ms: " + s.receipt_to_dom_ms);
+    assert.ok(Math.abs(s.source_to_dom_ms - 1250) <= s.uncertainty_ms + 100, "source to DOM mixes in the source clock: " + s.source_to_dom_ms);
+    assert.equal(e.streams.tracking, undefined, "no tracking sample, no tracking figure");
+    await ctx.tick();
+    ctx.pending.filter(p => p.url.endsWith("/api/v1/clock")).forEach(p => { ctx.pending.splice(ctx.pending.indexOf(p), 1); p.resolve({ ok: false, status: 500, json: async () => ({}) }); });
+    await ctx.respondRaw("/a1/live", raw(body));
+    assert.ok(T.entries.length === 2 && T.entries[1].streams.physiological === undefined, "a sample shown again is not a new display");
+    assert.equal(ctx.els.axTimingBody.children.length, 6);
+    assert.deepEqual(ctx.els.axTimingBody.children[1].children.map(td => td.textContent), ["Engine processing (Server-Timing)", "3.3", "3.3", "3.3", "3.3", "2"]);
+    assert.equal(ctx.els.axTimingBody.children[4].children[5].textContent, "1", "one first display measured");
+    await ctx.tick();
+    const late = ctx.pending.find(p => p.url.endsWith("/a1/live"));
+    await select(ctx, "a2");
+    await ctx.resolveLateRaw(late, raw(body));
+    assert.equal(T.entries.length, 2, "a reply for the previous athlete is not measured");
+    await click(ctx, "axTimingDownload");
+    const a = ctx.created.find(x => x.tag === "a" && String(x.getAttribute("download")).startsWith("athletrix-dashboard-timing-"));
+    assert.ok(a && a.clicks === 1, "measurements download as a local JSON file");
+    await click(ctx, "axTimingReset");
+    assert.ok(T.entries.length === 0 && T.clock === null);
   });
 
   // ---- run --------------------------------------------------------------------------------------------

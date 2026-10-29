@@ -3703,6 +3703,27 @@
             <div class="card-sub" id="axLiveTrkDevice" style="margin-top:4px;font-size:0.76rem;"></div>
           </div>
         </div>
+        <div class="card" id="axTimingCard" style="display:none;margin-bottom:24px;border-left:4px solid #9ca3af;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Developer timing (opt-in) &middot; live cards</div>
+              <div class="card-sub">Shown only with <code>?timing=1</code>. Separate measurements, never one latency figure. Keep Dashboard in the visible foreground tab while measuring.</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="btn" id="axTimingReset">Reset</button>
+              <button type="button" class="btn" id="axTimingDownload">Download JSON</button>
+            </div>
+          </div>
+          <div class="card-sub" id="axTimingClock" style="margin:6px 0;">Clock alignment: not measured yet.</div>
+          <div style="overflow-x:auto;max-width:100%;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.8rem;min-width:520px;">
+              <thead><tr><th style="text-align:left;padding:4px;">Measurement</th><th style="text-align:right;padding:4px;">last ms</th><th style="text-align:right;padding:4px;">median</th><th style="text-align:right;padding:4px;">p95</th><th style="text-align:right;padding:4px;">max</th><th style="text-align:right;padding:4px;">n</th></tr></thead>
+              <tbody id="axTimingBody"></tbody>
+            </table>
+          </div>
+          <div class="card-sub" id="axTimingStatus" style="margin-top:6px;font-size:0.76rem;">Waiting for the first live poll.</div>
+          <div class="card-sub" style="margin-top:6px;font-size:0.74rem;line-height:1.5;">HTTP duration and DOM timings use this browser's monotonic clock. A DOM update is a rendering proxy; the next animation frame is a closer proxy, and neither proves when pixels appeared. Engine processing comes from the engine's Server-Timing header (its own monotonic clock). Receipt&rarr;DOM subtracts the engine's receipt time from this browser's wall clock corrected by the measured offset, so it is an estimate within the &plusmn; shown, plus up to one poll interval of waiting is included. Source&rarr;DOM also depends on the sender's clock. Polling stops while another page of the site is shown instead of Dashboard; it continues in a background tab, where the browser may slow timers (such samples are counted separately and left out of the statistics).</div>
+        </div>
         <div class="card" id="axLiveSum" style="margin-bottom:24px;border-left:4px solid #3b82f6;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
@@ -10913,14 +10934,17 @@ function initializePlayerFatigue(team) {
     if (reviewing()) return;          // current-reading cards are hidden and silent during recorded review
     if (selection.id === null) { liveCards.forEach(function(c) { liveSetStatus(c, noSelectionText(), COLORS.muted); }); return; }
     var gen = selection.generation, id = selection.id, label = selection.label || id;
+    var t0 = TIMING ? performance.now() : 0;
     fetch(athleteUrl(id, "/live"), { cache: "no-store" }).then(function(res) {
       if (gen !== selection.generation) return; // athlete or mode changed while this request was in flight: dropped
       if (!res.ok) { liveCards.forEach(function(c) { liveSetStatus(c, "Backend error: HTTP " + res.status, COLORS.error); }); return; }
       return res.json().then(function(body) {
         if (gen !== selection.generation || !body || typeof body !== "object") return;
+        var t2 = TIMING ? performance.now() : 0;
         liveDevices = Array.isArray(body.devices) ? body.devices : [];
         liveCards.forEach(function(c) { liveRenderStream(c, body, label); });
         paintDeviceLine("hr"); paintDeviceLine("trk");
+        if (TIMING) timingRecord(id, gen, body, res, t0, t2, performance.now(), Date.now());
       });
     }).catch(function() {
       if (gen !== selection.generation) return;
@@ -10933,6 +10957,105 @@ function initializePlayerFatigue(team) {
     var card = { key: cfg.key, render: cfg.render, clear: cfg.clear, statusEl: statusEl, timeEl: timeEl, whoEl: whoEl, noneText: cfg.noneText };
     liveCards.push(card);
     cards.push({ reset: function() { liveClear(card); liveSetStatus(card, "Loading…", COLORS.muted); }, poll: function() { if (liveCards[0] === card) livePoll(false); }, setWho: function(l) { whoEl.textContent = l; } });
+  }
+  // ---- developer timing (opt-in with ?timing=1; the normal coach view never shows or measures this) ----
+  // Separate measurements for the live-card poll, kept apart on purpose:
+  //   http_ms       fetch start -> response body parsed (browser monotonic clock, performance.now)
+  //   engine_ms     the engine's Server-Timing "app" duration: its receipt of the request -> response start (engine monotonic clock)
+  //   dom_ms        body parsed -> the cards' DOM writes done (a rendering proxy, not pixels)
+  //   frame_ms      body parsed -> next requestAnimationFrame callback (a closer proxy; still not proof of display)
+  //   receipt_to_dom_ms   first display of a sample: browser wall clock at DOM update, corrected by the measured clock offset,
+  //                       minus the engine's receipt time; an ESTIMATE within +/- uncertainty_ms, including the poll wait
+  //   source_to_dom_ms    the same minus the sample's own timestamp: also depends on the sender's clock (cross-clock)
+  // The clock offset comes from GET /api/v1/clock: offset = engine_time - (browser wall before + after) / 2, keeping the probe
+  // with the shortest round trip; uncertainty = half that round trip. A browser wall-clock adjustment invalidates it.
+  var TIMING = (function() { var q = null; try { q = new URLSearchParams(location.search).get("timing"); } catch (e) {} return q === "1" || q === "on"; })();
+  var TIMING_MAX = 300, CLOCK_MS = 10000;
+  var timing = { entries: [], hidden: 0, lastShown: {}, clock: null, probes: [] };
+  var timingCardEl = byId("axTimingCard"), timingBodyEl = byId("axTimingBody"), timingStatusEl = byId("axTimingStatus"), timingClockEl = byId("axTimingClock");
+  function timingVisible() { return typeof document.visibilityState !== "string" || document.visibilityState === "visible"; }
+  function serverMs(res) {
+    var h = res && res.headers && typeof res.headers.get === "function" ? res.headers.get("Server-Timing") : null;
+    var m = h ? /(?:^|,)\s*app;dur=([0-9.]+)/.exec(h) : null;
+    return m ? Number(m[1]) : null;
+  }
+  function timingRecord(id, gen, body, res, t0, t2, t3, wallDom) {
+    var e = { athlete_id: id, at: new Date(wallDom).toISOString(), visible: timingVisible(), http_ms: t2 - t0, engine_ms: serverMs(res), dom_ms: t3 - t2, frame_ms: null, streams: {} };
+    var c = timing.clock;
+    ["physiological", "tracking"].forEach(function(k) {
+      var s = body[k], r = body[k + "_receipt"];
+      if (!s || typeof s.timestamp !== "string") return;
+      var key = id + "|" + k, first = timing.lastShown[key] !== s.timestamp;
+      timing.lastShown[key] = s.timestamp;
+      if (!first) return;  // only a sample's first display measures display delay; re-showing it again only adds waiting time
+      var aligned = c ? wallDom + c.offset_ms : null, src = Date.parse(s.timestamp), rec = r && typeof r.received_at === "string" ? Date.parse(r.received_at) : NaN;
+      e.streams[k] = { sample_timestamp: s.timestamp, received_at: r ? r.received_at : null,
+        receipt_to_dom_ms: aligned !== null && isFinite(rec) ? aligned - rec : null, source_to_dom_ms: aligned !== null && isFinite(src) ? aligned - src : null,
+        uncertainty_ms: c ? c.uncertainty_ms : null };
+    });
+    if (!e.visible) timing.hidden += 1;
+    timing.entries.push(e);
+    if (timing.entries.length > TIMING_MAX) timing.entries.shift();
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(function() { e.frame_ms = performance.now() - t2; timingPaint(); });
+    timingPaint();
+    if (!timing.clock) timingProbe();  // the start-up probe may have run before Dashboard was shown
+  }
+  function stats(values) {
+    var v = values.filter(isNum).sort(function(a, b) { return a - b; });
+    if (!v.length) return null;
+    var q = function(p) { return v[Math.min(v.length - 1, Math.ceil(p * v.length) - 1)]; };
+    return { median: q(0.5), p95: q(0.95), max: v[v.length - 1], n: v.length };
+  }
+  function timingPaint() {
+    if (!timingBodyEl) return;
+    var vis = timing.entries.filter(function(e) { return e.visible; }), last = timing.entries[timing.entries.length - 1] || null;
+    function streamVals(field) { var out = []; vis.forEach(function(e) { for (var k in e.streams) out.push(e.streams[k][field]); }); return out; }
+    function lastStream(field) { if (!last) return null; for (var k in last.streams) if (isNum(last.streams[k][field])) return last.streams[k][field]; return null; }
+    var rows = [
+      ["HTTP request duration (browser)", vis.map(function(e) { return e.http_ms; }), last && last.http_ms],
+      ["Engine processing (Server-Timing)", vis.map(function(e) { return e.engine_ms; }), last && last.engine_ms],
+      ["DOM update after response", vis.map(function(e) { return e.dom_ms; }), last && last.dom_ms],
+      ["Next animation frame after response", vis.map(function(e) { return e.frame_ms; }), last && last.frame_ms],
+      ["Receipt → DOM, first display (estimate)", streamVals("receipt_to_dom_ms"), lastStream("receipt_to_dom_ms")],
+      ["Source timestamp → DOM, first display (cross-clock)", streamVals("source_to_dom_ms"), lastStream("source_to_dom_ms")],
+    ];
+    while (timingBodyEl.firstChild) timingBodyEl.removeChild(timingBodyEl.firstChild);
+    rows.forEach(function(r) {
+      var tr = document.createElement("tr"), s = stats(r[1]);
+      [r[0], isNum(r[2]) ? r[2].toFixed(1) : DASH, s ? s.median.toFixed(1) : DASH, s ? s.p95.toFixed(1) : DASH, s ? s.max.toFixed(1) : DASH, s ? String(s.n) : "0"].forEach(function(text, i) {
+        var td = document.createElement("td"); td.textContent = text; td.style.padding = "3px 4px"; td.style.textAlign = i ? "right" : "left"; tr.appendChild(td);
+      });
+      timingBodyEl.appendChild(tr);
+    });
+    var c = timing.clock;
+    timingClockEl.textContent = c ? "Clock alignment: engine minus browser wall clock = " + c.offset_ms.toFixed(1) + " ms ± " + c.uncertainty_ms.toFixed(1) + " ms (best of " + timing.probes.length + " probes; round trip " + c.rtt_ms.toFixed(1) + " ms)." : "Clock alignment: not measured yet (receipt and source estimates need it).";
+    timingStatusEl.textContent = timing.entries.length + " polls recorded (last " + TIMING_MAX + " kept) · " + timing.hidden + " while the tab was hidden, excluded from the statistics.";
+  }
+  function timingProbe() {
+    if (!TIMING || !dashboardVisible() || timing.probing) return;
+    var w0 = Date.now(), p0 = performance.now();
+    timing.probing = true;
+    fetch(API_BASE + "/api/v1/clock", { cache: "no-store" }).then(function(res) { return res.ok ? res.json() : null; }).then(function(body) {
+      timing.probing = false;
+      var p1 = performance.now(), w1 = Date.now(), engine = body && typeof body.backend_time === "string" ? Date.parse(body.backend_time) : NaN;
+      if (!isFinite(engine)) return;
+      var rtt = p1 - p0, probe = { offset_ms: engine - (w0 + w1) / 2, uncertainty_ms: rtt / 2, rtt_ms: rtt, at: new Date(w1).toISOString() };
+      timing.probes.push(probe); if (timing.probes.length > 30) timing.probes.shift();
+      timing.clock = timing.probes.reduce(function(best, x) { return !best || x.rtt_ms < best.rtt_ms ? x : best; }, null);
+      timingPaint();
+    }).catch(function() { timing.probing = false; });
+  }
+  if (TIMING && timingCardEl) {
+    timingCardEl.style.display = "block";
+    byId("axTimingReset").addEventListener("click", function() { timing.entries = []; timing.hidden = 0; timing.lastShown = {}; timing.probes = []; timing.clock = null; timingPaint(); timingProbe(); });
+    byId("axTimingDownload").addEventListener("click", function() {
+      var doc = { format: "athletrix-dashboard-timing", format_version: 1, api_base: API_BASE, generated_at: new Date().toISOString(), clock: timing.clock, probes: timing.probes, hidden_polls: timing.hidden, entries: timing.entries,
+        definitions: "See the comment above TIMING in index.html: separate browser, engine and cross-clock measurements; receipt and source figures are estimates within uncertainty_ms." };
+      saveBlob(new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" }), "athletrix-dashboard-timing-" + new Date().toISOString().replace(/[:.]/g, "") + ".json");
+    });
+    window.ATHLETRIX_TIMING = timing; // read-only inspection for measurement runs
+    timingPaint(); timingProbe();
+    setInterval(timingProbe, CLOCK_MS);
   }
   setInterval(function() { livePoll(true); }, POLL_MS); // one poller for both cards, created once
 
