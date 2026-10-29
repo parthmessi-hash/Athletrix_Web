@@ -47,8 +47,20 @@ allowed to call the backend because of browser CORS rules):
 
 ```bash
 cd Athletrix_Web
-python3 -m http.server 3000
+python3 -m http.server 3000 --bind 127.0.0.1
 ```
+
+`--bind 127.0.0.1` keeps the site reachable from this computer only; without it
+`http.server` listens on every network interface. Check the listeners on a Mac:
+
+```bash
+lsof -nP -iTCP:8000 -iTCP:3000 -sTCP:LISTEN
+```
+
+Both the backend (8000) and this site (3000) should show `127.0.0.1`, never `*`
+or `0.0.0.0`. The startup commands control the binding; neither the engine nor
+this page enforces it. Ports stay configurable (another `--port` / port number,
+plus the matching `apiBase` and the engine's `CORS_ORIGINS`).
 
 Open http://localhost:3000 and click **Live Demo** in the top navigation (or
 open http://localhost:3000/#demo directly). On localhost the page is in
@@ -61,8 +73,8 @@ Terminals 1 to 4 run from the `Athletrix_Vision_Synopsis_2026` folder with its
 `.venv` activated; terminal 5 runs from this folder.
 
 ```bash
-# 1. Backend
-uvicorn app.main:app --reload
+# 1. Backend (loopback only)
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 # 2. Register the fictional demo roster (athlete-1 Alex Example, athlete-2 Sam Sample)
 python scripts/register_demo_roster.py
@@ -73,8 +85,11 @@ python scripts/simulate_athlete.py --athlete-id athlete-2 --device-id simulator-
 #    For a repeating effort/rest cycle with a delayed toy heart-rate response (fictional, shows timing on the charts):
 python scripts/simulate_athlete.py --profile effort-rest --with-tracking --seconds 120
 
-# 4. Frontend (this folder)
-python3 -m http.server 3000
+# 4. Frontend (this folder, loopback only)
+python3 -m http.server 3000 --bind 127.0.0.1
+
+# 5. Check: both listeners should show 127.0.0.1
+lsof -nP -iTCP:8000 -iTCP:3000 -sTCP:LISTEN
 ```
 
 Click path: open http://localhost:3000, click **Live Demo** in the top

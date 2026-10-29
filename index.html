@@ -3561,10 +3561,10 @@
             The engine-connected cards read from the Athletrix engine, a local service that runs on the sideline computer next to its simulators. This public page does not contact that computer, so those cards appear only on the local dashboard.
           </p>
           <ol class="card-sub" style="font-size:0.88rem;line-height:1.9;margin:0 0 16px 20px;padding:0;">
-            <li>On the sideline computer, start the engine backend from the engine repository: <code style="color:#fff;">uvicorn app.main:app --reload</code></li>
+            <li>On the sideline computer, start the engine backend from the engine repository: <code style="color:#fff;">uvicorn app.main:app --host 127.0.0.1 --port 8000</code></li>
             <li>Register the fictional demo roster: <code style="color:#fff;">python scripts/register_demo_roster.py</code></li>
             <li>Feed fictional readings: <code style="color:#fff;">python scripts/simulate_athlete.py --with-tracking</code></li>
-            <li>Serve this site locally from the Athletrix_Web folder: <code style="color:#fff;">python3 -m http.server 3000</code></li>
+            <li>Serve this site locally from the Athletrix_Web folder: <code style="color:#fff;">python3 -m http.server 3000 --bind 127.0.0.1</code></li>
           </ol>
           <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
             <a class="btn btn-primary" href="http://localhost:3000/#demo" target="_blank" rel="noopener" style="text-decoration:none;">Open local dashboard</a>
