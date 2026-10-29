@@ -256,6 +256,33 @@ opened period, the effort result and the comparison slots, and late replies
 for an earlier athlete or recording are dropped. The block is hidden for an
 active recording and in public mode nothing is requested.
 
+### Recording inventory, packages and saved-period reviews
+
+The Local recording card's list now comes from `GET /api/v1/recordings/inventory`
+and shows, per recording, its status, times, roster size, recorded sample
+counts per stream (real zeros shown as 0), saved periods and whether it was
+imported from a package. A stopped recording has **Download package**, which
+saves the engine's portable package (`package.zip`) on this computer; an
+engine refusal (for example an active recording) or a network error is shown
+with the reason. Importing a package is done with the local command
+`scripts/recording_package.py` in the engine repository; the page has no
+upload.
+
+In a stopped recording, under the saved periods list, **Saved-period reviews**
+shows a table of every saved period of the selected athlete, calculated now by
+the engine in one batch (`GET .../period-reviews`): label and id, exact
+bounds and duration, tracking samples, distance, time and distance at or
+above the threshold, and heart rate before, during and after as measured of
+samples and mean. The status line gives the engine's calculation time and the
+rules in force (gap, confidence, threshold, before and after lengths), so the
+figures read as current calculations over recorded data, listed by start and
+never ranked; Not available means no value, never zero. **Refresh reviews**
+recalculates, **Download CSV** saves the same set as a spreadsheet file
+(`GET .../period-reviews.csv`), and each row has **Open** (restores the exact
+bounds and runs the effort review) and **Review JSON** (that period's detailed
+snapshot). The table is loaded after the period list and cleared on athlete,
+recording and mode changes; late replies are dropped.
+
 ## Selected effort review (Recorded mode)
 
 In Recorded mode a **Selected effort review** card sits below the timeline.
@@ -645,7 +672,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "58 tests, 58 passed". The
+Expect "60 tests, 60 passed" (inventory counts and package download; the saved-period review table, CSV, errors and late replies are covered too). The
 runner fails a test that does not finish within 10 s and yields through a
 MessageChannel, so the run does not crawl in a background tab.
 
