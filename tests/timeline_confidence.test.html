@@ -1783,6 +1783,26 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axBatchBody.children.length, 0); assert.equal(ctx.els.axBatchStatus.textContent, "");
   });
 
+  test("user-entered recording names, athlete names and period labels are rendered as inert text, never markup", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/recordings/active", { recording: null });
+    const evil = '<img src=x onerror="window.__pwned=1">';
+    const rosterEvil = [{ id: "a1", name: evil, jersey_number: 7, sport: "<b>x</b>", team_id: "t" }];
+    await ctx.respond("/api/v1/recordings/inventory", [inventoryItem({ name: evil, athletes: rosterEvil })]);
+    const line = ctx.els.axRecList.children[0].children[0];
+    assert.ok(line.textContent.includes(evil) && line.children.length === 0, "the name is text inside the row, with no element created from it");
+    reviewButton(ctx, 0).dispatch("click"); await ctx.flush();
+    assert.ok(ctx.els.axSessionLabel.textContent.includes(evil) && ctx.els.axSessionLabel.children.length === 0);
+    assert.equal(ctx.els.axAthleteSelect.children[0].textContent, evil + " #7 · <b>x</b>");
+    await ctx.respond(RB + "periods", [periodBody({ label: evil })]);
+    assert.ok(ctx.els.axPeriodList.children[0].children[0].textContent.includes(evil));
+    await ctx.respond(RB + "period-reviews", batchBody([batchItem(periodBody({ label: evil }))]));
+    const cell = ctx.els.axBatchBody.children[0].children[0];
+    assert.ok(cell.textContent.startsWith('"' + evil + '"') && cell.children.length === 0);
+    assert.equal(window.__pwned, undefined, "nothing executed");
+  });
+
   // ---- run --------------------------------------------------------------------------------------------
   const list = document.getElementById("results");
   for (const t of tests) {

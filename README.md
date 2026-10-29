@@ -672,7 +672,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "60 tests, 60 passed" (inventory counts and package download; the saved-period review table, CSV, errors and late replies are covered too). The
+Expect "61 tests, 61 passed" (inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text). The
 runner fails a test that does not finish within 10 s and yields through a
 MessageChannel, so the run does not crawl in a background tab.
 
