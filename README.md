@@ -105,6 +105,21 @@ roster script is a one-time step per database file and is safe to rerun.
 After a restart the dashboard reconnects on its own and shows the retained
 readings with their real age; run a simulator again for fresh values.
 
+## Developer timing panel (opt-in, `?timing=1`)
+
+Open `http://localhost:3000/?timing=1#demo` to show a **Developer timing** card under the live cards. Without
+`?timing=1` nothing is shown, measured or requested. For the live-card poll it keeps separate measurements, never one
+latency figure: HTTP request duration and DOM-update / next-animation-frame timings (this browser's monotonic clock;
+DOM timings are rendering proxies, not proof of when pixels appeared), the engine's own `Server-Timing` processing
+interval, and two cross-clock estimates at a sample's first display: receipt → DOM (engine receipt time against this
+browser's wall clock corrected by an offset measured with `GET /api/v1/clock`, ± half the best probe's round trip)
+and source → DOM (which also depends on the sender's clock). Both include waiting for the next 1 s poll. Replies
+after an athlete or mode change are not measured; polls made while the tab is hidden are counted but excluded.
+**Download JSON** saves the measurements on this computer. Polling stops while another page of the site is shown
+instead of Dashboard and continues in a background tab, where the browser may slow timers, so measure with
+Dashboard in the visible foreground tab. See the engine README ("Timing instrumentation") for definitions and one
+measured run.
+
 ## What the cards show
 
 - **Athlete selector**: roster from the backend's `GET /api/v1/athletes`,
@@ -687,7 +702,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "61 tests, 61 passed" (inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text). The
+Expect "62 tests, 62 passed" (inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
 runner fails a test that does not finish within 10 s and yields through a
 MessageChannel, so the run does not crawl in a background tab.
 
