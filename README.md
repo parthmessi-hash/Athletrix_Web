@@ -111,7 +111,8 @@ Open `http://localhost:3000/?timing=1#demo` to show a **Developer timing** card 
 `?timing=1` nothing is shown, measured or requested. For the live-card poll it keeps separate measurements, never one
 latency figure: HTTP request duration and DOM-update / next-animation-frame timings (this browser's monotonic clock;
 DOM timings are rendering proxies, not proof of when pixels appeared), the engine's own `Server-Timing` processing
-interval, and two cross-clock estimates at a sample's first display: receipt → DOM (engine receipt time against this
+interval, and two cross-clock estimates at a sample's first display: receipt → DOM (the engine's application receipt
+(request-entry) time, not network arrival, against this
 browser's wall clock corrected by an offset measured with `GET /api/v1/clock`, ± half the best probe's round trip)
 and source → DOM (which also depends on the sender's clock). Both include waiting for the next 1 s poll. Replies
 after an athlete or mode change are not measured; polls made while the tab is hidden are counted but excluded.
