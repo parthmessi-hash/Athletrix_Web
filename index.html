@@ -3872,6 +3872,46 @@
           <details style="margin-top:6px;"><summary class="card-sub" style="cursor:pointer;margin:0;">All entries of this recording</summary><div class="card-sub" id="axCtxList" style="font-family:monospace;font-size:0.74rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
           <div class="card-sub" id="axCtxStatus" style="margin-top:6px;font-size:0.76rem;"></div>
         </div>
+        <div class="card" id="axPerfCard" style="margin-bottom:24px;border-left:4px solid #a855f7;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Performance evidence &middot; <span id="axPerfWho">no athlete selected</span></div>
+              <div class="card-sub">Evidence for the four-area individual performance review (execution, decision-making, movement and positioning, following coach strategy), entered by people for a recording. <b>Manual entry, not automatic recognition.</b> Leadership, chemistry and pressure situations stay in Coach context and are not counted here; fatigue never enters this review.</div>
+            </div>
+            <button type="button" id="axPerfRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
+          </div>
+          <div class="card-sub" id="axPerfTarget" style="margin-bottom:6px;">Looking for a recording&hellip;</div>
+          <details id="axPerfFormBox" style="margin-bottom:8px;">
+            <summary class="card-sub" style="cursor:pointer;margin:0;color:#fff;">Add an observation for the selected athlete</summary>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 12px;margin-top:8px;font-size:0.8rem;">
+              <label class="card-sub" style="margin:0;">Event<br><select id="axPerfKind" class="coach-select" style="width:100%;"><option value="pass">Pass attempts and completions (execution)</option><option value="turnover">Possessions and turnovers (execution)</option><option value="tactical_observation">Tactical observation</option></select></label>
+              <label class="card-sub" style="margin:0;">Area (tactical observation)<br><select id="axPerfArea" class="coach-select" style="width:100%;"><option value="decision_making">decision-making</option><option value="movement_positioning">movement and positioning</option><option value="coach_strategy">following coach strategy</option></select></label>
+              <label class="card-sub" style="margin:0;">Assessment<br><select id="axPerfAssessment" class="coach-select" style="width:100%;"><option value="assessed">assessed</option><option value="unable_to_assess">unable to assess</option><option value="no_opportunity">no opportunity</option></select></label>
+              <label class="card-sub" style="margin:0;">Unable-to-assess reason<br><select id="axPerfUnable" class="coach-select" style="width:100%;"><option value="not_visible">not visible</option><option value="off_camera">off camera</option><option value="occluded">occluded</option><option value="video_quality">video quality</option><option value="ambiguous">ambiguous</option><option value="other">other</option></select></label>
+              <label class="card-sub" style="margin:0;">Period start (UTC, ISO 8601)<br><input id="axPerfStart" type="text" class="login-input" style="width:100%;font-family:monospace;"></label>
+              <label class="card-sub" style="margin:0;">Period end (UTC, ISO 8601)<br><input id="axPerfEnd" type="text" class="login-input" style="width:100%;font-family:monospace;"></label>
+              <label class="card-sub" style="margin:0;">Role during the period (optional)<br><input id="axPerfRole" type="text" maxlength="80" class="login-input" placeholder="left back" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Attempts / completed (pass)<br><input id="axPerfAttempts" type="number" min="0" class="login-input" style="width:45%;"> <input id="axPerfCompletions" type="number" min="0" class="login-input" style="width:45%;"></label>
+              <label class="card-sub" style="margin:0;">Possessions / turnovers<br><input id="axPerfPossessions" type="number" min="0" class="login-input" style="width:45%;"> <input id="axPerfTurnovers" type="number" min="0" class="login-input" style="width:45%;"></label>
+              <label class="card-sub" style="margin:0;">Outcome (tactical)<br><select id="axPerfOutcome" class="coach-select" style="width:100%;"><option value="followed">followed</option><option value="partially_followed">partially followed</option><option value="not_followed">not followed</option></select></label>
+              <label class="card-sub" style="margin:0;">Instruction judged (tactical)<br><input id="axPerfInstruction" type="text" maxlength="200" class="login-input" placeholder="the coach's words" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Linked coach instruction (optional)<br><select id="axPerfContext" class="coach-select" style="width:100%;"><option value="">none</option></select></label>
+              <label class="card-sub" style="margin:0;">Evidence source<br><select id="axPerfSource" class="coach-select" style="width:100%;"><option value="human_annotation">human annotation</option><option value="human_review_of_camera">human review of the recorded video</option></select></label>
+              <label class="card-sub" style="margin:0;"><input id="axPerfReference" type="checkbox"> Reference label (for evaluating a future automatic method)</label>
+              <label class="card-sub" style="margin:0;">Annotator (optional)<br><input id="axPerfAnnotator" type="text" maxlength="80" class="login-input" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Video and frame (optional)<br><input id="axPerfVideo" type="text" maxlength="200" class="login-input" placeholder="file name" style="width:60%;"> <input id="axPerfFrame" type="number" min="0" class="login-input" placeholder="frame" style="width:30%;"></label>
+              <label class="card-sub" style="margin:0;">Description or note (optional)<br><input id="axPerfNote" type="text" maxlength="500" class="login-input" style="width:100%;"></label>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
+              <button type="button" id="axPerfSubmit" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Save observation</button>
+              <span class="card-sub" id="axPerfFormStatus" style="margin:0;">Counts are kept as entered (attempts and outcomes), never only a percentage. Unable to assess and no opportunity are never zeros.</span>
+            </div>
+          </details>
+          <div class="card-sub" id="axPerfComposite" style="font-size:0.82rem;color:#e5e7eb;margin-bottom:6px;">&mdash;</div>
+          <div class="card-sub" id="axPerfAreas" style="font-size:0.8rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
+          <details style="margin-top:6px;" open><summary class="card-sub" style="cursor:pointer;margin:0;">Observations of this athlete</summary><div class="card-sub" id="axPerfList" style="font-family:monospace;font-size:0.74rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
+          <div class="card-sub" id="axPerfStatus" style="margin-top:6px;font-size:0.76rem;"></div>
+        </div>
         <div class="card" id="axEffortCard" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
@@ -10382,7 +10422,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axPerfCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -12435,6 +12475,132 @@ function initializePlayerFatigue(team) {
     el.axCtxShowAt.addEventListener("click", load);
     cards.push({ reset: function() { el.axCtxFrom.value = ""; el.axCtxEffective.textContent = "Loading…"; }, poll: load, setWho: function(l) { el.axCtxWho.textContent = l; } });
     setInterval(function() { if (!reviewing()) load(); }, CTX_MS); // created once; recorded reviews refresh on demand
+  })();
+
+  // ---- Performance evidence card (the recording under review, or the active recording in Live) ----
+  // Manual evidence for the four-area review and the engine's per-area summary. The composite is shown only when the
+  // engine reports it available (a configured rubric and enough evidence); otherwise its reasons are shown.
+  (function(){
+    var PERF_MS = 15000;
+    var ids = ["axPerfCard", "axPerfWho", "axPerfRefresh", "axPerfTarget", "axPerfKind", "axPerfArea", "axPerfAssessment", "axPerfUnable", "axPerfStart", "axPerfEnd", "axPerfRole",
+               "axPerfAttempts", "axPerfCompletions", "axPerfPossessions", "axPerfTurnovers", "axPerfOutcome", "axPerfInstruction", "axPerfContext", "axPerfSource", "axPerfReference",
+               "axPerfAnnotator", "axPerfVideo", "axPerfFrame", "axPerfNote", "axPerfSubmit", "axPerfFormStatus", "axPerfComposite", "axPerfAreas", "axPerfList", "axPerfStatus"];
+    var el = {};
+    for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
+    var perf = { seq: 0, rec: null, busy: false };
+    var AREA = { execution: "Execution", decision_making: "Decision-making", movement_positioning: "Movement and positioning", coach_strategy: "Following coach strategy" };
+    var SOURCE = { human_annotation: "human annotation", human_review_of_camera: "human review of video", camera_automatic: "automatic (camera)" };
+    function setStatus(text, color) { el.axPerfStatus.textContent = text; el.axPerfStatus.style.color = color; }
+    function setFormStatus(text, color) { el.axPerfFormStatus.textContent = text; el.axPerfFormStatus.style.color = color; }
+    function fill(target, rows, empty) {
+      target.textContent = "";
+      if (!rows.length) { target.textContent = empty; return; }
+      rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; d.style.marginBottom = "3px"; target.appendChild(d); });
+    }
+    function clearView(text) { el.axPerfComposite.textContent = DASH; el.axPerfAreas.textContent = DASH; el.axPerfList.textContent = DASH; if (text !== undefined) setStatus(text, COLORS.muted); }
+    function target() { // the same rule as Coach context: the reviewed recording read fresh, else the active one
+      if (sessionReview() && selection.session) {
+        var chosen = selection.session;
+        return fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(chosen.id), { cache: "no-store" }).then(function(res) { return res.ok ? res.json() : chosen; }).catch(function() { return chosen; });
+      }
+      return fetch(API_BASE + "/api/v1/recordings/active", { cache: "no-store" }).then(function(res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+        .then(function(b) { return b && b.recording && typeof b.recording === "object" ? b.recording : null; });
+    }
+    function describeObs(o, ctxById) {
+      var parts = [availUtc(o.period_start) + " to " + availUtc(o.period_end), AREA[o.area] || o.area, o.kind.replace("_", " "), o.role ? "role " + o.role : "role not recorded"];
+      if (o.assessment === "unable_to_assess") parts.push("unable to assess (" + String(o.unable_reason).replace("_", " ") + ")");
+      else if (o.assessment === "no_opportunity") parts.push("no opportunity");
+      else if (o.kind === "pass") parts.push(o.completions + " of " + o.attempts + " passes completed");
+      else if (o.kind === "turnover") parts.push(o.turnovers + " turnovers in " + o.possessions + " possessions");
+      else parts.push(String(o.outcome).replace("_", " ") + ": \"" + o.instruction + "\"");
+      if (o.coach_context_id) { var c = ctxById[o.coach_context_id]; parts.push("coach instruction: " + (c && c.tactical_instruction && c.tactical_instruction.status === "recorded" ? "\"" + c.tactical_instruction.value + "\"" : o.coach_context_id)); }
+      parts.push("source " + (SOURCE[o.evidence_source] || o.evidence_source) + (o.reference_label ? " (reference label)" : "") + (o.annotator ? ", " + o.annotator : ""));
+      if (o.frames && o.frames.length) parts.push("frames " + o.frames.map(function(f) { return f.video + "#" + f.frame; }).join(", "));
+      if (o.origin === "source_engine") parts.push("imported");
+      return parts.join(" · ");
+    }
+    function areaLine(name, a) {
+      var e = a.evidence, bits = [e.assessed + " assessed", e.unable_to_assess + " unable to assess", e.no_opportunity + " no opportunity"];
+      if (e.passes) bits.push("passes " + e.passes.completions + " of " + e.passes.attempts);
+      if (e.possessions) bits.push("turnovers " + e.possessions.turnovers + " in " + e.possessions.possessions + " possessions");
+      if (e.tactical) bits.push("followed " + (e.tactical.followed || 0) + ", partially " + (e.tactical.partially_followed || 0) + ", not followed " + (e.tactical.not_followed || 0));
+      var reasons = Object.keys(e.unable_reasons || {}); if (reasons.length) bits.push("unable reasons: " + reasons.map(function(k) { return k.replace("_", " ") + " " + e.unable_reasons[k]; }).join(", "));
+      return AREA[name] + ": " + bits.join(" · ") + " · area score " + (isNum(a.score) ? a.score : NA + (a.unavailable_reason ? " (" + a.unavailable_reason + ")" : ""));
+    }
+    function render(rv, ctxList) {
+      var ctxById = {}; (ctxList || []).forEach(function(c) { ctxById[c.id] = c; });
+      var r = rv.rubric, c = rv.composite;
+      el.axPerfComposite.textContent = (r ? "Rubric " + r.version + (r.fictional ? " (FICTIONAL test values)" : "") : "No rubric configured") + " · composite " +
+        (c.available ? c.value + (c.fictional_rubric ? " (from a fictional rubric: not a real assessment)" : "") : "not available: " + (c.reasons || []).join("; "));
+      fill(el.axPerfAreas, ["execution", "decision_making", "movement_positioning", "coach_strategy"].map(function(a) { return areaLine(a, rv.areas[a]); }), DASH);
+      fill(el.axPerfList, (rv.observations || []).map(function(o) { return describeObs(o, ctxById); }), "No observations for this athlete yet.");
+    }
+    function contextOptions(list) {
+      var keep = el.axPerfContext.value;
+      el.axPerfContext.textContent = "";
+      var none = document.createElement("option"); none.value = ""; none.textContent = "none"; el.axPerfContext.appendChild(none);
+      (list || []).filter(function(c) { return c.tactical_instruction && c.tactical_instruction.status === "recorded" && (c.athlete_id === null || c.athlete_id === selection.id); })
+        .forEach(function(c) { var o = document.createElement("option"); o.value = c.id; o.textContent = (c.athlete_id ? "athlete" : "team") + " from " + availUtc(c.effective_from) + ": " + c.tactical_instruction.value; el.axPerfContext.appendChild(o); });
+      el.axPerfContext.value = keep;
+    }
+    function load() {
+      if (!dashboardVisible()) return;
+      var gen = selection.generation, my = ++perf.seq;
+      var stale = function() { return gen !== selection.generation || my !== perf.seq; };
+      if (selection.id === null) { clearView(noSelectionText()); return; }
+      target().then(function(rec) {
+        if (stale()) return;
+        perf.rec = rec;
+        el.axPerfSubmit.disabled = !rec || perf.busy;
+        if (!rec) { el.axPerfTarget.textContent = "No recording is active and none is under review. Evidence is stored with a recording: start one, or open one with Review."; clearView(""); return; }
+        el.axPerfTarget.textContent = "Recording \"" + rec.name + "\" (" + rec.id + ", " + rec.status + ") · " + (selection.label || selection.id) + ". Stored with this recording on this computer and carried in its package.";
+        if (!el.axPerfStart.value) el.axPerfStart.value = rec.started_at;
+        if (!el.axPerfEnd.value && rec.stopped_at) el.axPerfEnd.value = rec.stopped_at;
+        var base = API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id);
+        var getJson = function(url) { return fetch(url, { cache: "no-store" }).then(function(res) {
+          if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); }); return res.json(); }); };
+        return Promise.all([getJson(base + "/athletes/" + encodeURIComponent(selection.id) + "/performance-review"), getJson(base + "/context")]).then(function(both) {
+          if (stale()) return;
+          render(both[0], both[1]); contextOptions(both[1]);
+          setStatus(both[0].rules, COLORS.muted);
+        });
+      }).catch(function(err) {
+        if (stale()) return;
+        clearView();
+        setStatus("Performance evidence could not be read from " + API_BASE + " (" + err.message + ").", COLORS.error);
+      });
+    }
+    function intOrNull(e) { var v = String(e.value).trim(); return v === "" ? null : Number(v); }
+    function body() {
+      var kind = el.axPerfKind.value, assessed = el.axPerfAssessment.value === "assessed";
+      var b = { athlete_id: selection.id, kind: kind, area: kind === "tactical_observation" ? el.axPerfArea.value : "execution", period_start: el.axPerfStart.value.trim(), period_end: el.axPerfEnd.value.trim(),
+                assessment: el.axPerfAssessment.value, evidence_source: el.axPerfSource.value, reference_label: !!el.axPerfReference.checked };
+      if (b.assessment === "unable_to_assess") b.unable_reason = el.axPerfUnable.value;
+      if (assessed && kind === "pass") { b.attempts = intOrNull(el.axPerfAttempts); b.completions = intOrNull(el.axPerfCompletions); }
+      if (assessed && kind === "turnover") { b.possessions = intOrNull(el.axPerfPossessions); b.turnovers = intOrNull(el.axPerfTurnovers); }
+      if (assessed && kind === "tactical_observation") { b.outcome = el.axPerfOutcome.value; b.instruction = el.axPerfInstruction.value.trim(); }
+      if (kind === "tactical_observation" && el.axPerfContext.value) b.coach_context_id = el.axPerfContext.value;
+      [["role", el.axPerfRole], ["annotator", el.axPerfAnnotator], ["description", el.axPerfNote]].forEach(function(f) { var v = f[1].value.trim(); if (v) b[f[0]] = v; });
+      var video = el.axPerfVideo.value.trim(), frame = intOrNull(el.axPerfFrame);
+      if (video && frame !== null) b.frames = [{ video: video, frame: frame }];
+      return b;
+    }
+    function submit() {
+      if (perf.busy) return;
+      if (!perf.rec) { setFormStatus("No recording to store the observation with.", COLORS.warn); return; }
+      if (selection.id === null) { setFormStatus("Select an athlete first.", COLORS.warn); return; }
+      var rec = perf.rec, gen = selection.generation, payload = body();
+      perf.busy = true; el.axPerfSubmit.disabled = true; setFormStatus("Saving…", COLORS.muted);
+      fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/performance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function(res) {
+        if (res.status === 201) return res.json().then(function(o) { setFormStatus("Saved " + o.id + " (" + (SOURCE[o.evidence_source] || o.evidence_source) + ").", COLORS.live); if (gen === selection.generation) load(); });
+        return rejectionText(res).then(function(why) { setFormStatus("Not saved: " + why, COLORS.error); });
+      }).catch(function() { setFormStatus("Not saved: cannot reach the engine at " + API_BASE + ".", COLORS.error); })
+        .then(function() { perf.busy = false; el.axPerfSubmit.disabled = !perf.rec; });
+    }
+    el.axPerfSubmit.addEventListener("click", submit);
+    el.axPerfRefresh.addEventListener("click", load);
+    cards.push({ reset: function() { el.axPerfStart.value = ""; el.axPerfEnd.value = ""; clearView(); el.axPerfComposite.textContent = "Loading…"; }, poll: load, setWho: function(l) { el.axPerfWho.textContent = l; } });
+    setInterval(function() { if (!reviewing()) load(); }, PERF_MS); // created once; recorded reviews refresh on demand
   })();
 
   // ---- start ----

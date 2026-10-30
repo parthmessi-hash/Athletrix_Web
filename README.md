@@ -151,7 +151,20 @@ plus source, certainty, optional label, initials and note. It shows the team and
 instant (default: now, or the review end) and every entry of the recording. The engine's refusals are shown as they
 come ("Not saved: ..."). There are no ratings or scores. Corrections are new entries with the same effective time.
 
-Both cards are hidden in public mode, which makes no engine requests. The welcome tour now describes what exists
+**Performance evidence** (below Coach context) enters and shows individual-performance evidence for the recording
+under review, or the active recording in Live, for the selected athlete. Each observation is a pass count
+(attempts and completions), a possession count (possessions and turnovers) or a tactical observation (followed,
+partially followed or not followed against an instruction, optionally linked to a coach instruction stored in Coach
+context). It carries an assessment state (assessed, unable to assess with a reason, or no opportunity), a role, a
+period (defaulting to the recording's exact start and stop), a source (human annotation or human review of the
+recorded video, optionally marked as a reference label), an annotator and an optional video frame. The card shows the
+engine's per-area evidence (counts, outcomes, unable-to-assess reasons), the rubric version, and whether a composite
+is available. With no rubric configured, which is the default, it shows the engine's reason instead. A fictional
+rubric's composite is labelled as such. It is labelled "Manual entry, not automatic recognition" and never shows
+leadership, chemistry or fatigue. Refusals ("Not saved: ...") are shown as the engine sends them. Rapid athlete or
+recording changes drop late responses.
+
+The camera review, coach context and performance evidence cards are hidden in public mode, which makes no engine requests. The welcome tour now describes what exists
 (heart rate and movement side by side, recordings, coach notes; no fatigue measurement, performance scoring or
 substitution decisions) and the add-team form uses soccer examples.
 
@@ -737,7 +750,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "72 tests, 72 passed" (coach context default effective time with a microsecond start and a sub-second recording; camera review: segments, gaps, breaks, stale and failed windows, late replies, the local track file; coach context: entries in force, request bodies, refusals, no recording; inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
+Expect "76 tests, 76 passed" (performance evidence: counts, states, sources, linked instructions, unavailable composite, request bodies, refusals, late replies, hidden in public mode; coach context default effective time with a microsecond start and a sub-second recording; camera review: segments, gaps, breaks, stale and failed windows, late replies, the local track file; coach context: entries in force, request bodies, refusals, no recording; inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
 runner fails a test that does not finish within 10 s and yields through a
 MessageChannel, so the run does not crawl in a background tab.
 

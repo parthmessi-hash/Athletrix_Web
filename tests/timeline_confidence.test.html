@@ -2003,6 +2003,84 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(JSON.parse(post.opts.body).effective_from, "2026-10-26T20:00:00.493259Z", "sent exactly as the engine reported the start");
   });
 
+
+  // ---- performance evidence card ----
+  const PERF_IDS = ["axPerfCard", "axPerfWho", "axPerfRefresh", "axPerfTarget", "axPerfKind", "axPerfArea", "axPerfAssessment", "axPerfUnable", "axPerfStart", "axPerfEnd", "axPerfRole",
+    "axPerfAttempts", "axPerfCompletions", "axPerfPossessions", "axPerfTurnovers", "axPerfOutcome", "axPerfInstruction", "axPerfContext", "axPerfSource", "axPerfReference",
+    "axPerfAnnotator", "axPerfVideo", "axPerfFrame", "axPerfNote", "axPerfSubmit", "axPerfFormStatus", "axPerfComposite", "axPerfAreas", "axPerfList", "axPerfStatus"];
+  const perfBoot = () => { const ctx = boot({ extra: PERF_IDS }); ctx.els.axPerfKind.value = "pass"; ctx.els.axPerfArea.value = "decision_making"; ctx.els.axPerfAssessment.value = "assessed"; ctx.els.axPerfUnable.value = "occluded";
+    ctx.els.axPerfOutcome.value = "followed"; ctx.els.axPerfSource.value = "human_annotation"; ctx.els.axPerfContext.value = ""; return ctx; };
+  const emptyArea = extra => Object.assign({ evidence: Object.assign({ observations: 0, assessed: 0, unable_to_assess: 0, unable_reasons: {}, no_opportunity: 0, sources: {}, reference_labels: 0 }, extra || {}), score: null });
+  const perfReview = o => Object.assign({ recording_id: "rec-1", athlete: ROSTER[0], rubric: null,
+    composite: { available: false, value: null, fictional_rubric: false, reasons: ["no performance rubric is configured (PERFORMANCE_RUBRIC_PATH): the team has not set scoring weights"] },
+    areas: { execution: emptyArea({ passes: { attempts: 0, completions: 0, observations: 0 }, possessions: { possessions: 0, turnovers: 0, observations: 0 } }),
+             decision_making: emptyArea({ tactical: { observations: 0 } }), movement_positioning: emptyArea({ tactical: { observations: 0 } }), coach_strategy: emptyArea({ tactical: { observations: 0 } }) },
+    observations: [], rules: "Experimental evidence summary." }, o || {});
+
+  test("public mode hides the performance evidence card and requests nothing", async () => {
+    const ctx = boot({ hostname: "assistantcoachai.net", extra: PERF_IDS });
+    await ctx.flush();
+    assert.equal(ctx.pending.length, 0);
+    assert.equal(ctx.els.axPerfCard.style.display, "none");
+  });
+
+  test("performance evidence: counts, unable reasons, linked instruction, source and an unavailable composite with its reason", async () => {
+    const ctx = perfBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const rv = perfReview({ observations: [
+      { id: "obs-1", recording_id: "rec-1", athlete_id: "a1", role: "left back", area: "execution", kind: "pass", period_start: iso(-600), period_end: iso(-300), assessment: "assessed", attempts: 10, completions: 7, evidence_source: "human_review_of_camera", reference_label: true, annotator: "fictional analyst", frames: [{ video: "match.mp4", frame: 1200 }], event_times: [], origin: "this_engine", created_at: iso(-200) },
+      { id: "obs-2", recording_id: "rec-1", athlete_id: "a1", role: null, area: "coach_strategy", kind: "tactical_observation", period_start: iso(-300), period_end: iso(-100), assessment: "assessed", outcome: "partially_followed", instruction: "press after a loss", coach_context_id: "ctx-9", evidence_source: "human_annotation", reference_label: false, frames: [], event_times: [], origin: "this_engine", created_at: iso(-90) },
+      { id: "obs-3", recording_id: "rec-1", athlete_id: "a1", role: null, area: "execution", kind: "turnover", period_start: iso(-100), period_end: iso(-50), assessment: "unable_to_assess", unable_reason: "off_camera", evidence_source: "human_annotation", reference_label: false, frames: [], event_times: [], origin: "this_engine", created_at: iso(-40) }] });
+    rv.areas.execution.evidence = Object.assign(rv.areas.execution.evidence, { observations: 2, assessed: 1, unable_to_assess: 1, unable_reasons: { off_camera: 1 }, passes: { attempts: 10, completions: 7, observations: 1 } });
+    await ctx.respond("/athletes/a1/performance-review", rv);
+    await ctx.respond("/rec-1/context", [{ id: "ctx-9", athlete_id: null, effective_from: iso(-600), tactical_instruction: { status: "recorded", value: "press after a loss" } }]);
+    assert.match(ctx.els.axPerfComposite.textContent, /^No rubric configured · composite not available: no performance rubric is configured/);
+    const areas = texts(ctx.els.axPerfAreas);
+    assert.match(areas[0], /^Execution: 1 assessed · 1 unable to assess · 0 no opportunity · passes 7 of 10 · turnovers 0 in 0 possessions · unable reasons: off camera 1 · area score Not available/);
+    const list = texts(ctx.els.axPerfList);
+    assert.match(list[0], /pass · role left back · 7 of 10 passes completed · source human review of video \(reference label\), fictional analyst · frames match\.mp4#1200$/);
+    assert.match(list[1], /partially followed: "press after a loss" · coach instruction: "press after a loss" · source human annotation$/);
+    assert.match(list[2], /unable to assess \(off camera\)/);
+    assert.deepEqual(ctx.els.axPerfContext.children.map(o => o.value), ["", "ctx-9"], "team instructions are offered to link");
+  });
+
+  test("performance evidence: the request body keeps counts and states; an engine refusal is shown", async () => {
+    const ctx = perfBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/athletes/a1/performance-review", perfReview());
+    await ctx.respond("/rec-1/context", []);
+    assert.equal(ctx.els.axPerfStart.value, CTX_REC.started_at, "the period starts at the recording's exact start by default");
+    ctx.els.axPerfEnd.value = iso(-60); ctx.els.axPerfAttempts.value = "12"; ctx.els.axPerfCompletions.value = "9"; ctx.els.axPerfRole.value = "left back";
+    await click(ctx, "axPerfSubmit");
+    let post = ctx.pending.find(p => p.opts.method === "POST");
+    assert.deepEqual(JSON.parse(post.opts.body), { athlete_id: "a1", kind: "pass", area: "execution", period_start: CTX_REC.started_at, period_end: iso(-60), assessment: "assessed", evidence_source: "human_annotation", reference_label: false, attempts: 12, completions: 9, role: "left back" });
+    ctx.pending.splice(ctx.pending.indexOf(post), 1);
+    post.resolve({ ok: false, status: 422, json: async () => ({ detail: "the observation period must lie within recording 'rec-1'" }) });
+    await ctx.flush();
+    assert.match(ctx.els.axPerfFormStatus.textContent, /^Not saved: the observation period must lie within recording 'rec-1'/);
+    ctx.els.axPerfKind.value = "tactical_observation"; ctx.els.axPerfArea.value = "coach_strategy"; ctx.els.axPerfAssessment.value = "unable_to_assess";
+    await click(ctx, "axPerfSubmit");
+    post = ctx.pending.find(p => p.opts.method === "POST");
+    const b = JSON.parse(post.opts.body);
+    assert.deepEqual([b.kind, b.area, b.assessment, b.unable_reason, "outcome" in b, "attempts" in b], ["tactical_observation", "coach_strategy", "unable_to_assess", "occluded", false, false], "unable to assess sends no counts and no outcome");
+  });
+
+  test("performance evidence: a late review for the previous athlete never reaches the new athlete's card", async () => {
+    const ctx = perfBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const old = ctx.pending.find(p => p.url.includes("/athletes/a1/performance-review"));
+    await select(ctx, "a2");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.resolveLate(old, perfReview({ observations: [{ id: "obs-old", athlete_id: "a1", area: "execution", kind: "pass", period_start: iso(-10), period_end: iso(-5), assessment: "no_opportunity", evidence_source: "human_annotation", reference_label: false, frames: [], event_times: [] }] }));
+    assert.ok(!texts(ctx.els.axPerfList).some(t => /no opportunity/.test(t)), "a1's late review is dropped");
+    await ctx.respond("/athletes/a2/performance-review", perfReview());
+    await respondAll(ctx, "/rec-1/context", []);   // a1's context request is still pending too
+    assert.equal(ctx.els.axPerfList.textContent, "No observations for this athlete yet.");
+  });
+
   // ---- run --------------------------------------------------------------------------------------------
   const list = document.getElementById("results");
   for (const t of tests) {
