@@ -3804,7 +3804,73 @@
           </div>
           <div class="card-sub" id="axTlStatus" style="margin-top:8px;">Waiting for roster&hellip;</div>
           <div class="card-sub" id="axTlAvail" style="margin-top:6px;font-size:0.78rem;color:#b6bcc4;"></div>
-          <div class="card-sub" id="axTlRules" style="margin-top:6px;font-size:0.76rem;color:#8a9097;">Display rules: filled points are recorded samples; a hollow amber marker on the heart-rate baseline is a sample with no heart rate; a hollow amber marker on the speed chart is a tracking sample below the engine's confidence rule, which arrives in the same window response as the samples (<code>tracking_rules.min_confidence</code>). If that rule is missing or invalid, confidence filtering is unavailable: every speed point is drawn as a dashed grey unclassified marker at its recorded value and no line is drawn. Lines connect consecutive samples only when both are usable and they are no more than 3 s apart (a display rule); nothing is drawn across gaps or removed points. Confidence filtering compares each sample's reported tracking confidence with the engine's rule; it does not validate the accuracy of the underlying speed measurement. The two charts group recorded timestamps on one time axis; they do not correct device clocks or establish any physiological relationship.</div>
+          <div class="card-sub" id="axTlRules" style="margin-top:6px;font-size:0.76rem;color:#8a9097;">Display rules: filled points are recorded samples; a hollow amber marker on the heart-rate baseline is a sample with no heart rate; a hollow amber marker on the speed chart is a tracking sample below the engine's confidence rule, which arrives in the same window response as the samples (<code>tracking_rules.min_confidence</code>). If that rule is missing or invalid, confidence filtering is unavailable: every speed point is drawn as a dashed grey unclassified marker at its recorded value and no line is drawn. Lines connect consecutive samples only when both are usable, they are no more than 3 s apart (a display rule) and they belong to the same continuity segment (the source's <code>segment_id</code>; a camera interruption is never joined); nothing is drawn across gaps or removed points. Confidence filtering compares each sample's reported tracking confidence with the engine's rule; it does not validate the accuracy of the underlying speed measurement. The two charts group recorded timestamps on one time axis; they do not correct device clocks or establish any physiological relationship.</div>
+        </div>
+        <div class="card" id="axCamCard" style="margin-bottom:24px;border-left:4px solid #3b82f6;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Camera review &middot; <span id="axCamWho">no athlete selected</span></div>
+              <div class="card-sub">Movement samples in the same 60 s window as the timeline, with where they came from, their confidence, missing periods and continuity breaks. Read from the Athletrix engine; nothing is recalculated here.</div>
+            </div>
+            <span class="ax-badge" id="axCamBadge" style="display:none;white-space:nowrap;"></span>
+          </div>
+          <div class="card-sub" id="axCamStatus">Waiting for roster&hellip;</div>
+          <div class="card-sub" id="axCamSummary" style="margin-top:6px;font-family:monospace;font-size:0.78rem;color:#e5e7eb;line-height:1.6;"></div>
+          <div class="card-sub" style="margin:8px 0 2px;color:#fff;font-weight:600;">Continuity segments</div>
+          <div class="card-sub" id="axCamSegments" style="font-family:monospace;font-size:0.76rem;color:#e5e7eb;line-height:1.55;">&mdash;</div>
+          <div class="card-sub" style="margin:8px 0 2px;color:#fff;font-weight:600;">Missing periods (no tracking sample for more than 1 s)</div>
+          <div class="card-sub" id="axCamMissing" style="font-family:monospace;font-size:0.76rem;color:#e5e7eb;line-height:1.55;">&mdash;</div>
+          <div class="card-sub" style="margin:8px 0 2px;color:#fff;font-weight:600;">Applicable settings</div>
+          <div class="card-sub" id="axCamSettings" style="font-size:0.78rem;line-height:1.55;">&mdash;</div>
+          <div class="card-sub" id="axCamAdapter" style="font-size:0.78rem;line-height:1.55;margin-top:4px;"></div>
+          <div style="margin-top:10px;padding:8px 10px;border:1px solid rgba(215,150,11,0.35);background:rgba(215,150,11,0.06);">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;">
+              <b style="color:#fff;font-size:0.85rem;">Track assignment aid</b>
+              <label for="axCamFile" class="card-sub" style="margin:0;">Open a track gallery (PNG) or annotated review video (MP4) written by <code>camera_track_video.py</code>:</label>
+              <input type="file" id="axCamFile" accept="image/png,image/jpeg,video/mp4,video/webm" style="font-size:0.78rem;color:#e5e7eb;max-width:100%;">
+            </div>
+            <div class="card-sub" id="axCamPreviewNote" style="margin:6px 0 0;color:#f1d08a;">Assignment aid only: the ids are temporary track ids, not verified identity. The file is shown from this computer and is not uploaded or sent to the engine. Confirmed assignments are written in the assignments file, never here.</div>
+            <div id="axCamPreview" style="margin-top:8px;"></div>
+          </div>
+        </div>
+        <div class="card" id="axCtxCard" style="margin-bottom:24px;border-left:4px solid #22c55e;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Coach context &middot; <span id="axCtxWho">no athlete selected</span></div>
+              <div class="card-sub">Time-bounded match context entered by people and stored with a recording: formation, tactical objective, the selected athlete's role and instruction, lineup partnerships, and task-specific leadership or pressure-situation evidence. Every item is <i>recorded</i>, <i>unknown</i> or <i>not assessed</i>. No ratings or scores: these are inputs for a later substitution model, not judgements.</div>
+            </div>
+            <button type="button" id="axCtxRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
+          </div>
+          <div class="card-sub" id="axCtxTarget" style="margin-bottom:6px;">Looking for a recording&hellip;</div>
+          <details id="axCtxFormBox" style="margin-bottom:8px;">
+            <summary class="card-sub" style="cursor:pointer;margin:0;color:#fff;">Add a context entry</summary>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 12px;margin-top:8px;font-size:0.8rem;">
+              <label class="card-sub" style="margin:0;">Applies to<br><select id="axCtxScope" class="coach-select" style="width:100%;"><option value="team">The team</option><option value="athlete">The selected athlete</option></select></label>
+              <label class="card-sub" style="margin:0;">Effective from (UTC, ISO 8601)<br><input id="axCtxFrom" type="text" class="login-input" placeholder="2026-10-29T15:00:00Z" style="width:100%;font-family:monospace;"></label>
+              <label class="card-sub" style="margin:0;">Match or session label (optional)<br><input id="axCtxMatch" type="text" maxlength="120" class="login-input" placeholder="U17 v Fictional FC, first half" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Formation (team)<br><select id="axCtxFormationStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <input id="axCtxFormation" type="text" maxlength="200" class="login-input" placeholder="4-3-3" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Tactical objective or instruction<br><select id="axCtxTacticStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <input id="axCtxTactic" type="text" maxlength="200" class="login-input" placeholder="press high after losing the ball" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Role (athlete)<br><select id="axCtxRoleStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <input id="axCtxRole" type="text" maxlength="200" class="login-input" placeholder="inverted left back" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Lineup partnership (athlete)<br><select id="axCtxPartnerStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <select id="axCtxPartner" class="coach-select" style="max-width:100%;"></select> <input id="axCtxPartnerNote" type="text" maxlength="300" class="login-input" placeholder="what was observed" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Task-specific evidence (athlete)<br><select id="axCtxEvidenceStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <select id="axCtxEvidenceKind" class="coach-select"><option value="leadership">leadership</option><option value="pressure_situation">pressure situation</option></select> <input id="axCtxEvidenceTask" type="text" maxlength="120" class="login-input" placeholder="task, e.g. organising the back line at corners" style="width:100%;"> <input id="axCtxEvidenceDesc" type="text" maxlength="300" class="login-input" placeholder="what was observed" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Source<br><select id="axCtxSource" class="coach-select"><option value="head_coach">head coach</option><option value="assistant_coach">assistant coach</option><option value="analyst">analyst</option><option value="player_self_report">player self-report</option><option value="other">other</option></select></label>
+              <label class="card-sub" style="margin:0;">Certainty<br><select id="axCtxCertainty" class="coach-select"><option value="confirmed">confirmed</option><option value="probable">probable</option><option value="uncertain">uncertain</option></select></label>
+              <label class="card-sub" style="margin:0;">Entered by (optional)<br><input id="axCtxBy" type="text" maxlength="80" class="login-input" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Note (optional, the source's words)<br><input id="axCtxNote" type="text" maxlength="500" class="login-input" style="width:100%;"></label>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
+              <button type="button" id="axCtxSubmit" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Save context entry</button>
+              <span class="card-sub" id="axCtxFormStatus" style="margin:0;">Entries are never edited: to correct one, save another with the same effective time (the later one is then in force).</span>
+            </div>
+          </details>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-bottom:6px;">
+            <label for="axCtxAt" class="card-sub" style="margin:0;">In force at (UTC)</label>
+            <input id="axCtxAt" type="text" class="login-input" placeholder="now, or 2026-10-29T15:30:00Z" style="max-width:240px;font-family:monospace;font-size:0.78rem;">
+            <button type="button" id="axCtxShowAt" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Show</button>
+          </div>
+          <div class="card-sub" id="axCtxEffective" style="font-size:0.8rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
+          <details style="margin-top:6px;"><summary class="card-sub" style="cursor:pointer;margin:0;">All entries of this recording</summary><div class="card-sub" id="axCtxList" style="font-family:monospace;font-size:0.74rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
+          <div class="card-sub" id="axCtxStatus" style="margin-top:6px;font-size:0.76rem;"></div>
         </div>
         <div class="card" id="axEffortCard" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
@@ -3916,7 +3982,7 @@
         <section id="homeView">
           <div id="emptyDashboard" class="empty-dashboard" style="display: none;">
             <h2>Welcome to Athletrix!</h2>
-            <p>Get started by adding your team information to begin tracking player performance and fatigue.</p>
+            <p>Add your team to explore the demo dashboard. Demo players and numbers are fictional; Athletrix does not measure fatigue or score performance yet.</p>
             <button class="add-team-btn" onclick="showAddTeamForm()">Add Your First Team</button>
           </div>
           <div id="guestWelcome" style="display: none; padding: 48px 20px 8px; text-align: center;">
@@ -3983,7 +4049,7 @@
                 </div>
                 <div class="login-input-group">
                   <label class="login-label" for="teamName">Team Name</label>
-                  <input type="text" id="teamName" class="login-input" placeholder="e.g., Varsity Basketball" required>
+                  <input type="text" id="teamName" class="login-input" placeholder="e.g., U17 Boys Soccer" required>
                 </div>
                 <div class="login-input-group">
                   <label class="login-label" for="teamLevel">Team Level</label>
@@ -4008,7 +4074,7 @@
                     <div class="form-row">
                       <div class="login-input-group">
                         <label class="login-label">Position</label>
-                        <input type="text" class="login-input player-position" placeholder="PG, SG, SF, PF, C (Basketball) or QB, RB, WR, etc. (Football)" required>
+                        <input type="text" class="login-input player-position" placeholder="e.g. GK, CB, FB, CM, W, ST (soccer), or the positions of your sport" required>
                       </div>
                       <div class="login-input-group">
                         <label class="login-label">Role</label>
@@ -5434,7 +5500,7 @@ function initializePlayerFatigue(team) {
               <div class="form-row">
                 <div class="login-input-group">
                   <label class="login-label">Position</label>
-                  <input type="text" class="login-input player-position" placeholder="PG, SG, SF, PF, C (Basketball) or QB, RB, WR, etc. (Football)" required>
+                  <input type="text" class="login-input player-position" placeholder="e.g. GK, CB, FB, CM, W, ST (soccer), or the positions of your sport" required>
                 </div>
                 <div class="login-input-group">
                   <label class="login-label">Role</label>
@@ -5615,7 +5681,7 @@ function initializePlayerFatigue(team) {
             <div class="form-row">
               <div class="login-input-group">
                 <label class="login-label">Position</label>
-                <input type="text" class="login-input player-position" placeholder="PG, SG, SF, PF, C (Basketball) or QB, RB, WR, etc. (Football)" required>
+                <input type="text" class="login-input player-position" placeholder="e.g. GK, CB, FB, CM, W, ST (soccer), or the positions of your sport" required>
               </div>
               <div class="login-input-group">
                 <label class="login-label">Role</label>
@@ -8880,10 +8946,10 @@ function initializePlayerFatigue(team) {
     // Tutorial functions
     let tutorialStep = 0;
     const tutorialSteps = [
-        { title: 'Welcome!', content: 'Athletrix helps you track player fatigue and performance in real-time.' },
+        { title: 'Welcome!', content: 'Athletrix is a soccer-first sideline tool in development. This version shows heart rate and movement side by side, records sessions and keeps coach notes. It does not measure fatigue, score performance or decide substitutions: the coach decides.' },
         { title: 'Dashboard', content: 'Browse fictional player vitals and a demo load index with example rotation notes. Demonstration data only; cards marked Engine-connected read from the local Athletrix engine.' },
-        { title: 'Camera Sync', content: 'Track live game data and sync with wearable devices for real-time metrics.' },
-        { title: 'Game History', content: 'Review past games and track player performance trends over time.' }
+        { title: 'Camera', content: 'Movement can come from a recorded video processed on your own computer (person detection and tracking; you assign each track to a player). A live camera feed and wearable sync are not connected yet.' },
+        { title: 'Recordings', content: 'With the local engine you can record a session, review any 60-second window, save effort periods and export a portable package. Players and numbers in this browser demo are fictional.' }
     ];
 
     function nextTutorialStep() {
@@ -10316,7 +10382,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axLiveCards", "axLiveSum", "axLiveTl", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -10327,7 +10393,11 @@ function initializePlayerFatigue(team) {
   // carries the generation it was made for, and a response from an earlier generation is dropped unseen.
   var selection = { id: null, label: "", generation: 0, mode: "live", reviewEnd: null, session: null }; // mode: "live" | "recorded" | "session"; reviewEnd: ISO text with timezone, or null; session: the recording under review
   var cards = []; // { reset(), poll(), setWho(label) }
+  // The camera review card reads the timeline's window and the summary card's summary instead of requesting them again:
+  // each hook receives a response only after its own card has checked that it belongs to the current selection.
+  var windowHooks = [], summaryHooks = []; // fn(body) on a current response; fn(null, message) on a failure
   function bumpGeneration() { selection.generation += 1; }
+  function notify(hooks, body, message) { for (var i = 0; i < hooks.length; i++) { try { hooks[i](body, message); } catch (e) { /* a hook never breaks the card that feeds it */ } } }
   function refreshCards() { for (var i = 0; i < cards.length; i++) { cards[i].reset(); cards[i].poll(); } }
   function selectAthlete(id, label) {
     bumpGeneration();                     // invalidates every in-flight request for the previous athlete
@@ -11412,7 +11482,7 @@ function initializePlayerFatigue(team) {
         if (gen !== selection.generation) return;
         if (res.status === 422) return rejectionText(res).then(function(why) { if (gen === selection.generation) { clearAll(); setStatus("Engine rejected the request: " + why, COLORS.error); } });
         if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
-        return res.json().then(function(sum) { if (gen === selection.generation) render(sum, label); });
+        return res.json().then(function(sum) { if (gen === selection.generation) { render(sum, label); notify(summaryHooks, sum); } });
       }).catch(function() {
         if (gen !== selection.generation) return;
         clearAll();
@@ -11579,7 +11649,7 @@ function initializePlayerFatigue(team) {
       var d = "";
       for (var i = 1; i < pts.length; i++) {
         var a = pts[i - 1], b = pts[i];
-        if (a.usable && b.usable && (b.t - a.t) <= DISPLAY_GAP_S * 1000) d += "M" + x(a.t).toFixed(1) + "," + y(a.v).toFixed(1) + "L" + x(b.t).toFixed(1) + "," + y(b.v).toFixed(1);
+        if (a.usable && b.usable && (b.t - a.t) <= DISPLAY_GAP_S * 1000 && a.seg === b.seg) d += "M" + x(a.t).toFixed(1) + "," + y(a.v).toFixed(1) + "L" + x(b.t).toFixed(1) + "," + y(b.v).toFixed(1);
       }
       if (d) svg.appendChild(node("path", { d: d, fill: "none", stroke: color, "stroke-width": "1.5", "vector-effect": "non-scaling-stroke" }));
       // points: filled when usable; hollow amber when below the rule or without a value (then on the baseline);
@@ -11611,7 +11681,7 @@ function initializePlayerFatigue(team) {
       var track = (win.tracking_samples || []).map(function(s) {
         var hasSpeed = isNum(s.speed_mps);
         var classifiable = hasSpeed && minConfidence !== null && isNum(s.tracking_confidence); // a point can be judged only with a valid rule and a recorded confidence
-        return { t: ms(s.timestamp), iso: typeof s.timestamp === "string" ? s.timestamp : null, v: hasSpeed ? s.speed_mps : null, usable: classifiable && s.tracking_confidence >= minConfidence, unclassified: hasSpeed && !classifiable };
+        return { t: ms(s.timestamp), iso: typeof s.timestamp === "string" ? s.timestamp : null, v: hasSpeed ? s.speed_mps : null, usable: classifiable && s.tracking_confidence >= minConfidence, unclassified: hasSpeed && !classifiable, seg: typeof s.segment_id === "string" ? s.segment_id : null };
       }).filter(function(p) { return p.t !== null; });
       // the selectable points of this window: one entry per recorded instant, with the sample's own timestamp text
       var key = windowKey(win), byIso = {}, points = [];
@@ -11669,13 +11739,14 @@ function initializePlayerFatigue(team) {
       // One request: the window response carries both the samples and the rule that classifies them.
       fetch(athleteUrl(id, "/window" + windowQuery(TL_WINDOW_S)), { cache: "no-store" }).then(function(res) {
         if (gen !== selection.generation) return; // athlete, mode or review time changed while in flight: drop this response
-        if (res.status === 422) return rejectionText(res).then(function(why) { if (gen === selection.generation) { clearAll(); setStatus("Engine rejected the request: " + why, COLORS.error); } });
-        if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); return; }
-        return res.json().then(function(win) { if (gen === selection.generation) render(win); });
+        if (res.status === 422) return rejectionText(res).then(function(why) { if (gen === selection.generation) { clearAll(); setStatus("Engine rejected the request: " + why, COLORS.error); notify(windowHooks, null, "Engine rejected the request: " + why); } });
+        if (!res.ok) { setStatus("Backend error: HTTP " + res.status, COLORS.error); notify(windowHooks, null, "Backend error: HTTP " + res.status); return; }
+        return res.json().then(function(win) { if (gen === selection.generation) { render(win); notify(windowHooks, win); } });
       }).catch(function() {
         if (gen !== selection.generation) return;
         clearAll();
         setStatus("Cannot reach backend at " + API_BASE + " " + DASH + " is it running?", COLORS.error);
+        notify(windowHooks, null, "Cannot reach backend at " + API_BASE + " " + DASH + " is it running?");
       });
     }
 
@@ -12131,6 +12202,239 @@ function initializePlayerFatigue(team) {
     cards.push({ reset: function() {}, poll: function() {}, setWho: function(l) { compareEl.axCmpWho.textContent = l; } });
     renderCompare(); setSaveButtons(); applyEffortUi();
   }
+
+  // ---- Camera review card (fed by the timeline's window and the summary card's summary; no requests of its own) ----
+  // Shows what the engine holds for the movement stream: reported sources and devices, confidence against the engine's
+  // rule, continuity segments (segment_id), gaps over 1 s (a display rule), continuity breaks and excluded intervals
+  // from the summary, the applied distance rules and, for a recording under review, the adapter settings an operator
+  // supplied at its start (unverified). The track-review file is shown locally from an object URL and never uploaded.
+  (function(){
+    var GAP_S = 1, STALE_S = 5, MAX_ROWS = 8;
+    var ids = ["axCamCard", "axCamWho", "axCamStatus", "axCamBadge", "axCamSummary", "axCamSegments", "axCamMissing", "axCamSettings", "axCamAdapter", "axCamFile", "axCamPreview", "axCamPreviewNote"];
+    var el = {};
+    for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
+    var cam = { adapterKey: undefined, adapterSeq: 0, objectUrl: null };
+    function setStatus(text, color) { el.axCamStatus.textContent = text; el.axCamStatus.style.color = color; }
+    function clearAll() { el.axCamSummary.textContent = ""; el.axCamSegments.textContent = DASH; el.axCamMissing.textContent = DASH; el.axCamSettings.textContent = DASH; hideBadge(el.axCamBadge); }
+    function utc(ms) { return new Date(ms).toISOString().replace(/\.(\d)\d\dZ$/, ".$1Z"); }
+    function secs(v) { return isNum(v) ? (Math.round(v * 10) / 10).toFixed(1) + " s" : NA; }
+    function lines(target, rows, empty) {
+      target.textContent = "";
+      if (!rows.length) { target.textContent = empty; return; }
+      rows.slice(0, MAX_ROWS).forEach(function(r) { var d = document.createElement("div"); d.textContent = r; target.appendChild(d); });
+      if (rows.length > MAX_ROWS) { var more = document.createElement("div"); more.textContent = "… and " + (rows.length - MAX_ROWS) + " more"; target.appendChild(more); }
+    }
+    function render(win, sum) {
+      var minConf = win && win.tracking_rules ? win.tracking_rules.min_confidence : undefined;
+      var ruleOk = isNum(minConf) && minConf >= 0 && minConf <= 1;
+      var track = (win.tracking_samples || []).map(function(s) { return { t: new Date(s.timestamp).getTime(), conf: s.tracking_confidence, src: s.source, dev: s.device_id, seg: typeof s.segment_id === "string" ? s.segment_id : null }; })
+        .filter(function(p) { return !isNaN(p.t); }).sort(function(a, b) { return a.t - b.t; });
+      var t0 = new Date(win.window_start).getTime(), t1 = new Date(win.window_end).getTime();
+      var tsum = sum && sum.tracking ? sum.tracking : null;
+      setBadge(el.axCamBadge, breakdownLabel(tallySources([win.sources ? win.sources.tracking : null])));
+      if (!track.length) {
+        clearAll(); setBadge(el.axCamBadge, { text: "No samples", style: "none" });
+        setStatus("No tracking samples in this window" + (reviewing() ? "." : " (the newest is older than 60 s, or none were sent)."), COLORS.muted);
+        lines(el.axCamMissing, isNaN(t0) ? [] : ["whole window " + utc(t0) + " to " + utc(t1) + " UTC (" + secs((t1 - t0) / 1000) + ")"], DASH);
+      } else {
+        var confs = track.map(function(p) { return p.conf; }).filter(isNum).sort(function(a, b) { return a - b; });
+        var below = ruleOk ? confs.filter(function(c) { return c < minConf; }).length : null;
+        var devices = {}, labelled = 0;
+        track.forEach(function(p) { devices[isSourceName(p.dev) ? p.dev : "(not reported)"] = true; if (p.seg) labelled++; });
+        var summaryRows = [
+          track.length + " tracking samples · devices: " + Object.keys(devices).sort().join(", "),
+          "confidence: min " + (confs.length ? confs[0].toFixed(2) : NA) + ", median " + (confs.length ? confs[Math.floor(confs.length / 2)].toFixed(2) : NA)
+            + (ruleOk ? " · " + below + " below the engine's " + minConf + " rule (not usable for distance)" : " · the engine's confidence rule is unavailable"),
+          "continuity labels: " + labelled + " of " + track.length + " samples carry a segment_id" + (labelled ? "" : " (this source does not report continuity; only the gap and confidence rules apply)")
+        ];
+        if (tsum) {
+          summaryRows.push("engine summary: " + (isNum(tsum.continuity_break_count) ? tsum.continuity_break_count : NA) + " continuity breaks and " + (isNum(tsum.excluded_interval_count) ? tsum.excluded_interval_count : NA)
+            + " excluded intervals in total; distance counted over " + secs(tsum.included_duration_seconds) + " of the window; distance " + (isNum(tsum.estimated_distance_m) ? tsum.estimated_distance_m.toFixed(1) + " m" : NA));
+          if (!reviewing() && isNum(tsum.latest_sample_age_seconds) && tsum.latest_sample_age_seconds > STALE_S) summaryRows.push("STALE: the newest tracking sample is " + secs(tsum.latest_sample_age_seconds) + " old");
+        }
+        lines(el.axCamSummary, summaryRows, "");
+        var segs = [];
+        track.forEach(function(p) {
+          var last = segs[segs.length - 1];
+          if (!last || last.seg !== p.seg) segs.push({ seg: p.seg, a: p.t, b: p.t, n: 1, min: isNum(p.conf) ? p.conf : null });
+          else { last.b = p.t; last.n++; if (isNum(p.conf) && (last.min === null || p.conf < last.min)) last.min = p.conf; }
+        });
+        lines(el.axCamSegments, segs.map(function(g) { return (g.seg || "(no segment label)") + ": " + utc(g.a) + " to " + utc(g.b) + " UTC · " + g.n + " samples · confidence min " + (g.min === null ? NA : g.min.toFixed(2)); }), DASH);
+        var gaps = [];
+        if (!isNaN(t0) && track[0].t - t0 > GAP_S * 1000) gaps.push("before the first sample: " + utc(t0) + " to " + utc(track[0].t) + " (" + secs((track[0].t - t0) / 1000) + ")");
+        for (var k = 1; k < track.length; k++) {
+          var dt = (track[k].t - track[k - 1].t) / 1000;
+          if (dt > GAP_S) gaps.push(utc(track[k - 1].t) + " to " + utc(track[k].t) + " (" + secs(dt) + ")" + (track[k].seg !== track[k - 1].seg ? " · continuity break" : ""));
+        }
+        if (!isNaN(t1) && t1 - track[track.length - 1].t > GAP_S * 1000) gaps.push("after the last sample: " + utc(track[track.length - 1].t) + " to " + utc(t1) + " (" + secs((t1 - track[track.length - 1].t) / 1000) + ")");
+        lines(el.axCamMissing, gaps, "none longer than 1 s");
+        setStatus((reviewing() ? "Recorded window" : "Live window") + " ending " + utc(t1) + " UTC. Confidence is the reported tracking confidence, not a measure of accuracy.", COLORS.muted);
+      }
+      var dr = tsum && tsum.distance_rules;
+      el.axCamSettings.textContent = dr ? "Engine distance rules: intervals up to " + dr.max_gap_seconds + " s, both ends at confidence ≥ " + dr.min_confidence + "; " + (dr.continuity_rule || "continuity rule not reported") + ". High-speed threshold " + dr.high_speed_threshold_mps + " m/s. Adjustable engineering defaults, not validated standards." : "Engine distance rules: not reported in this response.";
+    }
+    function renderAdapter(detail) {
+      var cfg = detail && detail.configuration_at_start, op = cfg && cfg.snapshot && cfg.snapshot.operator_supplied, md = op && op.metadata;
+      if (!cfg || cfg.status !== "captured") { el.axCamAdapter.textContent = "Adapter settings: this recording has no start snapshot."; return; }
+      if (!md || typeof md !== "object") { el.axCamAdapter.textContent = "Adapter settings: none were supplied when this recording started."; return; }
+      var keys = Object.keys(md).sort(), parts = keys.map(function(k) { var v = md[k]; v = typeof v === "string" && v.length > 64 ? v.slice(0, 12) + "…" : v; return k + " = " + String(v); });
+      el.axCamAdapter.textContent = "Adapter settings supplied by the operator at the start of this recording (" + (cfg.origin === "source_engine" ? "carried in an imported package" : "this engine") + "; not verified by the engine): " + parts.join(" · ");
+    }
+    function loadAdapter() {
+      var key = sessionReview() ? sessionKey() : null;
+      if (key === cam.adapterKey) return;
+      cam.adapterKey = key;
+      var my = ++cam.adapterSeq;
+      if (!key) { el.axCamAdapter.textContent = "Adapter settings appear here for a recording under review (they travel in its start snapshot)."; return; }
+      el.axCamAdapter.textContent = "Adapter settings: loading…";
+      fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(key), { cache: "no-store" }).then(function(res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+        .then(function(d) { if (my === cam.adapterSeq) renderAdapter(d); })
+        .catch(function(err) { if (my === cam.adapterSeq) { el.axCamAdapter.textContent = "Adapter settings could not be read (" + err.message + ")."; cam.adapterKey = undefined; } });
+    }
+    var latest = { win: null, sum: null };
+    function show() { if (latest.win) render(latest.win, latest.sum && latest.sum.athlete_id === latest.win.athlete_id ? latest.sum : null); }
+    windowHooks.push(function(win, message) {
+      if (!win) { latest.win = null; clearAll(); setStatus(message, COLORS.error); return; }
+      latest.win = win; show();
+    });
+    summaryHooks.push(function(sum) { if (sum) { latest.sum = sum; show(); } });
+    function poll() {
+      if (!dashboardVisible()) return;
+      loadAdapter();
+      if (selection.id === null) { latest.win = latest.sum = null; clearAll(); setStatus(noSelectionText(), COLORS.muted); return; }
+      if (awaitingReviewTime()) { latest.win = latest.sum = null; clearAll(); setStatus(AWAITING_TEXT, COLORS.muted); }
+    }
+    el.axCamFile.addEventListener("change", function() {
+      var f = el.axCamFile.files && el.axCamFile.files[0];
+      if (cam.objectUrl) { URL.revokeObjectURL(cam.objectUrl); cam.objectUrl = null; }
+      el.axCamPreview.textContent = "";
+      if (!f) return;
+      cam.objectUrl = URL.createObjectURL(f);   // a local reference to the chosen file; nothing is read by the engine or sent anywhere
+      var media = document.createElement(/^video\//.test(f.type) ? "video" : "img");
+      if (media.tagName === "VIDEO") { media.controls = true; media.muted = true; }
+      else media.alt = "Track gallery: temporary track ids, not verified identity";
+      media.src = cam.objectUrl;
+      media.setAttribute("style", "max-width:100%;border:1px solid #111827;border-radius:6px;");
+      var cap = document.createElement("div"); cap.className = "card-sub"; cap.style.margin = "4px 0 0";
+      cap.textContent = "Showing " + f.name + " from this computer. Temporary track ids: an aid for the operator's assignment step, not verified identity.";
+      el.axCamPreview.appendChild(media); el.axCamPreview.appendChild(cap);
+    });
+    cards.push({ reset: function() { latest.win = latest.sum = null; clearAll(); setStatus("Loading…", COLORS.muted); }, poll: poll, setWho: function(l) { el.axCamWho.textContent = l; } });
+  })();
+
+  // ---- Coach context card (the recording under review, or the active recording in Live) ----
+  (function(){
+    var CTX_MS = 15000;
+    var ids = ["axCtxCard", "axCtxWho", "axCtxTarget", "axCtxRefresh", "axCtxScope", "axCtxFrom", "axCtxMatch", "axCtxFormationStatus", "axCtxFormation", "axCtxTacticStatus", "axCtxTactic",
+               "axCtxRoleStatus", "axCtxRole", "axCtxPartnerStatus", "axCtxPartner", "axCtxPartnerNote", "axCtxEvidenceStatus", "axCtxEvidenceKind", "axCtxEvidenceTask", "axCtxEvidenceDesc",
+               "axCtxSource", "axCtxCertainty", "axCtxBy", "axCtxNote", "axCtxSubmit", "axCtxFormStatus", "axCtxAt", "axCtxShowAt", "axCtxEffective", "axCtxList", "axCtxStatus"];
+    var el = {};
+    for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
+    var ctx = { seq: 0, rec: null, busy: false };
+    var STATUS = { recorded: "recorded", unknown: "unknown", not_assessed: "not assessed" };
+    function setStatus(text, color) { el.axCtxStatus.textContent = text; el.axCtxStatus.style.color = color; }
+    function setFormStatus(text, color) { el.axCtxFormStatus.textContent = text; el.axCtxFormStatus.style.color = color; }
+    function nowIso() { return new Date().toISOString().replace(/\.\d{3}Z$/, "Z"); }
+    function ceilSecond(iso) { var t = new Date(iso).getTime(); return isNaN(t) ? String(iso) : new Date(Math.ceil((t + 1) / 1000) * 1000).toISOString().replace(/\.000Z$/, "Z"); }
+    function item(name, v) { return !v ? name + ": " + NA : name + ": " + (v.status === "recorded" ? String(v.value) : STATUS[v.status] || String(v.status)); }
+    function listItems(name, v, fmt) { return !v ? name + ": " + NA : v.status !== "recorded" ? name + ": " + (STATUS[v.status] || v.status) : name + ": " + (v.items || []).map(fmt).join("; "); }
+    function describe(e) {
+      var who = e.athlete_id ? (rosterById[e.athlete_id] ? athleteLabel(rosterById[e.athlete_id]) : e.athlete_id) : "team";
+      var parts = e.athlete_id ? [item("role", e.role), item("instruction", e.tactical_instruction),
+                                  listItems("partnerships", e.partnerships, function(p) { return (rosterById[p.partner_athlete_id] ? athleteLabel(rosterById[p.partner_athlete_id]) : p.partner_athlete_id) + " (" + p.note + ")"; }),
+                                  listItems("evidence", e.evidence, function(x) { return x.kind.replace("_", " ") + ", " + x.task + ": " + x.description; })]
+                               : [item("formation", e.formation), item("tactical objective", e.tactical_instruction)];
+      return who + " from " + availUtc(e.effective_from) + (e.effective_to ? " to " + availUtc(e.effective_to) : "") + (e.match_label ? " [" + e.match_label + "]" : "") + " · " + parts.join(" · ")
+        + " · source " + e.source.replace(/_/g, " ") + (e.recorded_by ? " (" + e.recorded_by + ")" : "") + ", " + e.certainty + (e.note ? " · note: " + e.note : "") + (e.origin === "source_engine" ? " · imported" : "");
+    }
+    function fill(target, rows, empty) {
+      target.textContent = "";
+      if (!rows.length) { target.textContent = empty; return; }
+      rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; d.style.marginBottom = "3px"; target.appendChild(d); });
+    }
+    function partners() {
+      var keep = el.axCtxPartner.value;
+      el.axCtxPartner.textContent = "";
+      Object.keys(rosterById).forEach(function(id) { if (id === selection.id) return; var o = document.createElement("option"); o.value = id; o.textContent = athleteLabel(rosterById[id]); el.axCtxPartner.appendChild(o); });
+      if (keep && rosterById[keep] && keep !== selection.id) el.axCtxPartner.value = keep;
+    }
+    function target() { // the recording this card works on: the one under review, else the active one
+      if (sessionReview() && selection.session) {   // read it fresh: the list it was chosen from may predate a stop
+        var chosen = selection.session;
+        return fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(chosen.id), { cache: "no-store" }).then(function(res) { return res.ok ? res.json() : chosen; }).catch(function() { return chosen; });
+      }
+      return fetch(API_BASE + "/api/v1/recordings/active", { cache: "no-store" }).then(function(res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+        .then(function(b) { return b && b.recording && typeof b.recording === "object" ? b.recording : null; });
+    }
+    function atValue() {
+      var v = el.axCtxAt.value.trim();
+      if (v && v.toLowerCase() !== "now") return v;
+      if (reviewing() && selection.reviewEnd) return selection.reviewEnd;
+      if (ctx.rec && ctx.rec.status === "stopped" && ctx.rec.stopped_at) return ctx.rec.stopped_at;
+      return nowIso();
+    }
+    function load() {
+      if (!dashboardVisible()) return;
+      var gen = selection.generation, my = ++ctx.seq;
+      var stale = function() { return gen !== selection.generation || my !== ctx.seq; };
+      partners();
+      target().then(function(rec) {
+        if (stale()) return;
+        ctx.rec = rec;
+        el.axCtxSubmit.disabled = !rec || ctx.busy;
+        if (!rec) { el.axCtxTarget.textContent = "No recording is active and none is under review. Context is stored with a recording: start one in the Local recording card, or open one with Review."; el.axCtxEffective.textContent = DASH; el.axCtxList.textContent = DASH; setStatus("", COLORS.muted); return; }
+        el.axCtxTarget.textContent = "Recording \"" + rec.name + "\" (" + rec.id + ", " + rec.status + "). Entries are stored with this recording on this computer and travel in its package.";
+        if (!el.axCtxFrom.value) el.axCtxFrom.value = sessionReview() ? ceilSecond(rec.started_at) : nowIso();   // the start has microseconds: a millisecond copy could fall just before it
+        var base = API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/context";
+        var at = atValue(), q = new URLSearchParams({ at: at });
+        if (selection.id !== null) q.set("athlete_id", selection.id);
+        var getJson = function(url) { return fetch(url, { cache: "no-store" }).then(function(res) {
+          if (res.status === 404 || res.status === 422) return rejectionText(res).then(function(why) { throw new Error(why); });
+          if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); }); };
+        return Promise.all([getJson(base + "/effective?" + q.toString()), getJson(base)]).then(function(both) {
+          if (stale()) return;
+          var eff = both[0], all = both[1] || [];
+          fill(el.axCtxEffective, [eff.team ? "Team: " + describe(eff.team) : "Team: no team-level entry in force", selection.id === null ? "No athlete selected." : (eff.athlete ? "Athlete: " + describe(eff.athlete) : "Athlete: no entry in force for " + (selection.label || selection.id))], DASH);
+          fill(el.axCtxList, all.map(describe), "No context entries yet.");
+          setStatus("In force at " + availUtc(eff.at) + " UTC. " + eff.rule, COLORS.muted);
+        });
+      }).catch(function(err) {
+        if (stale()) return;
+        el.axCtxEffective.textContent = DASH;
+        setStatus("Coach context could not be read from " + API_BASE + " (" + err.message + ").", COLORS.error);
+      });
+    }
+    function textItem(statusEl, valueEl) { var st = statusEl.value; return st === "recorded" ? { status: st, value: valueEl.value.trim() } : { status: st }; }
+    function body() {
+      var athlete = el.axCtxScope.value === "athlete";
+      var b = { effective_from: el.axCtxFrom.value.trim(), source: el.axCtxSource.value, certainty: el.axCtxCertainty.value, tactical_instruction: textItem(el.axCtxTacticStatus, el.axCtxTactic) };
+      if (athlete) {
+        b.athlete_id = selection.id;
+        b.role = textItem(el.axCtxRoleStatus, el.axCtxRole);
+        b.partnerships = el.axCtxPartnerStatus.value === "recorded" ? { status: "recorded", items: [{ partner_athlete_id: el.axCtxPartner.value, note: el.axCtxPartnerNote.value.trim() }] } : { status: el.axCtxPartnerStatus.value };
+        b.evidence = el.axCtxEvidenceStatus.value === "recorded" ? { status: "recorded", items: [{ kind: el.axCtxEvidenceKind.value, task: el.axCtxEvidenceTask.value.trim(), description: el.axCtxEvidenceDesc.value.trim() }] } : { status: el.axCtxEvidenceStatus.value };
+      } else b.formation = textItem(el.axCtxFormationStatus, el.axCtxFormation);
+      [["match_label", el.axCtxMatch], ["recorded_by", el.axCtxBy], ["note", el.axCtxNote]].forEach(function(f) { var v = f[1].value.trim(); if (v) b[f[0]] = v; });
+      return b;
+    }
+    function submit() {
+      if (ctx.busy) return;
+      if (!ctx.rec) { setFormStatus("No recording to store the entry with.", COLORS.warn); return; }
+      if (el.axCtxScope.value === "athlete" && selection.id === null) { setFormStatus("Select an athlete first, or choose The team.", COLORS.warn); return; }
+      var rec = ctx.rec, gen = selection.generation, payload = body();
+      ctx.busy = true; el.axCtxSubmit.disabled = true; setFormStatus("Saving…", COLORS.muted);
+      fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/context", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function(res) {
+        if (res.status === 201) return res.json().then(function(e) { setFormStatus("Saved " + e.id + " for " + (e.athlete_id ? (selection.label || e.athlete_id) : "the team") + " from " + availUtc(e.effective_from) + " UTC.", COLORS.live); if (gen === selection.generation) load(); });
+        return rejectionText(res).then(function(why) { setFormStatus("Not saved: " + why, COLORS.error); });
+      }).catch(function() { setFormStatus("Not saved: cannot reach the engine at " + API_BASE + ".", COLORS.error); })
+        .then(function() { ctx.busy = false; el.axCtxSubmit.disabled = !ctx.rec; });
+    }
+    el.axCtxSubmit.addEventListener("click", submit);
+    el.axCtxRefresh.addEventListener("click", load);
+    el.axCtxShowAt.addEventListener("click", load);
+    cards.push({ reset: function() { el.axCtxFrom.value = ""; el.axCtxEffective.textContent = "Loading…"; }, poll: load, setWho: function(l) { el.axCtxWho.textContent = l; } });
+    setInterval(function() { if (!reviewing()) load(); }, CTX_MS); // created once; recorded reviews refresh on demand
+  })();
 
   // ---- start ----
   loadRoster();

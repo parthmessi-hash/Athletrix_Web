@@ -96,7 +96,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
   function boot(opts) {
     const hostname = (opts && opts.hostname) || "localhost";
     const els = {};
-    for (const id of IDS) els[id] = new El("div");
+    for (const id of IDS.concat((opts && opts.extra) || [])) els[id] = new El("div");
     els["view-dashboard"].classes.add("active-view");
     const pending = []; // every request the page script makes, oldest first: { url, resolve, reject }
     const created = []; // every element the page script creates (anchors for downloads among them)
@@ -1850,6 +1850,136 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.ok(a && a.clicks === 1, "measurements download as a local JSON file");
     await click(ctx, "axTimingReset");
     assert.ok(T.entries.length === 0 && T.clock === null);
+  });
+
+
+  // ---- camera review and coach context cards (booted with their element ids; older tests run without them) ----
+  const CAM_IDS = ["axCamCard", "axCamWho", "axCamStatus", "axCamBadge", "axCamSummary", "axCamSegments", "axCamMissing", "axCamSettings", "axCamAdapter", "axCamFile", "axCamPreview", "axCamPreviewNote"];
+  const CTX_IDS = ["axCtxCard", "axCtxWho", "axCtxTarget", "axCtxRefresh", "axCtxScope", "axCtxFrom", "axCtxMatch", "axCtxFormationStatus", "axCtxFormation", "axCtxTacticStatus", "axCtxTactic",
+    "axCtxRoleStatus", "axCtxRole", "axCtxPartnerStatus", "axCtxPartner", "axCtxPartnerNote", "axCtxEvidenceStatus", "axCtxEvidenceKind", "axCtxEvidenceTask", "axCtxEvidenceDesc",
+    "axCtxSource", "axCtxCertainty", "axCtxBy", "axCtxNote", "axCtxSubmit", "axCtxFormStatus", "axCtxAt", "axCtxShowAt", "axCtxEffective", "axCtxList", "axCtxStatus"];
+  const texts = el => el.children.map(c => c.textContent);
+  const seg = (s, speed, conf, label) => Object.assign(trk(s, speed, conf), { source: "camera", device_id: "cam-1" }, label ? { segment_id: label } : {});
+  const respondAll = async (ctx, part, body) => { while (ctx.pending.some(p => p.url.includes(part))) await ctx.respond(part, body); };
+  const CTX_REC = { id: "rec-1", name: "Fictional match", status: "active", started_at: iso(-600), stopped_at: null, athletes: ROSTER };
+  const ctxBoot = () => { const ctx = boot({ extra: CTX_IDS }); ["axCtxScope", "axCtxFormationStatus", "axCtxTacticStatus", "axCtxRoleStatus", "axCtxPartnerStatus", "axCtxEvidenceStatus", "axCtxEvidenceKind", "axCtxSource", "axCtxCertainty"].forEach((id, i) => { ctx.els[id].value = ["team", "not_assessed", "not_assessed", "not_assessed", "not_assessed", "not_assessed", "leadership", "head_coach", "confirmed"][i]; }); return ctx; };
+
+  test("public mode hides the camera review and coach context cards and requests nothing", async () => {
+    const ctx = boot({ hostname: "assistantcoachai.net", extra: CAM_IDS.concat(CTX_IDS) });
+    await ctx.flush();
+    assert.equal(ctx.pending.length, 0);
+    assert.equal(ctx.els.axCamCard.style.display, "none");
+    assert.equal(ctx.els.axCtxCard.style.display, "none");
+  });
+
+  test("camera review reuses the timeline window and summary: segments, gaps, breaks and confidence without extra requests", async () => {
+    const ctx = boot({ extra: CAM_IDS });
+    await start(ctx);
+    assert.equal(ctx.pending.filter(p => p.url.includes("/window")).length, 1, "no second window request");
+    assert.equal(ctx.pending.filter(p => p.url.includes("/summary")).length, 1, "no second summary request");
+    await ctx.respond("/window", win({ tracking: [seg(-10, 2, 0.9, "cam-x-1"), seg(-9.9, 2, 0.4, "cam-x-1"), seg(-8, 3, 0.9, "cam-x-2"), seg(-7.9, 3, 0.95, "cam-x-2")] }));
+    assert.deepEqual(texts(ctx.els.axCamSegments).map(t => t.split(":")[0]), ["cam-x-1", "cam-x-2"]);
+    assert.match(texts(ctx.els.axCamSummary).join(" | "), /4 tracking samples · devices: cam-1 \| confidence: min 0\.40, median 0\.90 · 1 below the engine's 0\.5 rule/);
+    assert.match(texts(ctx.els.axCamSummary).join(" | "), /4 of 4 samples carry a segment_id/);
+    const gaps = texts(ctx.els.axCamMissing);
+    assert.ok(gaps.some(g => /\(1\.9 s\) · continuity break/.test(g)), "the 1.9 s gap is a continuity break: " + gaps);
+    assert.ok(gaps.some(g => /^before the first sample/.test(g)) && gaps.some(g => /^after the last sample/.test(g)));
+    assert.equal(ctx.els.axCamBadge.textContent, "Reported source: camera");
+    await ctx.respond("/summary", sum({ end: iso(0), start: iso(-60), tracking: { sample_count: 4, continuity_break_count: 1, excluded_interval_count: 2, included_duration_seconds: 0.1, estimated_distance_m: 0.3, distance_rules: { max_gap_seconds: 3, min_confidence: 0.5, high_speed_threshold_mps: 5, continuity_rule: "never join consecutive samples whose segment_id differs" } } }));
+    assert.match(texts(ctx.els.axCamSummary).join(" | "), /1 continuity breaks and 2 excluded intervals in total; distance counted over 0\.1 s/);
+    assert.match(ctx.els.axCamSettings.textContent, /never join consecutive samples whose segment_id differs/);
+    assert.match(ctx.els.axCamStatus.textContent, /not a measure of accuracy/);
+  });
+
+  test("timeline never joins two samples of different continuity segments", async () => {
+    const ctx = boot();
+    await start(ctx);
+    await ctx.respond("/window", win({ tracking: [seg(-3, 2, 0.9, "s1"), seg(-2, 2, 0.9, "s1"), seg(-1, 2, 0.9, "s2"), seg(0, 2, 0.9, "s2")] }));
+    assert.equal(segments(ctx.els.axTlSpSvg), 2, "s1 -> s2 is not drawn although 1 s apart");
+  });
+
+  test("camera review: an unlabelled stream says so; a window failure and stale data are reported", async () => {
+    const ctx = boot({ extra: CAM_IDS });
+    await start(ctx);
+    await ctx.respond("/window", win({ tracking: [trk(-2, 1, 0.9), trk(-1, 1, 0.9)] }));
+    assert.match(texts(ctx.els.axCamSummary).join(" "), /0 of 2 samples carry a segment_id \(this source does not report continuity/);
+    assert.deepEqual(texts(ctx.els.axCamSegments).map(t => t.split(":")[0]), ["(no segment label)"]);
+    await ctx.respond("/summary", sum({ end: iso(0), start: iso(-60), tracking: { sample_count: 2, latest_sample_age_seconds: 9.4 } }));
+    assert.match(texts(ctx.els.axCamSummary).join(" "), /STALE: the newest tracking sample is 9\.4 s old/);
+    await ctx.tick();
+    await ctx.fail("/window");
+    assert.match(ctx.els.axCamStatus.textContent, /Cannot reach backend/);
+    assert.equal(ctx.els.axCamSegments.textContent, "—");
+  });
+
+  test("camera review drops a late window for the previous athlete", async () => {
+    const ctx = boot({ extra: CAM_IDS });
+    await start(ctx);
+    const old = ctx.pending.find(p => p.url.includes("/a1/window"));
+    await select(ctx, "a2");
+    await ctx.resolveLate(old, win({ tracking: [seg(-1, 2, 0.9, "old")] }));
+    assert.ok(!texts(ctx.els.axCamSegments).some(t => /old/.test(t)), "a1's late window never reaches a2's card");
+    await ctx.respond("/a2/window", win({ athlete: "a2", tracking: [seg(-1, 2, 0.9, "new")] }));
+    assert.match(texts(ctx.els.axCamSegments)[0], /^new:/);
+  });
+
+  test("track review file is shown locally as an assignment aid without any request", async () => {
+    const ctx = boot({ extra: CAM_IDS });
+    await start(ctx);
+    const before = ctx.pending.length;
+    ctx.els.axCamFile.files = [new File(["x"], "tracks.png", { type: "image/png" })];
+    ctx.els.axCamFile.dispatch("change");
+    await ctx.flush();
+    assert.equal(ctx.pending.length, before, "nothing is sent anywhere");
+    const media = ctx.els.axCamPreview.children[0];
+    assert.equal(media.tag, "img");
+    assert.match(media.src, /^blob:/);
+    assert.match(ctx.els.axCamPreview.children[1].textContent, /not verified identity/);
+  });
+
+  test("coach context: the active recording's entries in force, then a team entry is posted with explicit statuses", async () => {
+    const ctx = ctxBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    assert.match(ctx.els.axCtxTarget.textContent, /Recording "Fictional match" \(rec-1, active\)/);
+    const team = { id: "ctx-1", recording_id: "rec-1", athlete_id: null, effective_from: iso(-600), effective_to: null, match_label: "U17 v Fictional FC", formation: { status: "recorded", value: "4-3-3" }, tactical_instruction: { status: "unknown" }, role: { status: "not_assessed" }, partnerships: { status: "not_assessed", items: [] }, evidence: { status: "not_assessed", items: [] }, source: "head_coach", recorded_by: null, certainty: "confirmed", note: null, created_at: iso(-590), origin: "this_engine", source_entry_id: null };
+    await ctx.respond("/context/effective", { recording_id: "rec-1", at: iso(0), athlete_id: "a1", team, athlete: null, rule: "the later-created entry wins" });
+    await ctx.respond("/rec-1/context", [team]);
+    assert.match(texts(ctx.els.axCtxEffective)[0], /^Team: team from .* \[U17 v Fictional FC\] · formation: 4-3-3 · tactical objective: unknown · source head coach, confirmed/);
+    assert.match(texts(ctx.els.axCtxEffective)[1], /no entry in force for Alex Example #7/);
+    ctx.els.axCtxFrom.value = iso(-60);
+    ctx.els.axCtxFormationStatus.value = "recorded"; ctx.els.axCtxFormation.value = "3-5-2";
+    await click(ctx, "axCtxSubmit");
+    const post = ctx.pending.find(p => p.opts.method === "POST");
+    assert.ok(post && /\/recordings\/rec-1\/context$/.test(post.url));
+    assert.deepEqual(JSON.parse(post.opts.body), { effective_from: iso(-60), source: "head_coach", certainty: "confirmed", tactical_instruction: { status: "not_assessed" }, formation: { status: "recorded", value: "3-5-2" } });
+    await ctx.resolveLate(post, {});
+  });
+
+  test("coach context: an athlete entry carries role, partnership and evidence; an engine refusal is shown, not hidden", async () => {
+    const ctx = ctxBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    ctx.els.axCtxScope.value = "athlete"; ctx.els.axCtxFrom.value = iso(-30);
+    ctx.els.axCtxRoleStatus.value = "recorded"; ctx.els.axCtxRole.value = "inverted left back";
+    ctx.els.axCtxPartnerStatus.value = "recorded"; ctx.els.axCtxPartner.value = "a2"; ctx.els.axCtxPartnerNote.value = "rotates with a2";
+    ctx.els.axCtxEvidenceStatus.value = "unknown";
+    await click(ctx, "axCtxSubmit");
+    const post = ctx.pending.find(p => p.opts.method === "POST");
+    const b = JSON.parse(post.opts.body);
+    assert.deepEqual([b.athlete_id, b.role, b.partnerships, b.evidence, "formation" in b], ["a1", { status: "recorded", value: "inverted left back" }, { status: "recorded", items: [{ partner_athlete_id: "a2", note: "rotates with a2" }] }, { status: "unknown" }, false]);
+    ctx.pending.splice(ctx.pending.indexOf(post), 1);
+    post.resolve({ ok: false, status: 422, json: async () => ({ detail: "effective_from must lie within recording 'rec-1'" }) });
+    await ctx.flush();
+    assert.match(ctx.els.axCtxFormStatus.textContent, /^Not saved: effective_from must lie within recording 'rec-1'/);
+  });
+
+  test("coach context without any recording says where context is stored and offers no save", async () => {
+    const ctx = ctxBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: null });
+    assert.match(ctx.els.axCtxTarget.textContent, /No recording is active and none is under review/);
+    assert.equal(ctx.els.axCtxSubmit.disabled, true);
   });
 
   // ---- run --------------------------------------------------------------------------------------------

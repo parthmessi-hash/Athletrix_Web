@@ -130,6 +130,31 @@ timelines show it unchanged: the tracking card reads "reported source: simulated
 show about one sample in ten; every sample is stored and drawn on the timelines. Nothing on this page detects people
 or identifies players.
 
+## Camera review and coach context (engine mode)
+
+**Camera review** (below the timeline) describes the movement stream of the selected athlete in the same 60 s window,
+without requests of its own (it reads the timeline's window and the summary card's summary): sample count and
+reported devices, confidence (minimum, median, how many fall below the engine's rule; confidence is never presented as
+accuracy), how many samples carry a continuity `segment_id`, the continuity segments with their time spans, missing
+periods longer than 1 s (marked "continuity break" when the segment changes), the engine's continuity breaks, excluded
+intervals and included time, a STALE line when the newest sample is over 5 s old in Live, the engine's distance rules,
+and, for a recording under review, the adapter settings supplied at its start (labelled operator-supplied, not
+verified). A **track assignment aid** opens a gallery PNG or annotated MP4 written by the engine repository's
+`camera_track_video.py` from this computer through a local object URL; nothing is uploaded, and the page says the ids
+are temporary track ids, not verified identity. The timeline no longer draws a line between samples of different
+continuity segments.
+
+**Coach context** stores time-bounded context with the recording under review, or with the active recording in Live:
+team formation and tactical objective, or for the selected athlete a role, instruction, one partnership and one piece
+of task-specific leadership or pressure-situation evidence per entry, each item recorded / unknown / not assessed,
+plus source, certainty, optional label, initials and note. It shows the team and athlete entries in force at a chosen
+instant (default: now, or the review end) and every entry of the recording. The engine's refusals are shown as they
+come ("Not saved: ..."). There are no ratings or scores. Corrections are new entries with the same effective time.
+
+Both cards are hidden in public mode, which makes no engine requests. The welcome tour now describes what exists
+(heart rate and movement side by side, recordings, coach notes; no fatigue measurement, performance scoring or
+substitution decisions) and the add-team form uses soccer examples.
+
 ## What the cards show
 
 - **Athlete selector**: roster from the backend's `GET /api/v1/athletes`,
@@ -712,7 +737,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "62 tests, 62 passed" (inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
+Expect "71 tests, 71 passed" (camera review: segments, gaps, breaks, stale and failed windows, late replies, the local track file; coach context: entries in force, request bodies, refusals, no recording; inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
 runner fails a test that does not finish within 10 s and yields through a
 MessageChannel, so the run does not crawl in a background tab.
 
