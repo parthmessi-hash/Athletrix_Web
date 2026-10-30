@@ -12335,7 +12335,6 @@ function initializePlayerFatigue(team) {
     function setStatus(text, color) { el.axCtxStatus.textContent = text; el.axCtxStatus.style.color = color; }
     function setFormStatus(text, color) { el.axCtxFormStatus.textContent = text; el.axCtxFormStatus.style.color = color; }
     function nowIso() { return new Date().toISOString().replace(/\.\d{3}Z$/, "Z"); }
-    function ceilSecond(iso) { var t = new Date(iso).getTime(); return isNaN(t) ? String(iso) : new Date(Math.ceil((t + 1) / 1000) * 1000).toISOString().replace(/\.000Z$/, "Z"); }
     function item(name, v) { return !v ? name + ": " + NA : name + ": " + (v.status === "recorded" ? String(v.value) : STATUS[v.status] || String(v.status)); }
     function listItems(name, v, fmt) { return !v ? name + ": " + NA : v.status !== "recorded" ? name + ": " + (STATUS[v.status] || v.status) : name + ": " + (v.items || []).map(fmt).join("; "); }
     function describe(e) {
@@ -12384,7 +12383,9 @@ function initializePlayerFatigue(team) {
         el.axCtxSubmit.disabled = !rec || ctx.busy;
         if (!rec) { el.axCtxTarget.textContent = "No recording is active and none is under review. Context is stored with a recording: start one in the Local recording card, or open one with Review."; el.axCtxEffective.textContent = DASH; el.axCtxList.textContent = DASH; setStatus("", COLORS.muted); return; }
         el.axCtxTarget.textContent = "Recording \"" + rec.name + "\" (" + rec.id + ", " + rec.status + "). Entries are stored with this recording on this computer and travel in its package.";
-        if (!el.axCtxFrom.value) el.axCtxFrom.value = sessionReview() ? ceilSecond(rec.started_at) : nowIso();   // the start has microseconds: a millisecond copy could fall just before it
+        // In a recording review the default is the recording's own start exactly as the engine wrote it (microseconds
+        // included): any rounding could fall before the start (truncation) or after a very short recording's stop (rounding up).
+        if (!el.axCtxFrom.value) el.axCtxFrom.value = sessionReview() && typeof rec.started_at === "string" ? rec.started_at : nowIso();
         var base = API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/context";
         var at = atValue(), q = new URLSearchParams({ at: at });
         if (selection.id !== null) q.set("athlete_id", selection.id);

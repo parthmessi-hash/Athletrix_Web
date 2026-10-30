@@ -1982,6 +1982,27 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axCtxSubmit.disabled, true);
   });
 
+
+  test("coach context in a recording review: the default effective time is the engine's exact start (microseconds), also for a sub-second recording, and the reviewed recording is read fresh", async () => {
+    const ctx = ctxBoot();
+    await start(ctx);
+    const short = recording({ status: "active", started_at: "2026-10-26T20:00:00.493259Z", stopped_at: null, athlete_ids: ["a1"], athletes: [ROSTER[0]] });
+    await respondAll(ctx, "/recordings/active", { recording: null });
+    await ctx.respond("/api/v1/recordings", [short]);
+    await click(ctx, "axModeSession");
+    reviewButton(ctx, 0).dispatch("click"); await ctx.flush();
+    // the list said "active"; the card reads the recording again and gets the stopped one (0.4 s long)
+    const details = ctx.pending.filter(p => p.url.endsWith("/api/v1/recordings/rec-20261026T200000Z-abc123"));
+    assert.ok(details.length, "the context card reads the reviewed recording again; pending: " + urls(ctx).join(", "));
+    for (const d of details) await ctx.resolveLate(d, Object.assign({}, short, { status: "stopped", stopped_at: "2026-10-26T20:00:00.900000Z" }));
+    assert.equal(ctx.els.axCtxFrom.value, "2026-10-26T20:00:00.493259Z", "neither truncated to milliseconds (before the start) nor rounded up (after the stop)");
+    assert.match(ctx.els.axCtxTarget.textContent, /\(rec-20261026T200000Z-abc123, stopped\)/);
+    ctx.els.axCtxRoleStatus.value = "unknown"; ctx.els.axCtxScope.value = "athlete";
+    await click(ctx, "axCtxSubmit");
+    const post = ctx.pending.find(p => p.opts.method === "POST");
+    assert.equal(JSON.parse(post.opts.body).effective_from, "2026-10-26T20:00:00.493259Z", "sent exactly as the engine reported the start");
+  });
+
   // ---- run --------------------------------------------------------------------------------------------
   const list = document.getElementById("results");
   for (const t of tests) {
