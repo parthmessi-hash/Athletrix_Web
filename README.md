@@ -151,6 +151,31 @@ plus source, certainty, optional label, initials and note. It shows the team and
 instant (default: now, or the review end) and every entry of the recording. The engine's refusals are shown as they
 come ("Not saved: ..."). There are no ratings or scores. Corrections are new entries with the same effective time.
 
+**Team review** (engine mode, above the Live team overview) asks the engine for one team review of the recording under
+review (or the active recording) at one review time, with an explicit evidence choice (as entered by then, the
+default, or retrospective). Each player is one row, in roster order and never ranked: status and role, the latest
+recorded reading with its age (and "receipt unknown" when the engine has no receipt time), the experimental index and
+performance score (not available, never zero), the age of the last performance entry, and the experimental output
+with its main reason. Clicking a row shows the details (reading, index with baseline and per-signal contributions,
+four performance areas, role and instructions, reasons, tradeoffs, constraints, options and what cannot be compared,
+missing evidence) and lets you record a response (acknowledge, keep, review later, dismiss with a reason: the review
+is saved first so the recommendation stays pinned) or a lineup change (incoming bench player, role, effective time).
+Each action carries a token, so a retry or double click is stored once. A failed refresh clears the rows; an earlier
+result is never shown as current.
+
+**Baselines and profiles** (engine mode) lists the configured experimental profiles (none by default; version, hash,
+FICTIONAL flag, warnings, compatibility problems) and the selected athlete's baselines with their statistics, decisions
+and whether the configured index profile can use them now. A baseline can be previewed (nothing stored), created from a
+stopped recording, and accepted or rejected with a required reason and name: a recorded decision, not a validation.
+
+**Local video review** (`tools/video-review.html`, a separate page): open a video and its tracked observations from
+this computer (nothing is uploaded), step by frame or second over the track overlay, confirm who a track is from a
+frame on, mark an identity uncertain, end an assignment, and export assignments format 2 with the file's SHA-256 and
+the operator's work (confirmations, corrections, uncertain marks, observation-seconds without a usable assignment,
+time spent). After a close encounter a track needs confirming again; being visible after the release period is not
+confirmation. From a loopback copy only, an observation can be sent to a local engine linked to frames and the file
+hash. Logic tests: `tests/video_review.test.html` (expect "3 tests, 3 passed").
+
 **Experimental review** (below Performance evidence) asks the engine for its experimental substitution review of the
 selected athlete at a chosen time (empty = the recording's end, or now) and shows, as reported: the output (keep,
 consider replacement, review later or insufficient evidence) with reasons, tradeoffs, coach constraints and the next
@@ -766,7 +791,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "82 tests, 82 passed" (experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
+Expect "87 tests, 87 passed" (team review: rows, unavailable values, unreviewed players, failure clears rows, late responses, responses saved once, lineup body; baselines and profiles: unconfigured profiles, decisions need a reason and a name, preview body; experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
 missing evidence, measurements apart from interpretation, history and cooldown holds, the chosen review time, refusals,
 an unconfigured engine, late replies; performance evidence: decision and positioning counts, corrections and statuses; counts, states, sources, linked instructions, unavailable composite, request bodies, refusals, late replies, hidden in public mode; coach context default effective time with a microsecond start and a sub-second recording; camera review: segments, gaps, breaks, stale and failed windows, late replies, the local track file; coach context: entries in force, request bodies, refusals, no recording; inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
 runner fails a test that does not finish within 10 s and yields through a
