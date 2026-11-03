@@ -3681,9 +3681,9 @@
             </div>
             <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 8px;margin-top:6px;">
               <span class="card-sub" style="margin:0;color:#fff;">Lineup change:</span>
-              <label class="card-sub" style="margin:0;">Incoming<br><select id="axTrIncoming" class="coach-select"><option value="">choose a bench player</option></select></label>
-              <label class="card-sub" style="margin:0;">Role<br><input id="axTrRole" type="text" maxlength="80" class="login-input" style="width:150px;"></label>
-              <label class="card-sub" style="margin:0;">Effective (UTC)<br><input id="axTrWhen" type="text" class="login-input" style="width:230px;font-family:monospace;"></label>
+              <label class="card-sub" style="margin:0;max-width:100%;">Incoming<br><select id="axTrIncoming" class="coach-select" style="max-width:100%;width:260px;"><option value="">choose a bench player</option></select></label>
+              <label class="card-sub" style="margin:0;max-width:100%;">Role<br><input id="axTrRole" type="text" maxlength="80" class="login-input" style="width:150px;max-width:100%;"></label>
+              <label class="card-sub" style="margin:0;max-width:100%;">Effective (UTC)<br><input id="axTrWhen" type="text" class="login-input" style="width:230px;max-width:100%;font-family:monospace;"></label>
               <button type="button" id="axTrLineup" class="btn btn-primary" style="padding:4px 10px;font-size:0.78rem;">Record lineup change</button>
             </div>
             <div class="card-sub" id="axTrRespStatus" style="margin-top:4px;font-size:0.76rem;"></div>
@@ -3964,8 +3964,8 @@
             <button type="button" id="axSubRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
           </div>
           <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px;margin-bottom:6px;">
-            <label class="card-sub" style="margin:0;font-size:0.8rem;">Review time (UTC, ISO 8601; empty = the recording's end, or now)<br><input id="axSubAt" type="text" class="login-input" style="width:260px;font-family:monospace;"></label>
-            <label class="card-sub" style="margin:0;font-size:0.8rem;">Evidence<br><select id="axSubKnowledge" class="coach-select"><option value="retrospective">everything stored now (retrospective)</option><option value="as_entered">only what was entered by then (as entered)</option></select></label>
+            <label class="card-sub" style="margin:0;font-size:0.8rem;max-width:100%;">Review time (UTC, ISO 8601; empty = the recording's end, or now)<br><input id="axSubAt" type="text" class="login-input" style="width:260px;max-width:100%;font-family:monospace;"></label>
+            <label class="card-sub" style="margin:0;font-size:0.8rem;max-width:100%;">Evidence<br><select id="axSubKnowledge" class="coach-select" style="max-width:100%;"><option value="retrospective">everything stored now (retrospective)</option><option value="as_entered">only what was entered by then (as entered)</option></select></label>
             <button type="button" id="axSubGo" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Review</button>
             <button type="button" id="axSubSave" class="btn btn-ghost" style="padding:6px 14px;font-size:0.82rem;">Save this review</button>
           </div>
@@ -4017,8 +4017,8 @@
           <div class="card-sub" style="margin:8px 0 2px;color:#fff;">Baselines of this athlete</div>
           <div class="card-sub" id="axBlList" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
           <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 8px;margin-top:6px;">
-            <label class="card-sub" style="margin:0;">Decision on<br><select id="axBlPick" class="coach-select"></select></label>
-            <label class="card-sub" style="margin:0;">Reason (required)<br><input id="axBlNote" type="text" maxlength="300" class="login-input" style="width:220px;"></label>
+            <label class="card-sub" style="margin:0;max-width:100%;">Decision on<br><select id="axBlPick" class="coach-select" style="max-width:100%;"></select></label>
+            <label class="card-sub" style="margin:0;max-width:100%;">Reason (required)<br><input id="axBlNote" type="text" maxlength="300" class="login-input" style="width:220px;max-width:100%;"></label>
             <label class="card-sub" style="margin:0;">Decided by<br><input id="axBlBy" type="text" maxlength="80" class="login-input" style="width:140px;"></label>
             <button type="button" id="axBlAccept" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Record acceptance</button>
             <button type="button" id="axBlReject" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Record rejection</button>
