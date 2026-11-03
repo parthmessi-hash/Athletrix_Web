@@ -2238,6 +2238,130 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(row.children[2].textContent, " reproducing…", "a1's late answer is not written after the switch");
   });
 
+  // ---- team review card ----
+  const TR_IDS = ["axTrCard", "axTrKnowledge", "axTrRefresh", "axTrTarget", "axTrBanner", "axTrList", "axTrDetail", "axTrDetailTitle", "axTrDetailBody", "axTrAck", "axTrKeep",
+    "axTrDefer", "axTrDismiss", "axTrReason", "axTrIncoming", "axTrRole", "axTrWhen", "axTrLineup", "axTrRespStatus", "axTrHistory", "axTrStatus"];
+  const trBoot = () => { const ctx = boot({ extra: TR_IDS }); ctx.els.axTrKnowledge.value = "as_entered"; return ctx; };
+  const trRow = (id, o) => Object.assign({ athlete: { id, name: "Fictional " + id, jersey_number: 1 }, reviewed: true, roster: { status: "on_field", current_role: "centre back", able_roles: ["centre back"] },
+    latest_reading: { observed_at: iso(-2), received_at: null, availability: "unknown: no receipt metadata (assumed available at its timestamp)", age_s: 2, values: { heart_rate_bpm: 150 } },
+    physiological_index: { available: true, value: 44.5, timing: "live_time", input_coverage: 1, baseline: { version: 1, status: "accepted", condition: "seated_rest" }, signals: [] },
+    performance: { available: false, value: null, areas: {} }, latest_performance_observation: null, outcome: "keep", reason: "no sustained concern in the available evidence",
+    review: { reasons: ["no sustained concern in the available evidence"], tradeoffs: [], constraints_applied: [], replacements: [], missing: ["performance composite unavailable: x"], role: {}, knowledge: { label: "As entered: ..." } } }, o || {});
+  const trBody = rows => ({ recording_id: "rec-1", at: iso(0), knowledge: "as_entered", knowledge_label: "as entered: only evidence entered and samples received by the review time", fictional_configuration: true,
+    counts: { athletes: rows.length, reviewed: rows.filter(r => r.reviewed).length, not_reviewed: rows.filter(r => !r.reviewed).length }, compute_ms: 12, athletes: rows, note: "never ranked" });
+
+  test("team review: hidden in public mode with no requests", async () => {
+    const ctx = boot({ hostname: "assistantcoachai.net", extra: TR_IDS });
+    await ctx.flush();
+    assert.equal(ctx.pending.length, 0);
+    assert.equal(ctx.els.axTrCard.style.display, "none");
+  });
+
+  test("team review: rows keep raw readings apart from experimental scores, never zero-fill, and show unreviewed players as such", async () => {
+    const ctx = trBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    assert.ok(ctx.pending.find(p => p.url.includes("/team-review")).url.endsWith("/recordings/rec-1/team-review?knowledge=as_entered"));
+    await ctx.respond("/team-review", trBody([trRow("p01"), trRow("b02", { roster: { status: "bench", current_role: null, able_roles: ["right back"] }, latest_reading: null, physiological_index: { available: false } }),
+                                            { athlete: { id: "p04", name: "Fictional p04", jersey_number: 5 }, reviewed: false, error: "stored records could not be read (ValueError: x)" }]));
+    const rows = ctx.els.axTrList.children.map(b => b.textContent);
+    assert.match(rows[0], /^Fictional p01 #1 · on field · centre back · reading 150 bpm, 2 s old \(receipt unknown\) · experimental index 44.5 · performance Not available \(no entries\) · Keep: no sustained concern/);
+    assert.match(rows[1], /bench · reading none · experimental index Not available/);
+    assert.match(rows[2], /^Fictional p04 #5 · not reviewed: stored records could not be read/);
+    assert.match(ctx.els.axTrBanner.textContent, /^FICTIONAL profiles/);
+    assert.equal(ctx.els.axTrStatus.style.color, "#d7960b", "an unreviewed player is a warning");
+    ctx.els.axTrList.children[0].dispatch("click"); await ctx.flush();
+    const detail = texts(ctx.els.axTrDetailBody);
+    assert.match(detail[0], /^Recorded reading: heart rate bpm 150 · measured .* · unknown: no receipt metadata/);
+    assert.match(detail[1], /^Experimental physiological index: 44.5 of 100 \(live_time\) · baseline v1 \(accepted, seated rest\) · input coverage 100%/);
+    assert.ok(detail.some(t => t === "Missing: performance composite unavailable: x"));
+    assert.deepEqual(ctx.els.axTrIncoming.children.map(o => o.value), ["", "b02"], "only bench players can come on");
+  });
+
+  test("team review: a failure clears the rows instead of leaving an old result, and a late response is dropped", async () => {
+    const ctx = trBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const first = ctx.pending.find(p => p.url.includes("/team-review"));
+    await click(ctx, "axTrRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const second = ctx.pending.filter(p => p.url.includes("/team-review")).pop();
+    await ctx.resolveLate(second, trBody([trRow("p01")]));
+    await ctx.resolveLate(first, trBody([trRow("p01", { outcome: "consider_replacement", reason: "OLD" })]));
+    assert.ok(!/OLD/.test(ctx.els.axTrList.children[0].textContent), "the older request's answer is ignored");
+    await click(ctx, "axTrRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/team-review", { detail: "engine failed" }, 500);
+    assert.equal(ctx.els.axTrList.textContent, "Not available.");
+    assert.match(ctx.els.axTrStatus.textContent, /no earlier result is shown as current/);
+  });
+
+  test("team review: a response saves the review first, then once per token; a lineup change names both players and a time", async () => {
+    const ctx = trBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/team-review", trBody([trRow("p01"), trRow("b02", { roster: { status: "bench", current_role: null, able_roles: ["centre back"] } })]));
+    ctx.els.axTrList.children[0].dispatch("click"); await ctx.flush();
+    await respondAll(ctx, "/responses?athlete_id=p01", []);
+    ctx.els.axTrReason.value = "fictional reason";
+    await click(ctx, "axTrDismiss");
+    await click(ctx, "axTrDismiss");   // a double click while saving does nothing
+    const saves = ctx.pending.filter(p => p.opts.method === "POST");
+    assert.equal(saves.length, 1);
+    assert.deepEqual(JSON.parse(saves[0].opts.body), { kind: "substitution", at: iso(0), knowledge: "as_entered" });
+    await ctx.respond("/athletes/p01/reviews", { id: "rev-7" }, 201);
+    const post = ctx.pending.find(p => p.opts.method === "POST" && p.url.endsWith("/responses"));
+    const body = JSON.parse(post.opts.body);
+    assert.deepEqual([body.kind, body.saved_review_id, body.reason, /^ui-/.test(body.client_token)], ["dismiss", "rev-7", "fictional reason", true]);
+    ctx.pending.splice(ctx.pending.indexOf(post), 1);
+    post.resolve({ ok: false, status: 503, json: async () => ({ detail: "engine restarting" }) });
+    await ctx.flush();
+    assert.match(ctx.els.axTrRespStatus.textContent, /^Not recorded: .*will not save it twice/);
+    await click(ctx, "axTrDismiss");
+    await ctx.respond("/athletes/p01/reviews", { id: "rev-8" }, 201);
+    const retry = JSON.parse(ctx.pending.find(p => p.opts.method === "POST" && p.url.endsWith("/responses")).opts.body);
+    assert.equal(retry.client_token, body.client_token, "the retry reuses the token, so the engine stores it once");
+    await ctx.respond("/responses", { id: "resp-1", kind: "dismiss", saved_review_id: "rev-8" }, 201);
+    assert.match(ctx.els.axTrRespStatus.textContent, /^Recorded: dismiss \(resp-1\)/);
+    ctx.els.axTrIncoming.value = "b02"; ctx.els.axTrWhen.value = iso(5); ctx.els.axTrRole.value = "centre back";
+    await click(ctx, "axTrLineup");
+    const lu = JSON.parse(ctx.pending.find(p => p.opts.method === "POST" && p.url.endsWith("/responses")).opts.body);
+    assert.deepEqual([lu.kind, lu.lineup.outgoing_athlete_id, lu.lineup.incoming_athlete_id, lu.lineup.effective_from, lu.lineup.incoming_role], ["lineup_change", "p01", "b02", iso(5), "centre back"]);
+  });
+
+  // ---- baselines and profiles card ----
+  const BL_IDS = ["axBlCard", "axBlWho", "axBlRefresh", "axBlProfiles", "axBlRec", "axBlStart", "axBlEnd", "axBlCondition", "axBlSignals", "axBlQuality", "axBlMin", "axBlPreview",
+    "axBlCreate", "axBlPreviewOut", "axBlList", "axBlPick", "axBlNote", "axBlBy", "axBlAccept", "axBlReject", "axBlStatus"];
+  const blBoot = () => { const ctx = boot({ extra: BL_IDS }); ctx.els.axBlCondition.value = "seated_rest"; ctx.els.axBlSignals.value = "heart_rate_bpm, hrv_rmssd_ms"; ctx.els.axBlMin.value = "60"; return ctx; };
+
+  test("baselines and profiles: hidden in public mode; unconfigured profiles say so; a decision needs a reason and a name", async () => {
+    const pub = boot({ hostname: "assistantcoachai.net", extra: BL_IDS });
+    await pub.flush();
+    assert.equal(pub.pending.length, 0);
+    assert.equal(pub.els.axBlCard.style.display, "none");
+    const ctx = blBoot();
+    await start(ctx);
+    await ctx.respond("/api/v1/profiles", { profiles: { physiological_index: null, performance_rubric: null, substitution: { name: "s.json", version: "fictional-1", sha256: "abcdef0123456789", fictional: true, valid: true, errors: [], warnings: ["FICTIONAL: made-up values"] } }, compatibility: ["a substitution profile is configured without a physiological index profile"] });
+    const prof = texts(ctx.els.axBlProfiles);
+    assert.equal(prof[0], "physiological index: not configured (its calculation is unavailable)");
+    assert.match(prof[2], /^substitution: s.json · version fictional-1 · sha256 abcdef012345… · FICTIONAL$/);
+    assert.match(prof[4], /^Compatibility: a substitution profile is configured without/);
+    await ctx.resolveLate(ctx.pending.find(p => p.url.endsWith("/api/v1/recordings")), [{ id: "rec-9", name: "rest", status: "stopped", started_at: iso(-600), stopped_at: iso(-300), athlete_ids: ["a1"] }]);
+    await ctx.respond("/athletes/a1/baselines/compatibility", { baselines: [{ id: "bl-1", usable: false, reasons: ["baseline v1 (bl-1) is pending_review; the profile requires accepted"] }] });
+    await ctx.respond("/athletes/a1/baselines", [{ id: "bl-1", version: 1, status: "pending_review", condition: "seated_rest", data_start: iso(-600), data_end: iso(-300), decisions: [],
+      stats: { heart_rate_bpm: { included: 200, excluded: { low_quality: 3 }, mean: 62.4, sd: 3.1, device_ids: ["d"], sufficient: true } } }]);
+    assert.match(texts(ctx.els.axBlList)[0], /^v1 bl-1 · pending review · seated rest .* not usable now: baseline v1 \(bl-1\) is pending_review; the profile requires accepted \| heart rate bpm: 200 values \(excluded low quality 3\) · mean 62.4 · SD 3.1 · devices d$/);
+    assert.equal(ctx.els.axBlStart.value, iso(-600), "the range defaults to the chosen recording");
+    const before = ctx.pending.length;
+    await click(ctx, "axBlAccept");
+    assert.equal(ctx.pending.length, before, "no request without a reason and a name");
+    assert.match(ctx.els.axBlStatus.textContent, /records why and who/);
+    ctx.els.axBlQuality.value = "0.6";
+    await click(ctx, "axBlPreview");
+    const pv = ctx.pending.find(p => p.opts.method === "POST" && p.url.endsWith("/baselines/preview"));
+    assert.deepEqual(JSON.parse(pv.opts.body), { source_recording_id: "rec-9", ranges: [{ start: iso(-600), end: iso(-300) }], condition: "seated_rest", signals: ["heart_rate_bpm", "hrv_rmssd_ms"], min_samples: 60, min_signal_quality: 0.6 });
+  });
+
   // ---- run --------------------------------------------------------------------------------------------
   const list = document.getElementById("results");
   for (const t of tests) {

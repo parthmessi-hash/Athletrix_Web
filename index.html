@@ -3653,6 +3653,44 @@
           </div>
           <div id="axRecList" style="display:flex;flex-direction:column;gap:6px;font-size:0.82rem;color:#e5e7eb;"></div>
         </div>
+        <div class="card" id="axTrCard" style="margin-bottom:18px;border-left:4px solid #f59e0b;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Team review &middot; experimental</div>
+              <div class="card-sub">Every player of the recording under review (or the active recording), from one engine request at one review time: status and role, the latest <b>recorded reading</b>, the <b>experimental</b> physiological index and performance score with their age and coverage, and the experimental output with its main reason. Players are listed in roster order, never ranked; a missing value is shown as not available, never as zero. Decision support only: the coach decides.</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;">
+              <label for="axTrKnowledge" class="card-sub" style="margin:0;">Evidence</label>
+              <select id="axTrKnowledge" class="coach-select" style="max-width:100%;"><option value="as_entered">as entered by then (live)</option><option value="retrospective">everything stored now (retrospective)</option></select>
+              <button type="button" id="axTrRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
+            </div>
+          </div>
+          <div class="card-sub" id="axTrTarget" style="margin-bottom:6px;">Looking for a recording&hellip;</div>
+          <div class="card-sub" id="axTrBanner" style="display:none;margin-bottom:6px;padding:6px 8px;border-radius:6px;background:rgba(245,158,11,0.15);color:#fbbf24;font-size:0.78rem;"></div>
+          <div id="axTrList" role="list" style="display:flex;flex-direction:column;gap:4px;font-size:0.8rem;">&mdash;</div>
+          <div id="axTrDetail" aria-live="polite" style="margin-top:10px;display:none;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;">
+            <div id="axTrDetailTitle" style="font-weight:600;color:#fff;margin-bottom:4px;"></div>
+            <div class="card-sub" id="axTrDetailBody" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;"></div>
+            <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 8px;margin-top:8px;">
+              <span class="card-sub" style="margin:0;color:#fff;">Your response:</span>
+              <button type="button" id="axTrAck" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Acknowledge</button>
+              <button type="button" id="axTrKeep" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Keep player</button>
+              <button type="button" id="axTrDefer" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Review later</button>
+              <button type="button" id="axTrDismiss" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Dismiss</button>
+              <input id="axTrReason" type="text" maxlength="300" class="login-input" placeholder="reason (optional)" aria-label="Reason" style="flex:1 1 160px;min-width:0;">
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 8px;margin-top:6px;">
+              <span class="card-sub" style="margin:0;color:#fff;">Lineup change:</span>
+              <label class="card-sub" style="margin:0;">Incoming<br><select id="axTrIncoming" class="coach-select"><option value="">choose a bench player</option></select></label>
+              <label class="card-sub" style="margin:0;">Role<br><input id="axTrRole" type="text" maxlength="80" class="login-input" style="width:150px;"></label>
+              <label class="card-sub" style="margin:0;">Effective (UTC)<br><input id="axTrWhen" type="text" class="login-input" style="width:230px;font-family:monospace;"></label>
+              <button type="button" id="axTrLineup" class="btn btn-primary" style="padding:4px 10px;font-size:0.78rem;">Record lineup change</button>
+            </div>
+            <div class="card-sub" id="axTrRespStatus" style="margin-top:4px;font-size:0.76rem;"></div>
+            <div class="card-sub" id="axTrHistory" style="margin-top:4px;font-size:0.74rem;line-height:1.5;color:#e5e7eb;"></div>
+          </div>
+          <div class="card-sub" id="axTrStatus" style="margin-top:6px;font-size:0.76rem;"></div>
+        </div>
         <div class="card" id="axTeamCard" style="margin-bottom:18px;border-left:4px solid #3b82f6;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
@@ -3951,6 +3989,41 @@
             <div class="card-sub" id="axSubSaveStatus" style="margin-top:4px;font-size:0.76rem;"></div>
             <div class="card-sub" id="axSubSaved" style="font-size:0.76rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
           <div class="card-sub" id="axSubStatus" style="margin-top:6px;font-size:0.76rem;"></div>
+        </div>
+        <div class="card" id="axBlCard" style="margin-bottom:24px;border-left:4px solid #14b8a6;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Baselines and profiles &middot; <span id="axBlWho">no athlete selected</span></div>
+              <div class="card-sub">The experimental profiles this engine is configured with (none by default), and the selected athlete's physiological baselines. A baseline is calculated from a stopped recording; accepting it records a person's decision and its reason. It is not a scientific validation.</div>
+            </div>
+            <button type="button" id="axBlRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
+          </div>
+          <div class="card-sub" id="axBlProfiles" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
+          <details style="margin-top:6px;"><summary class="card-sub" style="cursor:pointer;margin:0;color:#fff;">Create a baseline for the selected athlete</summary>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 12px;margin-top:8px;font-size:0.8rem;">
+              <label class="card-sub" style="margin:0;">Source recording (stopped)<br><select id="axBlRec" class="coach-select" style="width:100%;"></select></label>
+              <label class="card-sub" style="margin:0;">Start (UTC)<br><input id="axBlStart" type="text" class="login-input" style="width:100%;font-family:monospace;"></label>
+              <label class="card-sub" style="margin:0;">End (UTC)<br><input id="axBlEnd" type="text" class="login-input" style="width:100%;font-family:monospace;"></label>
+              <label class="card-sub" style="margin:0;">Condition<br><select id="axBlCondition" class="coach-select" style="width:100%;"><option value="seated_rest">seated rest</option><option value="standing_rest">standing rest</option><option value="lying_rest">lying rest</option><option value="warm_up">warm-up</option><option value="light_activity">light activity</option><option value="other">other</option></select></label>
+              <label class="card-sub" style="margin:0;">Signals (comma separated)<br><input id="axBlSignals" type="text" class="login-input" value="heart_rate_bpm, breathing_rate_bpm, hrv_rmssd_ms" style="width:100%;font-family:monospace;"></label>
+              <label class="card-sub" style="margin:0;">Minimum signal quality / samples<br><input id="axBlQuality" type="number" min="0" max="1" step="0.05" class="login-input" style="width:45%;" placeholder="none"> <input id="axBlMin" type="number" min="2" class="login-input" style="width:45%;" value="60"></label>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+              <button type="button" id="axBlPreview" class="btn btn-ghost" style="padding:6px 14px;font-size:0.82rem;">Preview statistics</button>
+              <button type="button" id="axBlCreate" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Create (pending review)</button>
+            </div>
+            <div class="card-sub" id="axBlPreviewOut" style="font-size:0.76rem;line-height:1.5;color:#e5e7eb;margin-top:6px;"></div>
+          </details>
+          <div class="card-sub" style="margin:8px 0 2px;color:#fff;">Baselines of this athlete</div>
+          <div class="card-sub" id="axBlList" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
+          <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 8px;margin-top:6px;">
+            <label class="card-sub" style="margin:0;">Decision on<br><select id="axBlPick" class="coach-select"></select></label>
+            <label class="card-sub" style="margin:0;">Reason (required)<br><input id="axBlNote" type="text" maxlength="300" class="login-input" style="width:220px;"></label>
+            <label class="card-sub" style="margin:0;">Decided by<br><input id="axBlBy" type="text" maxlength="80" class="login-input" style="width:140px;"></label>
+            <button type="button" id="axBlAccept" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Record acceptance</button>
+            <button type="button" id="axBlReject" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Record rejection</button>
+          </div>
+          <div class="card-sub" id="axBlStatus" style="margin-top:6px;font-size:0.76rem;"></div>
         </div>
         <div class="card" id="axEffortCard" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
@@ -10462,7 +10535,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axPerfCard", "axSubCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axTrCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axPerfCard", "axSubCard", "axBlCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -12834,6 +12907,267 @@ function initializePlayerFatigue(team) {
     el.axSubKnowledge.addEventListener("change", load);
     cards.push({ reset: function() { clearView(); el.axSubOutcome.textContent = "Loading…"; }, poll: load, setWho: function(l) { el.axSubWho.textContent = l; } });
     setInterval(function() { if (!reviewing() && !el.axSubAt.value.trim()) load(); }, SUB_MS); // created once; recorded reviews refresh on demand
+  })();
+
+  // ---- Team review card (experimental): one engine request for the whole team at one review time ----
+  // Rows are rendered from that single response only. Any failure clears the rows, so a previous result is never shown
+  // as current. Responses and lineup changes are stored by the engine with a client token, so a retry or double click
+  // saves once; the recommendation they answer is pinned by saving the review first.
+  (function(){
+    var TR_MS = 10000;
+    var ids = ["axTrCard", "axTrKnowledge", "axTrRefresh", "axTrTarget", "axTrBanner", "axTrList", "axTrDetail", "axTrDetailTitle", "axTrDetailBody", "axTrAck", "axTrKeep",
+               "axTrDefer", "axTrDismiss", "axTrReason", "axTrIncoming", "axTrRole", "axTrWhen", "axTrLineup", "axTrRespStatus", "axTrHistory", "axTrStatus"];
+    var el = {};
+    for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
+    var tr = { seq: 0, rec: null, data: null, picked: null, busy: false, pending: {} };
+    var OUTCOME = { keep: "Keep", consider_replacement: "Consider replacement", review_later: "Review later", insufficient_evidence: "Insufficient evidence" };
+    var STATUS = { on_field: "on field", bench: "bench", unavailable: "unavailable", unknown: "status unknown" };
+    var AREA = { execution: "Execution", decision_making: "Decision-making", movement_positioning: "Movement and positioning", coach_strategy: "Following coach strategy" };
+    function setStatus(text, color) { el.axTrStatus.textContent = text; el.axTrStatus.style.color = color; }
+    function setResp(text, color) { el.axTrRespStatus.textContent = text; el.axTrRespStatus.style.color = color; }
+    function age(s) { return isNum(s) ? (s < 90 ? Math.round(s) + " s" : Math.round(s / 60) + " min") + " old" : "age unknown"; }
+    function lines(target, rows) { target.textContent = ""; rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; d.style.marginBottom = "3px"; target.appendChild(d); }); }
+    function clearRows(text) { el.axTrList.textContent = text || DASH; el.axTrBanner.style.display = "none"; tr.data = null; showDetail(null); }
+    function target() {
+      if (sessionReview() && selection.session) {
+        var chosen = selection.session;
+        return fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(chosen.id), { cache: "no-store" }).then(function(res) { return res.ok ? res.json() : chosen; }).catch(function() { return chosen; });
+      }
+      return fetch(API_BASE + "/api/v1/recordings/active", { cache: "no-store" }).then(function(res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+        .then(function(b) { return b && b.recording && typeof b.recording === "object" ? b.recording : null; });
+    }
+    function rowText(x) {
+      var a = x.athlete, head = a.name + " #" + a.jersey_number;
+      if (!x.reviewed) return [head, "not reviewed: " + x.error];
+      var ro = x.roster || {}, rd = x.latest_reading, ix = x.physiological_index || {}, pf = x.performance || {}, lp = x.latest_performance_observation;
+      return [head + " · " + (STATUS[ro.status] || ro.status) + (ro.current_role ? " · " + ro.current_role : ""),
+        "reading " + (rd ? (isNum(rd.values.heart_rate_bpm) ? rd.values.heart_rate_bpm + " bpm" : "no heart rate") + ", " + age(rd.age_s) + (rd.received_at ? "" : " (receipt unknown)") : "none"),
+        "experimental index " + (ix.available ? ix.value : NA) + " · performance " + (pf.available ? pf.value : NA) + (lp ? " (last entry " + age(lp.age_s) + ")" : " (no entries)"),
+        (OUTCOME[x.outcome] || x.outcome) + ": " + x.reason];
+    }
+    function render(r) {
+      tr.data = r;
+      var banner = [];
+      if (r.fictional_configuration) banner.push("FICTIONAL profiles: a software demonstration, not an assessment of real athletes.");
+      banner.push(r.knowledge_label);
+      el.axTrBanner.textContent = banner.join(" "); el.axTrBanner.style.display = "block";
+      el.axTrList.textContent = "";
+      r.athletes.forEach(function(x) {
+        var b = document.createElement("button"); b.type = "button"; b.className = "btn btn-ghost"; b.setAttribute("role", "listitem");
+        b.style.textAlign = "left"; b.style.whiteSpace = "normal"; b.style.padding = "6px 8px"; b.style.fontSize = "0.78rem";
+        b.textContent = rowText(x).join(" · ");
+        b.addEventListener("click", function() { tr.picked = x.athlete.id; showDetail(x); });
+        el.axTrList.appendChild(b);
+      });
+      setStatus("Review time " + availUtc(r.at) + " · " + r.counts.reviewed + " of " + r.counts.athletes + " reviewed in " + r.compute_ms + " ms · " + r.note, r.counts.not_reviewed ? COLORS.warn : COLORS.muted);
+      var again = tr.picked && r.athletes.filter(function(x) { return x.athlete.id === tr.picked; })[0];
+      showDetail(again || null);
+    }
+    function showDetail(x) {
+      if (!x) { el.axTrDetail.style.display = "none"; return; }
+      el.axTrDetail.style.display = "block";
+      el.axTrDetailTitle.textContent = x.athlete.name + " #" + x.athlete.jersey_number + (x.reviewed ? " · " + (OUTCOME[x.outcome] || x.outcome) : " · not reviewed");
+      if (!x.reviewed) { lines(el.axTrDetailBody, [x.error]); return; }
+      var rv = x.review, ix = x.physiological_index || {}, pf = x.performance || {}, rd = x.latest_reading;
+      var out = [];
+      out.push("Recorded reading: " + (rd ? Object.keys(rd.values).map(function(k) { return k.replace(/_/g, " ") + " " + rd.values[k]; }).join(", ") + " · measured " + availUtc(rd.observed_at) + " · " + rd.availability : "none recorded"));
+      out.push("Experimental physiological index: " + (ix.available ? ix.value + " of 100 (" + ix.timing + ")" : NA) + (ix.baseline ? " · baseline v" + ix.baseline.version + " (" + ix.baseline.status.replace("_", " ") + ", " + ix.baseline.condition.replace("_", " ") + ")" : " · no usable baseline") +
+               " · input coverage " + (isNum(ix.input_coverage) ? Math.round(ix.input_coverage * 100) + "%" : NA));
+      (ix.signals || []).forEach(function(sg) { out.push("  " + sg.signal.replace(/_/g, " ") + ": " + (sg.available ? "window mean " + sg.window_mean + " vs baseline " + Math.round(sg.baseline_mean * 100) / 100 + " → score " + sg.score + ", contribution " + sg.contribution : "unavailable (" + sg.reason + ")")); });
+      out.push("Performance (experimental): " + (pf.available ? pf.value + " of 100" : NA) + " · " + Object.keys(AREA).map(function(k) { return AREA[k] + " " + (pf.areas && isNum(pf.areas[k]) ? pf.areas[k] : NA); }).join(" · "));
+      var role = rv.role || {};
+      out.push("Role asked " + (role.required ? "\"" + role.required + "\"" : "not recorded") + " · formation " + (role.formation || "not recorded") + " · instruction " + (role.team_instruction ? "\"" + role.team_instruction + "\"" : "not recorded"));
+      (rv.reasons || []).forEach(function(t) { out.push("Reason: " + t); });
+      (rv.tradeoffs || []).forEach(function(t) { out.push("Tradeoff: " + t); });
+      (rv.constraints_applied || []).forEach(function(t) { out.push("Constraint: " + t); });
+      (rv.replacements || []).forEach(function(c) { out.push("Option " + c.athlete_id + " (" + c.role_fit.replace(/_/g, " ") + (c.blocked_reason ? "; coach: do not bring on" : "") + "): physiology " + (c.physiology && c.physiology.available ? "index " + c.physiology.value : "cannot be compared (not recorded; not a sign of freshness)")); });
+      (rv.missing || []).forEach(function(t) { out.push("Missing: " + t); });
+      if (rv.knowledge) out.push(rv.knowledge.label);
+      lines(el.axTrDetailBody, out);
+      var keep = el.axTrIncoming.value;
+      el.axTrIncoming.textContent = "";
+      var none = document.createElement("option"); none.value = ""; none.textContent = "choose a bench player"; el.axTrIncoming.appendChild(none);
+      tr.data.athletes.filter(function(y) { return y.reviewed && y.roster && y.roster.status === "bench"; }).forEach(function(y) {
+        var o = document.createElement("option"); o.value = y.athlete.id; o.textContent = y.athlete.name + " (" + (y.roster.able_roles.join(", ") || "roles not recorded") + ")"; el.axTrIncoming.appendChild(o); });
+      el.axTrIncoming.value = keep;
+      if (!el.axTrRole.value && x.roster) el.axTrRole.value = x.roster.current_role || "";
+      if (!el.axTrWhen.value) el.axTrWhen.value = tr.data.at;
+      loadHistory(x.athlete.id);
+    }
+    function loadHistory(athleteId) {
+      var rec = tr.rec, my = tr.seq;
+      if (!rec) return;
+      fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/responses?athlete_id=" + encodeURIComponent(athleteId), { cache: "no-store" }).then(function(res) { return res.ok ? res.json() : []; })
+        .then(function(list) { if (my !== tr.seq || tr.picked !== athleteId) return; lines(el.axTrHistory, list.map(function(r) {
+          return availUtc(r.created_at) + " · " + r.kind.replace("_", " ") + (r.simulated ? " (SIMULATED)" : "") + (r.recommendation ? " · answered " + (OUTCOME[r.recommendation.outcome] || r.recommendation.outcome) + " of " + availUtc(r.recommendation.review_at) : "") +
+            (r.lineup ? " · " + r.lineup.outgoing_athlete_id + " off, " + r.lineup.incoming_athlete_id + " on" : "") + (r.reason ? " · \"" + r.reason + "\"" : "") + (r.warnings && r.warnings.length ? " · " + r.warnings.join("; ") : ""); })); })
+        .catch(function() {});
+    }
+    function token(kind) { // one token per intended action: a retry of the same action reuses it
+      var key = kind + "|" + tr.picked + "|" + (tr.data ? tr.data.at : "");
+      if (!tr.pending[key]) tr.pending[key] = "ui-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+      return { key: key, value: tr.pending[key] };
+    }
+    function send(body, tok) {
+      var rec = tr.rec;
+      return fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/responses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function(res) {
+        if (res.status === 201 || res.status === 200) return res.json().then(function(r) { delete tr.pending[tok.key]; return r; });
+        return rejectionText(res).then(function(why) { throw new Error(why); });
+      });
+    }
+    function respond(kind) {
+      if (tr.busy || !tr.data || !tr.picked) return;
+      var x = tr.data.athletes.filter(function(y) { return y.athlete.id === tr.picked; })[0];
+      if (!x || !x.reviewed) { setResp("This player has no review to respond to.", COLORS.warn); return; }
+      var tok = token(kind), rec = tr.rec, reason = el.axTrReason.value.trim();
+      tr.busy = true; setResp("Saving the review and your response…", COLORS.muted);
+      fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/athletes/" + encodeURIComponent(x.athlete.id) + "/reviews",
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "substitution", at: tr.data.at, knowledge: tr.data.knowledge }) }).then(function(res) {
+        if (res.status !== 201) return rejectionText(res).then(function(why) { throw new Error(why); });
+        return res.json();
+      }).then(function(saved) {
+        var body = { athlete_id: x.athlete.id, kind: kind, client_token: tok.value, saved_review_id: saved.id };
+        if (reason) body.reason = reason;
+        return send(body, tok);
+      }).then(function(r) { setResp("Recorded: " + r.kind + " (" + r.id + "). The recommendation is pinned in saved review " + r.saved_review_id + "; nothing else changed.", COLORS.live); loadHistory(x.athlete.id); })
+        .catch(function(err) { setResp("Not recorded: " + err.message + ". Retrying the same action will not save it twice.", COLORS.error); })
+        .then(function() { tr.busy = false; });
+    }
+    function lineup() {
+      if (tr.busy || !tr.data || !tr.picked) return;
+      var incoming = el.axTrIncoming.value, when = el.axTrWhen.value.trim(), role = el.axTrRole.value.trim();
+      if (!incoming || !when) { setResp("Choose the incoming player and the effective time.", COLORS.warn); return; }
+      var tok = token("lineup|" + incoming + "|" + when);
+      var body = { athlete_id: tr.picked, kind: "lineup_change", client_token: tok.value, lineup: { outgoing_athlete_id: tr.picked, incoming_athlete_id: incoming, effective_from: when } };
+      if (role) body.lineup.incoming_role = role;
+      tr.busy = true; setResp("Recording the lineup change…", COLORS.muted);
+      send(body, tok).then(function(r) { setResp("Lineup change recorded (" + r.id + ")" + (r.warnings.length ? ": " + r.warnings.join("; ") : "") + ".", COLORS.live); load(); })
+        .catch(function(err) { setResp("Not recorded: " + err.message, COLORS.error); })
+        .then(function() { tr.busy = false; });
+    }
+    function load() {
+      if (!dashboardVisible()) return;
+      var my = ++tr.seq, knowledge = el.axTrKnowledge.value;
+      var stale = function() { return my !== tr.seq; };
+      target().then(function(rec) {
+        if (stale()) return;
+        tr.rec = rec;
+        if (!rec) { el.axTrTarget.textContent = "No recording is active and none is under review."; clearRows(DASH); setStatus("", COLORS.muted); return; }
+        el.axTrTarget.textContent = "Recording \"" + rec.name + "\" (" + rec.id + ", " + rec.status + ")";
+        return fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/team-review?knowledge=" + knowledge, { cache: "no-store" }).then(function(res) {
+          if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); });
+          return res.json();
+        }).then(function(r) { if (!stale()) render(r); });
+      }).catch(function(err) {
+        if (stale()) return;
+        clearRows("Not available.");
+        setStatus("The team review could not be read from " + API_BASE + " (" + err.message + "); no earlier result is shown as current.", COLORS.error);
+      });
+    }
+    el.axTrRefresh.addEventListener("click", load);
+    el.axTrKnowledge.addEventListener("change", load);
+    el.axTrAck.addEventListener("click", function() { respond("acknowledged"); });
+    el.axTrKeep.addEventListener("click", function() { respond("keep"); });
+    el.axTrDefer.addEventListener("click", function() { respond("defer"); });
+    el.axTrDismiss.addEventListener("click", function() { respond("dismiss"); });
+    el.axTrLineup.addEventListener("click", lineup);
+    cards.push({ reset: function() {}, poll: load, setWho: function() {} });
+    setInterval(function() { if (!reviewing()) load(); }, TR_MS);
+  })();
+
+  // ---- Baselines and profiles card: inspection of configured profiles, baseline preview, creation and decisions ----
+  (function(){
+    var ids = ["axBlCard", "axBlWho", "axBlRefresh", "axBlProfiles", "axBlRec", "axBlStart", "axBlEnd", "axBlCondition", "axBlSignals", "axBlQuality", "axBlMin", "axBlPreview",
+               "axBlCreate", "axBlPreviewOut", "axBlList", "axBlPick", "axBlNote", "axBlBy", "axBlAccept", "axBlReject", "axBlStatus"];
+    var el = {};
+    for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
+    var bl = { seq: 0, busy: false, recs: [] };
+    function setStatus(text, color) { el.axBlStatus.textContent = text; el.axBlStatus.style.color = color; }
+    function lines(target, rows, empty) { target.textContent = ""; if (!rows.length) { target.textContent = empty; return; } rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; d.style.marginBottom = "3px"; target.appendChild(d); }); }
+    function getJson(url) { return fetch(url, { cache: "no-store" }).then(function(res) { if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); }); return res.json(); }); }
+    function profileLines(r) {
+      var out = [];
+      ["physiological_index", "performance_rubric", "substitution"].forEach(function(k) {
+        var p = r.profiles[k];
+        if (!p) { out.push(k.replace(/_/g, " ") + ": not configured (its calculation is unavailable)"); return; }
+        out.push(k.replace(/_/g, " ") + ": " + p.name + " · version " + p.version + " · sha256 " + String(p.sha256).slice(0, 12) + "… · " + (p.fictional ? "FICTIONAL" : "not marked fictional") + (p.valid ? "" : " · INVALID: " + p.errors.join("; ")));
+        (p.warnings || []).forEach(function(w) { out.push("  " + w); });
+      });
+      (r.compatibility || []).forEach(function(c) { out.push("Compatibility: " + c); });
+      return out;
+    }
+    function body() {
+      var b = { source_recording_id: el.axBlRec.value, ranges: [{ start: el.axBlStart.value.trim(), end: el.axBlEnd.value.trim() }], condition: el.axBlCondition.value,
+                signals: el.axBlSignals.value.split(",").map(function(x) { return x.trim(); }).filter(Boolean), min_samples: Number(el.axBlMin.value) || 2, created_by: (el.axBlBy.value.trim() || undefined) };
+      var q = String(el.axBlQuality.value).trim(); if (q !== "") b.min_signal_quality = Number(q);
+      return b;
+    }
+    function statLines(stats) {
+      return Object.keys(stats).map(function(k) { var st = stats[k];
+        return k.replace(/_/g, " ") + ": " + st.included + " values" + (Object.keys(st.excluded || {}).length ? " (excluded " + Object.keys(st.excluded).map(function(r) { return r.replace(/_/g, " ") + " " + st.excluded[r]; }).join(", ") + ")" : "") +
+          (isNum(st.mean) ? " · mean " + Math.round(st.mean * 100) / 100 + " · SD " + (isNum(st.sd) ? Math.round(st.sd * 100) / 100 : NA) : "") + " · devices " + (st.device_ids.join(", ") || "none") +
+          (st.sufficient ? "" : " · INSUFFICIENT: " + st.insufficient_reason); });
+    }
+    function load() {
+      if (!dashboardVisible()) return;
+      var my = ++bl.seq, who = selection.id, stale = function() { return my !== bl.seq || who !== selection.id; };
+      getJson(API_BASE + "/api/v1/profiles").then(function(r) { if (!stale()) lines(el.axBlProfiles, profileLines(r), DASH); })
+        .catch(function(err) { if (!stale()) lines(el.axBlProfiles, ["Profiles could not be read: " + err.message], DASH); });
+      getJson(API_BASE + "/api/v1/recordings").then(function(list) {
+        if (stale()) return;
+        bl.recs = list.filter(function(r) { return r.status === "stopped" && (who === null || r.athlete_ids.indexOf(who) >= 0); });
+        var keep = el.axBlRec.value; el.axBlRec.textContent = "";
+        bl.recs.forEach(function(r) { var o = document.createElement("option"); o.value = r.id; o.textContent = r.name + " (" + availUtc(r.started_at) + ")"; el.axBlRec.appendChild(o); });
+        if (keep) el.axBlRec.value = keep;
+        var chosen = bl.recs.filter(function(r) { return r.id === el.axBlRec.value; })[0] || bl.recs[0];
+        if (chosen) el.axBlRec.value = chosen.id;
+        if (chosen && !el.axBlStart.value) { el.axBlStart.value = chosen.started_at; el.axBlEnd.value = chosen.stopped_at; }
+      }).catch(function() {});
+      if (who === null) { lines(el.axBlList, [], noSelectionText()); return; }
+      var at = new Date().toISOString();
+      Promise.all([getJson(API_BASE + "/api/v1/athletes/" + encodeURIComponent(who) + "/baselines"),
+                   getJson(API_BASE + "/api/v1/athletes/" + encodeURIComponent(who) + "/baselines/compatibility?at=" + encodeURIComponent(at)).catch(function() { return { baselines: [] }; })]).then(function(both) {
+        if (stale()) return;
+        var comp = {}; both[1].baselines.forEach(function(c) { comp[c.id] = c; });
+        lines(el.axBlList, both[0].map(function(b) {
+          var c = comp[b.id];
+          return "v" + b.version + " " + b.id + " · " + b.status.replace("_", " ") + " · " + b.condition.replace("_", " ") + " · " + availUtc(b.data_start) + " to " + availUtc(b.data_end) +
+            (b.decisions.length ? " · last decision by " + b.decisions[b.decisions.length - 1].decided_by + ": \"" + b.decisions[b.decisions.length - 1].note + "\"" : "") +
+            (c ? " · " + (c.usable ? "usable by the configured index profile now" : "not usable now: " + c.reasons.join("; ")) : "") + " | " + statLines(b.stats).join(" | ");
+        }), "No baselines for this athlete.");
+        var keep = el.axBlPick.value; el.axBlPick.textContent = "";
+        both[0].forEach(function(b) { var o = document.createElement("option"); o.value = b.id; o.textContent = "v" + b.version + " (" + b.status.replace("_", " ") + ")"; el.axBlPick.appendChild(o); });
+        if (keep) el.axBlPick.value = keep;
+      }).catch(function(err) { if (!stale()) { lines(el.axBlList, [], "Baselines could not be read: " + err.message); } });
+    }
+    function post(url, payload) {
+      return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function(res) {
+        if (res.status === 200 || res.status === 201) return res.json(); return rejectionText(res).then(function(why) { throw new Error(why); }); });
+    }
+    function guarded(fn) { return function() { if (bl.busy || selection.id === null) { if (selection.id === null) setStatus("Select an athlete first.", COLORS.warn); return; } bl.busy = true; fn().then(function() { bl.busy = false; }, function() { bl.busy = false; }); }; }
+    el.axBlPreview.addEventListener("click", guarded(function() {
+      var who = selection.id;
+      return post(API_BASE + "/api/v1/athletes/" + encodeURIComponent(who) + "/baselines/preview", body()).then(function(r) { if (who === selection.id) lines(el.axBlPreviewOut, ["Preview (nothing stored):"].concat(statLines(r.stats)), DASH); })
+        .catch(function(err) { lines(el.axBlPreviewOut, ["Preview failed: " + err.message], DASH); });
+    }));
+    el.axBlCreate.addEventListener("click", guarded(function() {
+      return post(API_BASE + "/api/v1/athletes/" + encodeURIComponent(selection.id) + "/baselines", body()).then(function(b) { setStatus("Created baseline v" + b.version + " (" + b.id + "), pending review.", COLORS.live); load(); })
+        .catch(function(err) { setStatus("Not created: " + err.message, COLORS.error); });
+    }));
+    function decide(decision) {
+      return guarded(function() {
+        var note = el.axBlNote.value.trim(), by = el.axBlBy.value.trim();
+        if (!el.axBlPick.value || !note || !by) { setStatus("Choose a baseline and give the reason and your name: a decision always records why and who.", COLORS.warn); return Promise.resolve(); }
+        return post(API_BASE + "/api/v1/athletes/" + encodeURIComponent(selection.id) + "/baselines/" + encodeURIComponent(el.axBlPick.value) + "/decision", { decision: decision, decided_by: by, note: note })
+          .then(function(b) { setStatus("Recorded: " + decision + " (" + b.decisions.length + " decisions kept). A recorded decision is not a validation.", COLORS.live); load(); })
+          .catch(function(err) { setStatus("Not recorded: " + err.message, COLORS.error); });
+      });
+    }
+    el.axBlAccept.addEventListener("click", decide("accepted"));
+    el.axBlReject.addEventListener("click", decide("rejected"));
+    el.axBlRefresh.addEventListener("click", load);
+    el.axBlRec.addEventListener("change", function() { var r = bl.recs.filter(function(x) { return x.id === el.axBlRec.value; })[0]; if (r) { el.axBlStart.value = r.started_at; el.axBlEnd.value = r.stopped_at; } });
+    cards.push({ reset: function() { el.axBlPreviewOut.textContent = ""; }, poll: load, setWho: function(l) { el.axBlWho.textContent = l; } });
   })();
 
   // ---- start ----
