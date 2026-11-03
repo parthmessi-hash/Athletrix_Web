@@ -3884,8 +3884,8 @@
           <details id="axPerfFormBox" style="margin-bottom:8px;">
             <summary class="card-sub" style="cursor:pointer;margin:0;color:#fff;">Add an observation for the selected athlete</summary>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 12px;margin-top:8px;font-size:0.8rem;">
-              <label class="card-sub" style="margin:0;">Event<br><select id="axPerfKind" class="coach-select" style="width:100%;"><option value="pass">Pass attempts and completions (execution)</option><option value="turnover">Possessions and turnovers (execution)</option><option value="tactical_observation">Tactical observation</option></select></label>
-              <label class="card-sub" style="margin:0;">Area (tactical observation)<br><select id="axPerfArea" class="coach-select" style="width:100%;"><option value="decision_making">decision-making</option><option value="movement_positioning">movement and positioning</option><option value="coach_strategy">following coach strategy</option></select></label>
+              <label class="card-sub" style="margin:0;">Event<br><select id="axPerfKind" class="coach-select" style="width:100%;"><option value="pass">Pass attempts and completions (execution)</option><option value="turnover">Possessions and turnovers (execution)</option><option value="decision">Decision moments (decision-making)</option><option value="positioning">Positioning checks (movement and positioning)</option><option value="tactical_observation">Coach instruction followed (following coach strategy)</option></select></label>
+              <label class="card-sub" style="margin:0;">Area (follows the event; each area has its own evidence)<br><select id="axPerfArea" class="coach-select" style="width:100%;" disabled><option value="execution">execution</option><option value="decision_making">decision-making</option><option value="movement_positioning">movement and positioning</option><option value="coach_strategy">following coach strategy</option></select></label>
               <label class="card-sub" style="margin:0;">Assessment<br><select id="axPerfAssessment" class="coach-select" style="width:100%;"><option value="assessed">assessed</option><option value="unable_to_assess">unable to assess</option><option value="no_opportunity">no opportunity</option></select></label>
               <label class="card-sub" style="margin:0;">Unable-to-assess reason<br><select id="axPerfUnable" class="coach-select" style="width:100%;"><option value="not_visible">not visible</option><option value="off_camera">off camera</option><option value="occluded">occluded</option><option value="video_quality">video quality</option><option value="ambiguous">ambiguous</option><option value="other">other</option></select></label>
               <label class="card-sub" style="margin:0;">Period start (UTC, ISO 8601)<br><input id="axPerfStart" type="text" class="login-input" style="width:100%;font-family:monospace;"></label>
@@ -3893,24 +3893,58 @@
               <label class="card-sub" style="margin:0;">Role during the period (optional)<br><input id="axPerfRole" type="text" maxlength="80" class="login-input" placeholder="left back" style="width:100%;"></label>
               <label class="card-sub" style="margin:0;">Attempts / completed (pass)<br><input id="axPerfAttempts" type="number" min="0" class="login-input" style="width:45%;"> <input id="axPerfCompletions" type="number" min="0" class="login-input" style="width:45%;"></label>
               <label class="card-sub" style="margin:0;">Possessions / turnovers<br><input id="axPerfPossessions" type="number" min="0" class="login-input" style="width:45%;"> <input id="axPerfTurnovers" type="number" min="0" class="login-input" style="width:45%;"></label>
-              <label class="card-sub" style="margin:0;">Outcome (tactical)<br><select id="axPerfOutcome" class="coach-select" style="width:100%;"><option value="followed">followed</option><option value="partially_followed">partially followed</option><option value="not_followed">not followed</option></select></label>
-              <label class="card-sub" style="margin:0;">Instruction judged (tactical)<br><input id="axPerfInstruction" type="text" maxlength="200" class="login-input" placeholder="the coach's words" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Moments judged: good / acceptable / poor (decision, positioning)<br><input id="axPerfGood" type="number" min="0" class="login-input" style="width:30%;"> <input id="axPerfAcceptable" type="number" min="0" class="login-input" style="width:30%;"> <input id="axPerfPoor" type="number" min="0" class="login-input" style="width:30%;"></label>
+              <label class="card-sub" style="margin:0;">Criterion judged (decision, positioning)<br><input id="axPerfCriterion" type="text" maxlength="200" class="login-input" placeholder="chose the option that broke the press" style="width:100%;"></label>
+              <label class="card-sub" style="margin:0;">Outcome (coach instruction)<br><select id="axPerfOutcome" class="coach-select" style="width:100%;"><option value="followed">followed</option><option value="partially_followed">partially followed</option><option value="not_followed">not followed</option></select></label>
+              <label class="card-sub" style="margin:0;">Instruction judged (coach instruction)<br><input id="axPerfInstruction" type="text" maxlength="200" class="login-input" placeholder="the coach's words" style="width:100%;"></label>
               <label class="card-sub" style="margin:0;">Linked coach instruction (optional)<br><select id="axPerfContext" class="coach-select" style="width:100%;"><option value="">none</option></select></label>
               <label class="card-sub" style="margin:0;">Evidence source<br><select id="axPerfSource" class="coach-select" style="width:100%;"><option value="human_annotation">human annotation</option><option value="human_review_of_camera">human review of the recorded video</option></select></label>
               <label class="card-sub" style="margin:0;"><input id="axPerfReference" type="checkbox"> Reference label (for evaluating a future automatic method)</label>
+              <label class="card-sub" style="margin:0;">Player identity<br><select id="axPerfIdentity" class="coach-select" style="width:100%;"><option value="">not stated</option><option value="confirmed">confirmed</option><option value="uncertain">uncertain (listed, never scored)</option></select></label>
+              <label class="card-sub" style="margin:0;">Corrects observation (optional)<br><select id="axPerfSupersedes" class="coach-select" style="width:100%;"><option value="">none (a new observation)</option></select></label>
+              <label class="card-sub" style="margin:0;">Correction reason (with a correction)<br><input id="axPerfCorrection" type="text" maxlength="300" class="login-input" placeholder="recounted from the video" style="width:100%;"></label>
               <label class="card-sub" style="margin:0;">Annotator (optional)<br><input id="axPerfAnnotator" type="text" maxlength="80" class="login-input" style="width:100%;"></label>
               <label class="card-sub" style="margin:0;">Video and frame (optional)<br><input id="axPerfVideo" type="text" maxlength="200" class="login-input" placeholder="file name" style="width:60%;"> <input id="axPerfFrame" type="number" min="0" class="login-input" placeholder="frame" style="width:30%;"></label>
               <label class="card-sub" style="margin:0;">Description or note (optional)<br><input id="axPerfNote" type="text" maxlength="500" class="login-input" style="width:100%;"></label>
             </div>
             <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
               <button type="button" id="axPerfSubmit" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Save observation</button>
-              <span class="card-sub" id="axPerfFormStatus" style="margin:0;">Counts are kept as entered (attempts and outcomes), never only a percentage. Unable to assess and no opportunity are never zeros.</span>
+              <span class="card-sub" id="axPerfFormStatus" style="margin:0;">Counts are kept as entered (attempts and outcomes), never only a percentage. Unable to assess and no opportunity are never zeros. A correction replaces the earlier observation (kept as history), so both are never counted.</span>
             </div>
           </details>
           <div class="card-sub" id="axPerfComposite" style="font-size:0.82rem;color:#e5e7eb;margin-bottom:6px;">&mdash;</div>
           <div class="card-sub" id="axPerfAreas" style="font-size:0.8rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
           <details style="margin-top:6px;" open><summary class="card-sub" style="cursor:pointer;margin:0;">Observations of this athlete</summary><div class="card-sub" id="axPerfList" style="font-family:monospace;font-size:0.74rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
           <div class="card-sub" id="axPerfStatus" style="margin-top:6px;font-size:0.76rem;"></div>
+        </div>
+        <div class="card" id="axSubCard" style="margin-bottom:24px;border-left:4px solid #f59e0b;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Experimental review &middot; <span id="axSubWho">no athlete selected</span></div>
+              <div class="card-sub">Physiology against this athlete's own baseline, the four-area performance assessment, coach context and roster state, combined by configured rules into <b>keep</b>, <b>consider replacement</b>, <b>review later</b> or <b>insufficient evidence</b>. Experimental decision support only: the coach decides. Recorded measurements and interpretations are shown separately; nothing here confirms fatigue, injury, safety or readiness.</div>
+            </div>
+            <button type="button" id="axSubRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px;margin-bottom:6px;">
+            <label class="card-sub" style="margin:0;font-size:0.8rem;">Review time (UTC, ISO 8601; empty = the recording's end, or now)<br><input id="axSubAt" type="text" class="login-input" style="width:260px;font-family:monospace;"></label>
+            <button type="button" id="axSubGo" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Review</button>
+          </div>
+          <div class="card-sub" id="axSubTarget" style="margin-bottom:6px;">Looking for a recording&hellip;</div>
+          <div class="card-sub" id="axSubBanner" style="display:none;margin-bottom:6px;padding:6px 8px;border-radius:6px;background:rgba(245,158,11,0.15);color:#fbbf24;font-size:0.78rem;"></div>
+          <div id="axSubOutcome" style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:4px;">&mdash;</div>
+          <div class="card-sub" id="axSubReasons" style="font-size:0.8rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
+          <div class="card-sub" style="margin:8px 0 2px;color:#fff;">Possible replacements</div>
+          <div class="card-sub" id="axSubReplacements" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
+          <div class="card-sub" style="margin:8px 0 2px;color:#fff;">Missing evidence and why something is unavailable</div>
+          <div class="card-sub" id="axSubMissing" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 16px;margin-top:8px;">
+            <div><div class="card-sub" style="margin:0 0 2px;color:#fff;">Physiological index (interpretation)</div><div class="card-sub" id="axSubPhys" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div></div>
+            <div><div class="card-sub" style="margin:0 0 2px;color:#fff;">Recorded measurements (window and baseline)</div><div class="card-sub" id="axSubMeasures" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div></div>
+            <div><div class="card-sub" style="margin:0 0 2px;color:#fff;">Performance (four areas)</div><div class="card-sub" id="axSubPerf" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div></div>
+            <div><div class="card-sub" style="margin:0 0 2px;color:#fff;">Coach context and roster state</div><div class="card-sub" id="axSubContext" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div></div>
+          </div>
+          <details style="margin-top:6px;"><summary class="card-sub" style="cursor:pointer;margin:0;">History of review points (index, composite, states, output)</summary><div class="card-sub" id="axSubHistory" style="font-family:monospace;font-size:0.74rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
+          <div class="card-sub" id="axSubStatus" style="margin-top:6px;font-size:0.76rem;"></div>
         </div>
         <div class="card" id="axEffortCard" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
@@ -10422,7 +10456,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axPerfCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axPerfCard", "axSubCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -12484,12 +12518,16 @@ function initializePlayerFatigue(team) {
     var PERF_MS = 15000;
     var ids = ["axPerfCard", "axPerfWho", "axPerfRefresh", "axPerfTarget", "axPerfKind", "axPerfArea", "axPerfAssessment", "axPerfUnable", "axPerfStart", "axPerfEnd", "axPerfRole",
                "axPerfAttempts", "axPerfCompletions", "axPerfPossessions", "axPerfTurnovers", "axPerfOutcome", "axPerfInstruction", "axPerfContext", "axPerfSource", "axPerfReference",
-               "axPerfAnnotator", "axPerfVideo", "axPerfFrame", "axPerfNote", "axPerfSubmit", "axPerfFormStatus", "axPerfComposite", "axPerfAreas", "axPerfList", "axPerfStatus"];
+               "axPerfAnnotator", "axPerfVideo", "axPerfFrame", "axPerfNote", "axPerfSubmit", "axPerfFormStatus", "axPerfComposite", "axPerfAreas", "axPerfList", "axPerfStatus",
+               "axPerfGood", "axPerfAcceptable", "axPerfPoor", "axPerfCriterion", "axPerfIdentity", "axPerfSupersedes", "axPerfCorrection"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     var perf = { seq: 0, rec: null, busy: false };
     var AREA = { execution: "Execution", decision_making: "Decision-making", movement_positioning: "Movement and positioning", coach_strategy: "Following coach strategy" };
     var SOURCE = { human_annotation: "human annotation", human_review_of_camera: "human review of video", camera_automatic: "automatic (camera)" };
+    var AREA_OF = { pass: "execution", turnover: "execution", decision: "decision_making", positioning: "movement_positioning", tactical_observation: "coach_strategy" };
+    var STATUS = { superseded: "superseded (kept as history, not counted)", outside_review_time: "outside the review time", legacy_unscored: "legacy tactical observation (not scored)",
+                   identity_uncertain: "player identity uncertain (not scored)", potential_duplicate: "overlaps another observation of the same kind (potential duplicate, not scored)" };
     function setStatus(text, color) { el.axPerfStatus.textContent = text; el.axPerfStatus.style.color = color; }
     function setFormStatus(text, color) { el.axPerfFormStatus.textContent = text; el.axPerfFormStatus.style.color = color; }
     function fill(target, rows, empty) {
@@ -12512,17 +12550,23 @@ function initializePlayerFatigue(team) {
       else if (o.assessment === "no_opportunity") parts.push("no opportunity");
       else if (o.kind === "pass") parts.push(o.completions + " of " + o.attempts + " passes completed");
       else if (o.kind === "turnover") parts.push(o.turnovers + " turnovers in " + o.possessions + " possessions");
+      else if (o.kind === "decision" || o.kind === "positioning") parts.push(o.rated_good + " good, " + o.rated_acceptable + " acceptable, " + o.rated_poor + " poor of " + o.opportunities + " against \"" + o.criterion + "\"");
       else parts.push(String(o.outcome).replace("_", " ") + ": \"" + o.instruction + "\"");
       if (o.coach_context_id) { var c = ctxById[o.coach_context_id]; parts.push("coach instruction: " + (c && c.tactical_instruction && c.tactical_instruction.status === "recorded" ? "\"" + c.tactical_instruction.value + "\"" : o.coach_context_id)); }
       parts.push("source " + (SOURCE[o.evidence_source] || o.evidence_source) + (o.reference_label ? " (reference label)" : "") + (o.annotator ? ", " + o.annotator : ""));
       if (o.frames && o.frames.length) parts.push("frames " + o.frames.map(function(f) { return f.video + "#" + f.frame; }).join(", "));
       if (o.origin === "source_engine") parts.push("imported");
+      if (o.identity) parts.push("identity " + o.identity);
+      if (o.supersedes) parts.push("corrects " + o.supersedes + (o.correction_reason ? " (" + o.correction_reason + ")" : ""));
+      if (o.status && STATUS[o.status]) parts.push(STATUS[o.status] + (o.superseded_by ? " by " + o.superseded_by : ""));
       return parts.join(" · ");
     }
     function areaLine(name, a) {
-      var e = a.evidence, bits = [e.assessed + " assessed", e.unable_to_assess + " unable to assess", e.no_opportunity + " no opportunity"];
+      var e = a.evidence, st = e.status || {}, bits = [e.counted + " counted", (st.unable_to_assess || 0) + " unable to assess", (st.no_opportunity || 0) + " no opportunity"];
+      Object.keys(STATUS).forEach(function(k) { if (st[k]) bits.push(st[k] + " " + k.replace(/_/g, " ")); });
       if (e.passes) bits.push("passes " + e.passes.completions + " of " + e.passes.attempts);
       if (e.possessions) bits.push("turnovers " + e.possessions.turnovers + " in " + e.possessions.possessions + " possessions");
+      if (e.judged) bits.push("judged " + e.judged.good + " good, " + e.judged.acceptable + " acceptable, " + e.judged.poor + " poor of " + e.judged.opportunities);
       if (e.tactical) bits.push("followed " + (e.tactical.followed || 0) + ", partially " + (e.tactical.partially_followed || 0) + ", not followed " + (e.tactical.not_followed || 0));
       var reasons = Object.keys(e.unable_reasons || {}); if (reasons.length) bits.push("unable reasons: " + reasons.map(function(k) { return k.replace("_", " ") + " " + e.unable_reasons[k]; }).join(", "));
       return AREA[name] + ": " + bits.join(" · ") + " · area score " + (isNum(a.score) ? a.score : NA + (a.unavailable_reason ? " (" + a.unavailable_reason + ")" : ""));
@@ -12534,6 +12578,12 @@ function initializePlayerFatigue(team) {
         (c.available ? c.value + (c.fictional_rubric ? " (from a fictional rubric: not a real assessment)" : "") : "not available: " + (c.reasons || []).join("; "));
       fill(el.axPerfAreas, ["execution", "decision_making", "movement_positioning", "coach_strategy"].map(function(a) { return areaLine(a, rv.areas[a]); }), DASH);
       fill(el.axPerfList, (rv.observations || []).map(function(o) { return describeObs(o, ctxById); }), "No observations for this athlete yet.");
+      var keep = el.axPerfSupersedes.value;
+      el.axPerfSupersedes.textContent = "";
+      var none = document.createElement("option"); none.value = ""; none.textContent = "none (a new observation)"; el.axPerfSupersedes.appendChild(none);
+      (rv.observations || []).filter(function(o) { return o.status !== "superseded"; }).forEach(function(o) {
+        var opt = document.createElement("option"); opt.value = o.id; opt.textContent = o.id + " · " + (AREA[o.area] || o.area) + " · " + availUtc(o.period_start); el.axPerfSupersedes.appendChild(opt); });
+      el.axPerfSupersedes.value = keep;
     }
     function contextOptions(list) {
       var keep = el.axPerfContext.value;
@@ -12573,12 +12623,19 @@ function initializePlayerFatigue(team) {
     function intOrNull(e) { var v = String(e.value).trim(); return v === "" ? null : Number(v); }
     function body() {
       var kind = el.axPerfKind.value, assessed = el.axPerfAssessment.value === "assessed";
-      var b = { athlete_id: selection.id, kind: kind, area: kind === "tactical_observation" ? el.axPerfArea.value : "execution", period_start: el.axPerfStart.value.trim(), period_end: el.axPerfEnd.value.trim(),
+      var b = { athlete_id: selection.id, kind: kind, area: AREA_OF[kind] || "execution", period_start: el.axPerfStart.value.trim(), period_end: el.axPerfEnd.value.trim(),
                 assessment: el.axPerfAssessment.value, evidence_source: el.axPerfSource.value, reference_label: !!el.axPerfReference.checked };
       if (b.assessment === "unable_to_assess") b.unable_reason = el.axPerfUnable.value;
       if (assessed && kind === "pass") { b.attempts = intOrNull(el.axPerfAttempts); b.completions = intOrNull(el.axPerfCompletions); }
       if (assessed && kind === "turnover") { b.possessions = intOrNull(el.axPerfPossessions); b.turnovers = intOrNull(el.axPerfTurnovers); }
+      if (assessed && (kind === "decision" || kind === "positioning")) {
+        b.rated_good = intOrNull(el.axPerfGood); b.rated_acceptable = intOrNull(el.axPerfAcceptable); b.rated_poor = intOrNull(el.axPerfPoor);
+        b.opportunities = [b.rated_good, b.rated_acceptable, b.rated_poor].every(isNum) ? b.rated_good + b.rated_acceptable + b.rated_poor : null;
+        b.criterion = el.axPerfCriterion.value.trim() || null;
+      }
       if (assessed && kind === "tactical_observation") { b.outcome = el.axPerfOutcome.value; b.instruction = el.axPerfInstruction.value.trim(); }
+      if (el.axPerfIdentity.value) b.identity = el.axPerfIdentity.value;
+      if (el.axPerfSupersedes.value) { b.supersedes = el.axPerfSupersedes.value; b.correction_reason = el.axPerfCorrection.value.trim() || null; }
       if (kind === "tactical_observation" && el.axPerfContext.value) b.coach_context_id = el.axPerfContext.value;
       [["role", el.axPerfRole], ["annotator", el.axPerfAnnotator], ["description", el.axPerfNote]].forEach(function(f) { var v = f[1].value.trim(); if (v) b[f[0]] = v; });
       var video = el.axPerfVideo.value.trim(), frame = intOrNull(el.axPerfFrame);
@@ -12599,8 +12656,119 @@ function initializePlayerFatigue(team) {
     }
     el.axPerfSubmit.addEventListener("click", submit);
     el.axPerfRefresh.addEventListener("click", load);
+    el.axPerfKind.addEventListener("change", function() { el.axPerfArea.value = AREA_OF[el.axPerfKind.value] || "execution"; });
     cards.push({ reset: function() { el.axPerfStart.value = ""; el.axPerfEnd.value = ""; clearView(); el.axPerfComposite.textContent = "Loading…"; }, poll: load, setWho: function(l) { el.axPerfWho.textContent = l; } });
     setInterval(function() { if (!reviewing()) load(); }, PERF_MS); // created once; recorded reviews refresh on demand
+  })();
+
+  // ---- Experimental review card (the recording under review, or the active recording in Live) ----
+  // One request: the engine's experimental substitution review at the chosen time, which carries the physiological index
+  // (with its baseline and per-signal measurements), the four-area performance composite, the roster and context in
+  // force, the recommendation and its history. Shown as the engine reports it; nothing is calculated here.
+  (function(){
+    var SUB_MS = 30000;
+    var ids = ["axSubCard", "axSubWho", "axSubRefresh", "axSubAt", "axSubGo", "axSubTarget", "axSubBanner", "axSubOutcome", "axSubReasons", "axSubReplacements",
+               "axSubMissing", "axSubPhys", "axSubMeasures", "axSubPerf", "axSubContext", "axSubHistory", "axSubStatus"];
+    var el = {};
+    for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
+    var sub = { seq: 0 };
+    var OUTCOME = { keep: "Keep", consider_replacement: "Consider replacement", review_later: "Review later", insufficient_evidence: "Insufficient evidence" };
+    var AREA = { execution: "Execution", decision_making: "Decision-making", movement_positioning: "Movement and positioning", coach_strategy: "Following coach strategy" };
+    var SIGNAL = { heart_rate_bpm: "heart rate (bpm)", breathing_rate_bpm: "breathing rate (/min)", hrv_rmssd_ms: "HRV RMSSD (ms)", hrv_sdnn_ms: "HRV SDNN (ms)", skin_temperature_c: "skin temperature (°C)", spo2_percent: "SpO2 (%)" };
+    var SOURCE = { human_annotation: "human annotation", human_review_of_camera: "human review of video" };
+    function setStatus(text, color) { el.axSubStatus.textContent = text; el.axSubStatus.style.color = color; }
+    function fill(target, rows, empty) {
+      target.textContent = "";
+      if (!rows.length) { target.textContent = empty; return; }
+      rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; d.style.marginBottom = "3px"; target.appendChild(d); });
+    }
+    function clearView(text) {
+      ["axSubOutcome", "axSubReasons", "axSubReplacements", "axSubMissing", "axSubPhys", "axSubMeasures", "axSubPerf", "axSubContext", "axSubHistory"].forEach(function(k) { el[k].textContent = DASH; });
+      el.axSubBanner.style.display = "none"; el.axSubBanner.textContent = "";
+      if (text !== undefined) setStatus(text, COLORS.muted);
+    }
+    function target() { // the same rule as the other recording cards: the reviewed recording read fresh, else the active one
+      if (sessionReview() && selection.session) {
+        var chosen = selection.session;
+        return fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(chosen.id), { cache: "no-store" }).then(function(res) { return res.ok ? res.json() : chosen; }).catch(function() { return chosen; });
+      }
+      return fetch(API_BASE + "/api/v1/recordings/active", { cache: "no-store" }).then(function(res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+        .then(function(b) { return b && b.recording && typeof b.recording === "object" ? b.recording : null; });
+    }
+    function num(v, unit) { return isNum(v) ? (Math.round(v * 100) / 100) + (unit || "") : NA; }
+    function counts(o) { return Object.keys(o || {}).map(function(k) { return (SOURCE[k] || k) + " " + o[k]; }).join(", "); }
+    function render(r) {
+      var phys = (r.player && r.player.physiology) || {}, perf = (r.player && r.player.performance) || {};
+      var banner = [];
+      if (r.fictional_configuration) banner.push("FICTIONAL configuration: the profiles in use are made-up test values, so this output is a software demonstration, not an assessment of a real athlete.");
+      var physSources = Object.keys(phys.window_sources || {}), perfSources = Object.keys(perf.sources || {});
+      if (physSources.length > 1 || perfSources.length > 1) banner.push("Mixed sources: physiology " + (counts(phys.window_sources) || "none") + "; performance " + (counts(perf.sources) || "none") + ".");
+      if (physSources.indexOf("simulated") >= 0) banner.push("Physiology includes simulated samples.");
+      el.axSubBanner.textContent = banner.join(" "); el.axSubBanner.style.display = banner.length ? "block" : "none";
+      el.axSubOutcome.textContent = (OUTCOME[r.outcome] || r.outcome) + " at " + availUtc(r.at) + (r.review_again_at ? " · review again at " + availUtc(r.review_again_at) : "") +
+        (r.cooldown && r.cooldown.held ? " · held by cooldown (rules alone now give " + (OUTCOME[r.cooldown.raw_outcome] || r.cooldown.raw_outcome) + ")" : "");
+      fill(el.axSubReasons, (r.reasons || []).concat((r.tradeoffs || []).map(function(t) { return "Tradeoff: " + t; }), (r.constraints_applied || []).map(function(t) { return "Constraint: " + t; }),
+        r.cooldown && r.cooldown.held ? ["Cooldown: " + r.cooldown.note] : []), DASH);
+      fill(el.axSubReplacements, (r.replacements || []).map(function(c) {
+        var p = c.physiology || {};
+        return c.athlete_id + " " + c.name + " · roles " + (c.able_roles.length ? c.able_roles.join(", ") : "not recorded") + " · role fit " + c.role_fit.replace(/_/g, " ") +
+          (c.blocked_reason ? " · coach: do not bring on (" + c.blocked_reason + ")" : "") +
+          " · physiology " + (p.available ? "index " + p.value + " (" + p.timing + ")" : "not available" + (p.note ? " (" + p.note + ")" : "")) + " · " + c.performance_evidence + " performance observations";
+      }), r.available === false ? "Not calculated." : "None listed (no replacement step at this time, or no bench athlete).");
+      fill(el.axSubMissing, r.missing || [], "Nothing missing.");
+      var b = phys.baseline;
+      fill(el.axSubPhys, phys.available || b || (phys.reasons || []).length ? [
+        "Experimental physiological index " + (phys.available ? phys.value + " of 100" : "not available") + (phys.timing ? " (" + phys.timing.replace("_", "-") + ")" : "") + (phys.state ? " · state " + phys.state.replace(/_/g, " ") : ""),
+        b ? "Baseline v" + b.version + " (" + b.status.replace("_", " ") + ", " + b.condition.replace("_", " ") + ", data " + availUtc(b.data_start) + " to " + availUtc(b.data_end) + ")" : "No usable baseline",
+        "Input coverage " + (isNum(phys.input_coverage) ? Math.round(phys.input_coverage * 100) + "% of the profile's weight" : NA)
+      ].concat((phys.signals || []).filter(function(sg) { return sg.available; }).map(function(sg) { return (SIGNAL[sg.signal] || sg.signal) + ": " + sg.transform.replace("_", "-") + " " + sg.transformed + " → score " + sg.score + ", contribution " + sg.contribution; }),
+               (phys.reasons || []).map(function(x) { return "Why: " + x; })) : [], DASH);
+      fill(el.axSubMeasures, (phys.signals || []).map(function(sg) {
+        return (SIGNAL[sg.signal] || sg.signal) + ": window mean " + num(sg.window_mean) + (isNum(sg.window_n) ? " (" + sg.window_n + " values, coverage " + num(sg.coverage) + (isNum(sg.newest_age_s) ? ", newest " + sg.newest_age_s + " s old" : "") + ")" : "") +
+          " · baseline mean " + num(sg.baseline_mean) + " SD " + num(sg.baseline_sd) + (isNum(sg.baseline_n) ? " (" + sg.baseline_n + " values)" : "") + (sg.available ? "" : " · unavailable: " + sg.reason);
+      }), "No measurements.");
+      var areas = perf.areas || {};
+      fill(el.axSubPerf, ["Composite " + (perf.available ? perf.value + " of 100" : "not available") + (perf.state ? " · state " + perf.state.replace(/_/g, " ") : "") + (perf.fictional_rubric ? " (fictional rubric)" : "")]
+        .concat(Object.keys(AREA).map(function(a) { return AREA[a] + ": " + (isNum(areas[a]) ? areas[a] : NA); }),
+                ["Evidence counted: " + ((perf.counted_observation_ids || []).length) + " observations" + (perf.sources ? " (" + (counts(perf.sources) || "none") + ")" : "") + (perf.identity_uncertain_excluded ? " · " + perf.identity_uncertain_excluded + " left out for uncertain identity" : "")],
+                (perf.available ? [] : (perf.reasons || []).map(function(x) { return "Why: " + x; }))), DASH);
+      var role = r.role || {};
+      fill(el.axSubContext, r.available === false ? [] : [
+        "Formation " + (role.formation || "not recorded") + " · team instruction " + (role.team_instruction ? "\"" + role.team_instruction + "\"" : "not recorded"),
+        "Role asked " + (role.required ? "\"" + role.required + "\" (from " + String(role.required_from).replace("_", " ") + ")" : "not recorded") + " · can play " + ((role.able_roles || []).join(", ") || "not recorded") +
+          " · fit " + (role.fit === true ? "yes" : role.fit === false ? "no" : "unknown")
+      ], DASH);
+      fill(el.axSubHistory, (r.history || []).map(function(h) {
+        return availUtc(h.at) + " · index " + (isNum(h.physiological_index) ? h.physiological_index : NA) + " (" + h.physiology_state.replace(/_/g, " ") + ") · composite " +
+          (isNum(h.performance_composite) ? h.performance_composite : NA) + " (" + h.performance_state.replace(/_/g, " ") + ") · " + (OUTCOME[h.outcome] || h.outcome) + (h.outcome !== h.raw_outcome ? " (held; rules gave " + (OUTCOME[h.raw_outcome] || h.raw_outcome) + ")" : "");
+      }), "No review points.");
+      setStatus(r.label + (r.rules ? " " + r.rules : ""), COLORS.muted);
+    }
+    function load() {
+      if (!dashboardVisible()) return;
+      var gen = selection.generation, my = ++sub.seq;
+      var stale = function() { return gen !== selection.generation || my !== sub.seq; };
+      if (selection.id === null) { clearView(noSelectionText()); return; }
+      var at = el.axSubAt.value.trim();
+      target().then(function(rec) {
+        if (stale()) return;
+        if (!rec) { el.axSubTarget.textContent = "No recording is active and none is under review. Open a recording with Review to see its experimental review."; clearView(""); return; }
+        el.axSubTarget.textContent = "Recording \"" + rec.name + "\" (" + rec.id + ", " + rec.status + ") · " + (selection.label || selection.id) + (at ? " · at " + at : " · at the recording's end (or now)");
+        var url = API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/athletes/" + encodeURIComponent(selection.id) + "/substitution-review" + (at ? "?at=" + encodeURIComponent(at) : "");
+        return fetch(url, { cache: "no-store" }).then(function(res) {
+          if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); });
+          return res.json();
+        }).then(function(r) { if (!stale()) render(r); });
+      }).catch(function(err) {
+        if (stale()) return;
+        clearView();
+        setStatus("The experimental review could not be read from " + API_BASE + " (" + err.message + ").", COLORS.error);
+      });
+    }
+    el.axSubGo.addEventListener("click", load);
+    el.axSubRefresh.addEventListener("click", load);
+    cards.push({ reset: function() { clearView(); el.axSubOutcome.textContent = "Loading…"; }, poll: load, setWho: function(l) { el.axSubWho.textContent = l; } });
+    setInterval(function() { if (!reviewing() && !el.axSubAt.value.trim()) load(); }, SUB_MS); // created once; recorded reviews refresh on demand
   })();
 
   // ---- start ----

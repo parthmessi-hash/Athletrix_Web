@@ -2007,21 +2007,24 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
   // ---- performance evidence card ----
   const PERF_IDS = ["axPerfCard", "axPerfWho", "axPerfRefresh", "axPerfTarget", "axPerfKind", "axPerfArea", "axPerfAssessment", "axPerfUnable", "axPerfStart", "axPerfEnd", "axPerfRole",
     "axPerfAttempts", "axPerfCompletions", "axPerfPossessions", "axPerfTurnovers", "axPerfOutcome", "axPerfInstruction", "axPerfContext", "axPerfSource", "axPerfReference",
-    "axPerfAnnotator", "axPerfVideo", "axPerfFrame", "axPerfNote", "axPerfSubmit", "axPerfFormStatus", "axPerfComposite", "axPerfAreas", "axPerfList", "axPerfStatus"];
-  const perfBoot = () => { const ctx = boot({ extra: PERF_IDS }); ctx.els.axPerfKind.value = "pass"; ctx.els.axPerfArea.value = "decision_making"; ctx.els.axPerfAssessment.value = "assessed"; ctx.els.axPerfUnable.value = "occluded";
-    ctx.els.axPerfOutcome.value = "followed"; ctx.els.axPerfSource.value = "human_annotation"; ctx.els.axPerfContext.value = ""; return ctx; };
-  const emptyArea = extra => Object.assign({ evidence: Object.assign({ observations: 0, assessed: 0, unable_to_assess: 0, unable_reasons: {}, no_opportunity: 0, sources: {}, reference_labels: 0 }, extra || {}), score: null });
+    "axPerfAnnotator", "axPerfVideo", "axPerfFrame", "axPerfNote", "axPerfSubmit", "axPerfFormStatus", "axPerfComposite", "axPerfAreas", "axPerfList", "axPerfStatus",
+    "axPerfGood", "axPerfAcceptable", "axPerfPoor", "axPerfCriterion", "axPerfIdentity", "axPerfSupersedes", "axPerfCorrection"];
+  const perfBoot = () => { const ctx = boot({ extra: PERF_IDS }); ctx.els.axPerfKind.value = "pass"; ctx.els.axPerfArea.value = "execution"; ctx.els.axPerfAssessment.value = "assessed"; ctx.els.axPerfUnable.value = "occluded";
+    ctx.els.axPerfOutcome.value = "followed"; ctx.els.axPerfSource.value = "human_annotation"; ctx.els.axPerfContext.value = ""; ctx.els.axPerfIdentity.value = ""; ctx.els.axPerfSupersedes.value = ""; return ctx; };
+  const emptyArea = extra => Object.assign({ evidence: Object.assign({ observations: 0, counted: 0, status: {}, unable_reasons: {}, sources: {}, reference_labels: 0 }, extra || {}), score: null });
   const perfReview = o => Object.assign({ recording_id: "rec-1", athlete: ROSTER[0], rubric: null,
     composite: { available: false, value: null, fictional_rubric: false, reasons: ["no performance rubric is configured (PERFORMANCE_RUBRIC_PATH): the team has not set scoring weights"] },
     areas: { execution: emptyArea({ passes: { attempts: 0, completions: 0, observations: 0 }, possessions: { possessions: 0, turnovers: 0, observations: 0 } }),
-             decision_making: emptyArea({ tactical: { observations: 0 } }), movement_positioning: emptyArea({ tactical: { observations: 0 } }), coach_strategy: emptyArea({ tactical: { observations: 0 } }) },
+             decision_making: emptyArea({ judged: { opportunities: 0, good: 0, acceptable: 0, poor: 0, observations: 0 } }), movement_positioning: emptyArea({ judged: { opportunities: 0, good: 0, acceptable: 0, poor: 0, observations: 0 } }),
+             coach_strategy: emptyArea({ tactical: { observations: 0 } }) },
     observations: [], rules: "Experimental evidence summary." }, o || {});
 
-  test("public mode hides the performance evidence card and requests nothing", async () => {
-    const ctx = boot({ hostname: "assistantcoachai.net", extra: PERF_IDS });
+  test("public mode hides the performance evidence and experimental review cards and requests nothing", async () => {
+    const ctx = boot({ hostname: "assistantcoachai.net", extra: PERF_IDS.concat(SUB_IDS) });
     await ctx.flush();
     assert.equal(ctx.pending.length, 0);
     assert.equal(ctx.els.axPerfCard.style.display, "none");
+    assert.equal(ctx.els.axSubCard.style.display, "none");
   });
 
   test("performance evidence: counts, unable reasons, linked instruction, source and an unavailable composite with its reason", async () => {
@@ -2032,12 +2035,12 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
       { id: "obs-1", recording_id: "rec-1", athlete_id: "a1", role: "left back", area: "execution", kind: "pass", period_start: iso(-600), period_end: iso(-300), assessment: "assessed", attempts: 10, completions: 7, evidence_source: "human_review_of_camera", reference_label: true, annotator: "fictional analyst", frames: [{ video: "match.mp4", frame: 1200 }], event_times: [], origin: "this_engine", created_at: iso(-200) },
       { id: "obs-2", recording_id: "rec-1", athlete_id: "a1", role: null, area: "coach_strategy", kind: "tactical_observation", period_start: iso(-300), period_end: iso(-100), assessment: "assessed", outcome: "partially_followed", instruction: "press after a loss", coach_context_id: "ctx-9", evidence_source: "human_annotation", reference_label: false, frames: [], event_times: [], origin: "this_engine", created_at: iso(-90) },
       { id: "obs-3", recording_id: "rec-1", athlete_id: "a1", role: null, area: "execution", kind: "turnover", period_start: iso(-100), period_end: iso(-50), assessment: "unable_to_assess", unable_reason: "off_camera", evidence_source: "human_annotation", reference_label: false, frames: [], event_times: [], origin: "this_engine", created_at: iso(-40) }] });
-    rv.areas.execution.evidence = Object.assign(rv.areas.execution.evidence, { observations: 2, assessed: 1, unable_to_assess: 1, unable_reasons: { off_camera: 1 }, passes: { attempts: 10, completions: 7, observations: 1 } });
+    rv.areas.execution.evidence = Object.assign(rv.areas.execution.evidence, { observations: 2, counted: 1, status: { counted: 1, unable_to_assess: 1 }, unable_reasons: { off_camera: 1 }, passes: { attempts: 10, completions: 7, observations: 1 } });
     await ctx.respond("/athletes/a1/performance-review", rv);
     await ctx.respond("/rec-1/context", [{ id: "ctx-9", athlete_id: null, effective_from: iso(-600), tactical_instruction: { status: "recorded", value: "press after a loss" } }]);
     assert.match(ctx.els.axPerfComposite.textContent, /^No rubric configured · composite not available: no performance rubric is configured/);
     const areas = texts(ctx.els.axPerfAreas);
-    assert.match(areas[0], /^Execution: 1 assessed · 1 unable to assess · 0 no opportunity · passes 7 of 10 · turnovers 0 in 0 possessions · unable reasons: off camera 1 · area score Not available/);
+    assert.match(areas[0], /^Execution: 1 counted · 1 unable to assess · 0 no opportunity · passes 7 of 10 · turnovers 0 in 0 possessions · unable reasons: off camera 1 · area score Not available/);
     const list = texts(ctx.els.axPerfList);
     assert.match(list[0], /pass · role left back · 7 of 10 passes completed · source human review of video \(reference label\), fictional analyst · frames match\.mp4#1200$/);
     assert.match(list[1], /partially followed: "press after a loss" · coach instruction: "press after a loss" · source human annotation$/);
@@ -2079,6 +2082,115 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await ctx.respond("/athletes/a2/performance-review", perfReview());
     await respondAll(ctx, "/rec-1/context", []);   // a1's context request is still pending too
     assert.equal(ctx.els.axPerfList.textContent, "No observations for this athlete yet.");
+  });
+
+  test("performance evidence: decisions and positioning have their own counts, corrections name what they replace, statuses are shown", async () => {
+    const ctx = perfBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const rv = perfReview({ observations: [
+      { id: "obs-1", athlete_id: "a1", role: null, area: "decision_making", kind: "decision", period_start: iso(-600), period_end: iso(-300), assessment: "assessed", opportunities: 4, rated_good: 2, rated_acceptable: 1, rated_poor: 1, criterion: "broke the press", evidence_source: "human_annotation", reference_label: false, frames: [], event_times: [], status: "superseded", superseded_by: "obs-2" },
+      { id: "obs-2", athlete_id: "a1", role: null, area: "decision_making", kind: "decision", period_start: iso(-600), period_end: iso(-300), assessment: "assessed", opportunities: 4, rated_good: 3, rated_acceptable: 1, rated_poor: 0, criterion: "broke the press", evidence_source: "human_review_of_camera", identity: "uncertain", supersedes: "obs-1", correction_reason: "recounted", reference_label: false, frames: [], event_times: [], status: "identity_uncertain" }] });
+    rv.areas.decision_making.evidence = Object.assign(rv.areas.decision_making.evidence, { observations: 2, counted: 0, status: { superseded: 1, identity_uncertain: 1 } });
+    await ctx.respond("/athletes/a1/performance-review", rv);
+    await ctx.respond("/rec-1/context", []);
+    const list = texts(ctx.els.axPerfList);
+    assert.match(list[0], /2 good, 1 acceptable, 1 poor of 4 against "broke the press" .* superseded \(kept as history, not counted\) by obs-2$/);
+    assert.match(list[1], /identity uncertain · corrects obs-1 \(recounted\) · player identity uncertain \(not scored\)$/);
+    assert.match(texts(ctx.els.axPerfAreas)[1], /^Decision-making: 0 counted · 0 unable to assess · 0 no opportunity · 1 superseded · 1 identity uncertain/);
+    assert.deepEqual(ctx.els.axPerfSupersedes.children.map(o => o.value), ["", "obs-2"], "only the latest version can be corrected");
+    ctx.els.axPerfKind.value = "decision"; ctx.els.axPerfKind.dispatch("change");
+    assert.equal(ctx.els.axPerfArea.value, "decision_making", "the area follows the event kind");
+    ctx.els.axPerfEnd.value = iso(-60); ctx.els.axPerfGood.value = "3"; ctx.els.axPerfAcceptable.value = "1"; ctx.els.axPerfPoor.value = "1"; ctx.els.axPerfCriterion.value = "broke the press";
+    ctx.els.axPerfIdentity.value = "confirmed"; ctx.els.axPerfSupersedes.value = "obs-2"; ctx.els.axPerfCorrection.value = "identity confirmed from a second angle";
+    await click(ctx, "axPerfSubmit");
+    const b = JSON.parse(ctx.pending.find(p => p.opts.method === "POST").opts.body);
+    assert.deepEqual([b.area, b.opportunities, b.rated_good, b.rated_acceptable, b.rated_poor, b.criterion, b.identity, b.supersedes, b.correction_reason, "attempts" in b],
+      ["decision_making", 5, 3, 1, 1, "broke the press", "confirmed", "obs-2", "identity confirmed from a second angle", false]);
+  });
+
+  // ---- experimental review card ----
+  const SUB_IDS = ["axSubCard", "axSubWho", "axSubRefresh", "axSubAt", "axSubGo", "axSubTarget", "axSubBanner", "axSubOutcome", "axSubReasons", "axSubReplacements",
+    "axSubMissing", "axSubPhys", "axSubMeasures", "axSubPerf", "axSubContext", "axSubHistory", "axSubStatus"];
+  const subReview = o => Object.assign({ recording_id: "rec-1", athlete_id: "a1", at: iso(-60), label: "Experimental substitution review: the coach decides.", available: true,
+    outcome: "consider_replacement", raw_outcome: "consider_replacement", cooldown: null, fictional_configuration: true, triggers: ["performance_decline"],
+    reasons: ["performance composite below 45 for at least 3 consecutive review points (now 36.05)", "2 role-compatible replacement(s) on the bench"],
+    tradeoffs: [], constraints_applied: ["coach constraint: do not bring on b04 (fictional)"], missing: ["substitutions remaining: unknown"], review_again_at: null,
+    role: { required: "central midfielder", required_from: "roster", able_roles: ["central midfielder"], fit: true, formation: "4-3-3", team_instruction: "press high" },
+    replacements: [{ athlete_id: "b01", name: "Fictional Bench A", able_roles: ["central midfielder"], role_fit: "fits", blocked_reason: null, performance_evidence: 0, physiology: { available: true, value: 12.5, timing: "live_time" } },
+                   { athlete_id: "b02", name: "Fictional Bench B", able_roles: ["central midfielder"], role_fit: "fits", blocked_reason: null, performance_evidence: 0, physiology: { available: false, value: null, note: "no comparison available; missing physiology is not evidence that this athlete is fresh" } }],
+    player: { physiology: { state: "normal", available: true, value: 47.25, timing: "live_time", input_coverage: 1, window_sources: { wearable: 60 }, reasons: [],
+                            baseline: { id: "bl-1", version: 1, status: "accepted", condition: "seated_rest", data_start: iso(-3000), data_end: iso(-2700) },
+                            signals: [{ signal: "heart_rate_bpm", available: true, transform: "z_score", transformed: 27.1, score: 50.6, contribution: 25.3, window_mean: 146.2, window_n: 59, coverage: 0.98, newest_age_s: 0, baseline_mean: 62.3, baseline_sd: 3.1, baseline_n: 270 },
+                                      { signal: "hrv_rmssd_ms", available: false, reason: "no usable values in the window", window_n: 0, coverage: 0, baseline_mean: 64, baseline_sd: 8, baseline_n: 270 }] },
+              performance: { state: "concern", available: true, value: 36.05, fictional_rubric: true, areas: { execution: 30, decision_making: 40, movement_positioning: 35, coach_strategy: 39.2 }, counted_observation_ids: ["o1", "o2"], identity_uncertain_excluded: 0, sources: { human_annotation: 2 }, reasons: [] } },
+    history: [{ at: iso(-120), physiological_index: 46, physiology_state: "normal", performance_composite: 40, performance_state: "concern", raw_outcome: "consider_replacement", outcome: "consider_replacement" },
+              { at: iso(-60), physiological_index: null, physiology_state: "unavailable", performance_composite: 36.05, performance_state: "concern", raw_outcome: "keep", outcome: "consider_replacement" }],
+    rules: "See app/core/substitution.py." }, o || {});
+  const subBoot = () => boot({ extra: SUB_IDS });
+
+  test("experimental review: outcome, fictional banner, replacements without physiology, missing evidence, measurements apart from interpretation, history", async () => {
+    const ctx = subBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/athletes/a1/substitution-review", subReview());
+    assert.match(ctx.els.axSubOutcome.textContent, /^Consider replacement at /);
+    assert.match(ctx.els.axSubBanner.textContent, /^FICTIONAL configuration/);
+    assert.equal(ctx.els.axSubBanner.style.display, "block");
+    const reps = texts(ctx.els.axSubReplacements);
+    assert.match(reps[0], /^b01 Fictional Bench A · roles central midfielder · role fit fits · physiology index 12.5 \(live_time\) · 0 performance observations$/);
+    assert.match(reps[1], /physiology not available \(no comparison available; missing physiology is not evidence that this athlete is fresh\)/);
+    assert.deepEqual(texts(ctx.els.axSubMissing), ["substitutions remaining: unknown"]);
+    assert.match(texts(ctx.els.axSubReasons)[2], /^Constraint: coach constraint: do not bring on b04/);
+    const phys = texts(ctx.els.axSubPhys), meas = texts(ctx.els.axSubMeasures);
+    assert.match(phys[0], /^Experimental physiological index 47.25 of 100 \(live-time\) · state normal$/);
+    assert.match(phys[1], /^Baseline v1 \(accepted, seated rest, data /);
+    assert.ok(phys.some(t => /heart rate \(bpm\): z-score 27.1 → score 50.6, contribution 25.3/.test(t)), "interpretation lines carry the transformation");
+    assert.match(meas[0], /^heart rate \(bpm\): window mean 146.2 \(59 values, coverage 0.98, newest 0 s old\) · baseline mean 62.3 SD 3.1 \(270 values\)$/);
+    assert.ok(!meas.some(t => /score/.test(t)), "measurements carry no interpretation");
+    assert.match(meas[1], /unavailable: no usable values in the window$/);
+    assert.match(texts(ctx.els.axSubPerf)[0], /^Composite 36.05 of 100 · state concern \(fictional rubric\)$/);
+    assert.match(texts(ctx.els.axSubContext)[1], /^Role asked "central midfielder" \(from roster\) · can play central midfielder · fit yes$/);
+    const hist = texts(ctx.els.axSubHistory);
+    assert.match(hist[1], /index Not available \(unavailable\) · composite 36.05 \(concern\) · Consider replacement \(held; rules gave Keep\)$/);
+  });
+
+  test("experimental review: the chosen time is sent, an engine refusal is shown, an unconfigured engine explains itself", async () => {
+    const ctx = subBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/athletes/a1/substitution-review", subReview());
+    ctx.els.axSubAt.value = iso(-300);
+    await click(ctx, "axSubGo");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const req = ctx.pending.find(p => p.url.includes("/substitution-review"));
+    assert.ok(req.url.endsWith("?at=" + encodeURIComponent(iso(-300))), req.url);
+    await ctx.respond("/substitution-review", { detail: "the review time must lie within recording 'rec-1'" }, 422);
+    assert.match(ctx.els.axSubStatus.textContent, /could not be read .*the review time must lie within recording 'rec-1'/);
+    assert.equal(ctx.els.axSubOutcome.textContent, "—");
+    ctx.els.axSubAt.value = "";
+    await click(ctx, "axSubRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/substitution-review", { recording_id: "rec-1", athlete_id: "a1", at: iso(0), label: "Experimental substitution review.", available: false, outcome: "insufficient_evidence", fictional_configuration: false,
+      reasons: ["no experimental substitution profile is configured (SUBSTITUTION_PROFILE_PATH); no recommendation is calculated"], missing: [], tradeoffs: [], replacements: [], history: [] });
+    assert.match(ctx.els.axSubOutcome.textContent, /^Insufficient evidence/);
+    assert.match(texts(ctx.els.axSubReasons)[0], /no experimental substitution profile is configured/);
+    assert.equal(ctx.els.axSubReplacements.textContent, "Not calculated.");
+    assert.equal(ctx.els.axSubBanner.style.display, "none");
+  });
+
+  test("experimental review: a late review for the previous athlete never reaches the new athlete's card", async () => {
+    const ctx = subBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const old = ctx.pending.find(p => p.url.includes("/athletes/a1/substitution-review"));
+    await select(ctx, "a2");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.resolveLate(old, subReview({ outcome: "keep" }));
+    assert.ok(!/^Keep/.test(ctx.els.axSubOutcome.textContent), "a1's late review is dropped");
+    await ctx.respond("/athletes/a2/substitution-review", subReview({ athlete_id: "a2", outcome: "review_later", review_again_at: iso(240), replacements: [] }));
+    assert.match(ctx.els.axSubOutcome.textContent, /^Review later at .* · review again at /);
+    assert.match(ctx.els.axSubReplacements.textContent, /^None listed/);
   });
 
   // ---- run --------------------------------------------------------------------------------------------
