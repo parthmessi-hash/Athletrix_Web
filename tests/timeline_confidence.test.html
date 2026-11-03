@@ -2111,7 +2111,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
 
   // ---- experimental review card ----
   const SUB_IDS = ["axSubCard", "axSubWho", "axSubRefresh", "axSubAt", "axSubGo", "axSubTarget", "axSubBanner", "axSubOutcome", "axSubReasons", "axSubReplacements",
-    "axSubMissing", "axSubPhys", "axSubMeasures", "axSubPerf", "axSubContext", "axSubHistory", "axSubStatus"];
+    "axSubMissing", "axSubPhys", "axSubMeasures", "axSubPerf", "axSubContext", "axSubHistory", "axSubStatus",
+    "axSubKnowledge", "axSubKnowledgeLabel", "axSubSave", "axSubSaveStatus", "axSubSaved"];
   const subReview = o => Object.assign({ recording_id: "rec-1", athlete_id: "a1", at: iso(-60), label: "Experimental substitution review: the coach decides.", available: true,
     outcome: "consider_replacement", raw_outcome: "consider_replacement", cooldown: null, fictional_configuration: true, triggers: ["performance_decline"],
     reasons: ["performance composite below 45 for at least 3 consecutive review points (now 36.05)", "2 role-compatible replacement(s) on the bench"],
@@ -2126,8 +2127,9 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
               performance: { state: "concern", available: true, value: 36.05, fictional_rubric: true, areas: { execution: 30, decision_making: 40, movement_positioning: 35, coach_strategy: 39.2 }, counted_observation_ids: ["o1", "o2"], identity_uncertain_excluded: 0, sources: { human_annotation: 2 }, reasons: [] } },
     history: [{ at: iso(-120), physiological_index: 46, physiology_state: "normal", performance_composite: 40, performance_state: "concern", raw_outcome: "consider_replacement", outcome: "consider_replacement" },
               { at: iso(-60), physiological_index: null, physiology_state: "unavailable", performance_composite: 36.05, performance_state: "concern", raw_outcome: "keep", outcome: "consider_replacement" }],
-    rules: "See app/core/substitution.py." }, o || {});
-  const subBoot = () => boot({ extra: SUB_IDS });
+    rules: "See app/core/substitution.py.",
+    knowledge: { mode: "retrospective", later_entered: { performance_observations: 3 }, label: "Retrospective: this result uses evidence entered after the review time (3 performance observations)" } }, o || {});
+  const subBoot = () => { const ctx = boot({ extra: SUB_IDS }); ctx.els.axSubKnowledge.value = "retrospective"; return ctx; };
 
   test("experimental review: outcome, fictional banner, replacements without physiology, missing evidence, measurements apart from interpretation, history", async () => {
     const ctx = subBoot();
@@ -2191,6 +2193,49 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await ctx.respond("/athletes/a2/substitution-review", subReview({ athlete_id: "a2", outcome: "review_later", review_again_at: iso(240), replacements: [] }));
     assert.match(ctx.els.axSubOutcome.textContent, /^Review later at .* · review again at /);
     assert.match(ctx.els.axSubReplacements.textContent, /^None listed/);
+  });
+
+  test("experimental review: retrospective results are labelled, as-entered is requested, and a saved review is listed and reproduced", async () => {
+    const ctx = subBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/reviews?athlete_id=a1", []);
+    await ctx.respond("/athletes/a1/substitution-review", subReview());
+    assert.match(ctx.els.axSubKnowledgeLabel.textContent, /^Retrospective: this result uses evidence entered after the review time/);
+    assert.equal(ctx.els.axSubSaved.textContent, "No saved reviews for this athlete in this recording.");
+    ctx.els.axSubKnowledge.value = "as_entered"; ctx.els.axSubKnowledge.dispatch("change"); await ctx.flush();
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    assert.ok(ctx.pending.find(p => p.url.includes("/substitution-review")).url.endsWith("?knowledge=as_entered"));
+    await ctx.respond("/reviews?athlete_id=a1", []);
+    await ctx.respond("/substitution-review", subReview({ knowledge: { mode: "as_entered", later_entered: {}, label: "As entered: only evidence entered by the review time was used" } }));
+    assert.match(ctx.els.axSubKnowledgeLabel.textContent, /^As entered/);
+    await click(ctx, "axSubSave");
+    const post = ctx.pending.find(p => p.opts.method === "POST");
+    assert.ok(post.url.endsWith("/recordings/rec-1/athletes/a1/reviews"));
+    assert.deepEqual(JSON.parse(post.opts.body), { kind: "substitution", at: iso(-60), knowledge: "as_entered" });
+    ctx.pending.splice(ctx.pending.indexOf(post), 1);
+    post.resolve({ ok: true, status: 201, json: async () => ({ id: "rev-1" }) });
+    await ctx.flush();
+    assert.match(ctx.els.axSubSaveStatus.textContent, /^Saved rev-1/);
+    await ctx.respond("/reviews?athlete_id=a1", [{ id: "rev-1", recording_id: "rec-1", athlete_id: "a1", kind: "substitution", at: iso(-60), origin: "this_engine", inputs: { knowledge: "as_entered" }, result: { outcome: "consider_replacement" } }]);
+    const row = ctx.els.axSubSaved.children[0];
+    assert.match(row.children[0].textContent, /substitution · as_entered · Consider replacement · rev-1/);
+    row.children[1].dispatch("click"); await ctx.flush();
+    await ctx.respond("/reviews/rev-1/reproduce", { status: "evidence_changed", explanation: "recorded samples differ from the saved digest for a1", configuration_differs_from_current: { substitution: true, physiological_index: false } });
+    assert.match(row.children[2].textContent, /^ EVIDENCE CHANGED: recorded samples differ from the saved digest for a1 \(the engine's current substitution differs; the saved one was used\)$/);
+  });
+
+  test("experimental review: a reproduction answer for the previous athlete is dropped", async () => {
+    const ctx = subBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/reviews?athlete_id=a1", [{ id: "rev-9", recording_id: "rec-1", athlete_id: "a1", kind: "physiological_index", at: iso(-60), inputs: {}, result: { value: 50 } }]);
+    const row = ctx.els.axSubSaved.children[0];
+    row.children[1].dispatch("click"); await ctx.flush();
+    const rep = ctx.pending.find(p => p.url.includes("/reproduce"));
+    await select(ctx, "a2");
+    await ctx.resolveLate(rep, { status: "reproduced", explanation: "same", configuration_differs_from_current: {} });
+    assert.equal(row.children[2].textContent, " reproducing…", "a1's late answer is not written after the switch");
   });
 
   // ---- run --------------------------------------------------------------------------------------------

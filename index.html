@@ -3927,8 +3927,11 @@
           </div>
           <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px;margin-bottom:6px;">
             <label class="card-sub" style="margin:0;font-size:0.8rem;">Review time (UTC, ISO 8601; empty = the recording's end, or now)<br><input id="axSubAt" type="text" class="login-input" style="width:260px;font-family:monospace;"></label>
+            <label class="card-sub" style="margin:0;font-size:0.8rem;">Evidence<br><select id="axSubKnowledge" class="coach-select"><option value="retrospective">everything stored now (retrospective)</option><option value="as_entered">only what was entered by then (as entered)</option></select></label>
             <button type="button" id="axSubGo" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Review</button>
+            <button type="button" id="axSubSave" class="btn btn-ghost" style="padding:6px 14px;font-size:0.82rem;">Save this review</button>
           </div>
+          <div class="card-sub" id="axSubKnowledgeLabel" style="margin-bottom:6px;font-size:0.78rem;"></div>
           <div class="card-sub" id="axSubTarget" style="margin-bottom:6px;">Looking for a recording&hellip;</div>
           <div class="card-sub" id="axSubBanner" style="display:none;margin-bottom:6px;padding:6px 8px;border-radius:6px;background:rgba(245,158,11,0.15);color:#fbbf24;font-size:0.78rem;"></div>
           <div id="axSubOutcome" style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:4px;">&mdash;</div>
@@ -3944,6 +3947,9 @@
             <div><div class="card-sub" style="margin:0 0 2px;color:#fff;">Coach context and roster state</div><div class="card-sub" id="axSubContext" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div></div>
           </div>
           <details style="margin-top:6px;"><summary class="card-sub" style="cursor:pointer;margin:0;">History of review points (index, composite, states, output)</summary><div class="card-sub" id="axSubHistory" style="font-family:monospace;font-size:0.74rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
+          <details style="margin-top:6px;"><summary class="card-sub" style="cursor:pointer;margin:0;">Saved reviews of this athlete (reproduced from their pinned profiles and evidence)</summary>
+            <div class="card-sub" id="axSubSaveStatus" style="margin-top:4px;font-size:0.76rem;"></div>
+            <div class="card-sub" id="axSubSaved" style="font-size:0.76rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
           <div class="card-sub" id="axSubStatus" style="margin-top:6px;font-size:0.76rem;"></div>
         </div>
         <div class="card" id="axEffortCard" style="display:none;margin-bottom:24px;border-left:4px solid #3b82f6;">
@@ -12668,10 +12674,12 @@ function initializePlayerFatigue(team) {
   (function(){
     var SUB_MS = 30000;
     var ids = ["axSubCard", "axSubWho", "axSubRefresh", "axSubAt", "axSubGo", "axSubTarget", "axSubBanner", "axSubOutcome", "axSubReasons", "axSubReplacements",
-               "axSubMissing", "axSubPhys", "axSubMeasures", "axSubPerf", "axSubContext", "axSubHistory", "axSubStatus"];
+               "axSubMissing", "axSubPhys", "axSubMeasures", "axSubPerf", "axSubContext", "axSubHistory", "axSubStatus",
+               "axSubKnowledge", "axSubKnowledgeLabel", "axSubSave", "axSubSaveStatus", "axSubSaved"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
-    var sub = { seq: 0 };
+    var sub = { seq: 0, rec: null, last: null, busy: false };
+    var REPRO = { reproduced: "reproduced", differs: "DIFFERS (calculation code changed)", evidence_changed: "EVIDENCE CHANGED" };
     var OUTCOME = { keep: "Keep", consider_replacement: "Consider replacement", review_later: "Review later", insufficient_evidence: "Insufficient evidence" };
     var AREA = { execution: "Execution", decision_making: "Decision-making", movement_positioning: "Movement and positioning", coach_strategy: "Following coach strategy" };
     var SIGNAL = { heart_rate_bpm: "heart rate (bpm)", breathing_rate_bpm: "breathing rate (/min)", hrv_rmssd_ms: "HRV RMSSD (ms)", hrv_sdnn_ms: "HRV SDNN (ms)", skin_temperature_c: "skin temperature (°C)", spo2_percent: "SpO2 (%)" };
@@ -12683,7 +12691,8 @@ function initializePlayerFatigue(team) {
       rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; d.style.marginBottom = "3px"; target.appendChild(d); });
     }
     function clearView(text) {
-      ["axSubOutcome", "axSubReasons", "axSubReplacements", "axSubMissing", "axSubPhys", "axSubMeasures", "axSubPerf", "axSubContext", "axSubHistory"].forEach(function(k) { el[k].textContent = DASH; });
+      ["axSubOutcome", "axSubReasons", "axSubReplacements", "axSubMissing", "axSubPhys", "axSubMeasures", "axSubPerf", "axSubContext", "axSubHistory", "axSubSaved"].forEach(function(k) { el[k].textContent = DASH; });
+      el.axSubKnowledgeLabel.textContent = ""; sub.last = null; el.axSubSave.disabled = true;
       el.axSubBanner.style.display = "none"; el.axSubBanner.textContent = "";
       if (text !== undefined) setStatus(text, COLORS.muted);
     }
@@ -12742,19 +12751,73 @@ function initializePlayerFatigue(team) {
         return availUtc(h.at) + " · index " + (isNum(h.physiological_index) ? h.physiological_index : NA) + " (" + h.physiology_state.replace(/_/g, " ") + ") · composite " +
           (isNum(h.performance_composite) ? h.performance_composite : NA) + " (" + h.performance_state.replace(/_/g, " ") + ") · " + (OUTCOME[h.outcome] || h.outcome) + (h.outcome !== h.raw_outcome ? " (held; rules gave " + (OUTCOME[h.raw_outcome] || h.raw_outcome) + ")" : "");
       }), "No review points.");
+      var k = r.knowledge;
+      el.axSubKnowledgeLabel.textContent = k ? k.label : "";
+      el.axSubKnowledgeLabel.style.color = k && k.mode === "retrospective" && Object.keys(k.later_entered || {}).length ? COLORS.warn : COLORS.muted;
+      sub.last = r; el.axSubSave.disabled = r.available === false;
       setStatus(r.label + (r.rules ? " " + r.rules : ""), COLORS.muted);
+    }
+    function renderSaved(list, gen) {
+      el.axSubSaved.textContent = "";
+      if (!list.length) { el.axSubSaved.textContent = "No saved reviews for this athlete in this recording."; return; }
+      list.forEach(function(v) {
+        var row = document.createElement("div"); row.style.marginBottom = "4px";
+        var res = v.result || {};
+        var text = document.createElement("span");
+        text.textContent = availUtc(v.at) + " · " + v.kind.replace("_", " ") + " · " + (v.inputs && v.inputs.knowledge || "retrospective") + " · " +
+          (v.kind === "substitution" ? (OUTCOME[res.outcome] || res.outcome) : v.kind === "physiological_index" ? "index " + (isNum(res.value) ? res.value : NA) : "composite " + (res.composite && res.composite.available ? res.composite.value : NA)) +
+          (v.origin === "source_engine" ? " · imported" : "") + " · " + v.id + " ";
+        var btn = document.createElement("button"); btn.type = "button"; btn.className = "btn btn-ghost"; btn.textContent = "Reproduce";
+        var out = document.createElement("span");
+        btn.addEventListener("click", function() {
+          out.textContent = " reproducing…";
+          fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(v.recording_id) + "/reviews/" + encodeURIComponent(v.id) + "/reproduce", { cache: "no-store" }).then(function(res) {
+            if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); }); return res.json();
+          }).then(function(rp) {
+            if (gen !== selection.generation) return;
+            var changed = Object.keys(rp.configuration_differs_from_current || {}).filter(function(x) { return rp.configuration_differs_from_current[x]; });
+            out.textContent = " " + (REPRO[rp.status] || rp.status) + ": " + rp.explanation + (changed.length ? " (the engine's current " + changed.join(", ") + " differs; the saved one was used)" : "");
+            out.style.color = rp.status === "reproduced" ? COLORS.live : COLORS.error;
+          }).catch(function(err) { if (gen === selection.generation) { out.textContent = " not reproduced: " + err.message; out.style.color = COLORS.error; } });
+        });
+        row.appendChild(text); row.appendChild(btn); row.appendChild(out); el.axSubSaved.appendChild(row);
+      });
+    }
+    function loadSaved(rec, gen) {
+      return fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/reviews?athlete_id=" + encodeURIComponent(selection.id), { cache: "no-store" }).then(function(res) {
+        if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); }); return res.json();
+      }).then(function(list) { if (gen === selection.generation) renderSaved(list, gen); })
+        .catch(function(err) { if (gen === selection.generation) el.axSubSaved.textContent = "Saved reviews could not be read (" + err.message + ")."; });
+    }
+    function save() {
+      if (sub.busy || !sub.last || !sub.rec || selection.id === null) return;
+      var rec = sub.rec, gen = selection.generation, at = sub.last.at, knowledge = el.axSubKnowledge.value;
+      sub.busy = true; el.axSubSave.disabled = true; el.axSubSaveStatus.textContent = "Saving…"; el.axSubSaveStatus.style.color = COLORS.muted;
+      fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/athletes/" + encodeURIComponent(selection.id) + "/reviews",
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "substitution", at: at, knowledge: knowledge }) }).then(function(res) {
+        if (res.status === 201) return res.json().then(function(v) {
+          if (gen !== selection.generation) return;
+          el.axSubSaveStatus.textContent = "Saved " + v.id + " with the profiles and evidence in force now."; el.axSubSaveStatus.style.color = COLORS.live; return loadSaved(rec, gen); });
+        return rejectionText(res).then(function(why) { if (gen === selection.generation) { el.axSubSaveStatus.textContent = "Not saved: " + why; el.axSubSaveStatus.style.color = COLORS.error; } });
+      }).catch(function() { if (gen === selection.generation) { el.axSubSaveStatus.textContent = "Not saved: cannot reach the engine at " + API_BASE + "."; el.axSubSaveStatus.style.color = COLORS.error; } })
+        .then(function() { sub.busy = false; el.axSubSave.disabled = !sub.last || sub.last.available === false; });
     }
     function load() {
       if (!dashboardVisible()) return;
       var gen = selection.generation, my = ++sub.seq;
       var stale = function() { return gen !== selection.generation || my !== sub.seq; };
       if (selection.id === null) { clearView(noSelectionText()); return; }
-      var at = el.axSubAt.value.trim();
+      var at = el.axSubAt.value.trim(), knowledge = el.axSubKnowledge.value;
       target().then(function(rec) {
         if (stale()) return;
+        sub.rec = rec;
         if (!rec) { el.axSubTarget.textContent = "No recording is active and none is under review. Open a recording with Review to see its experimental review."; clearView(""); return; }
         el.axSubTarget.textContent = "Recording \"" + rec.name + "\" (" + rec.id + ", " + rec.status + ") · " + (selection.label || selection.id) + (at ? " · at " + at : " · at the recording's end (or now)");
-        var url = API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/athletes/" + encodeURIComponent(selection.id) + "/substitution-review" + (at ? "?at=" + encodeURIComponent(at) : "");
+        var q = [];
+        if (at) q.push("at=" + encodeURIComponent(at));
+        if (knowledge === "as_entered") q.push("knowledge=as_entered");
+        var url = API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/athletes/" + encodeURIComponent(selection.id) + "/substitution-review" + (q.length ? "?" + q.join("&") : "");
+        loadSaved(rec, gen);
         return fetch(url, { cache: "no-store" }).then(function(res) {
           if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); });
           return res.json();
@@ -12767,6 +12830,8 @@ function initializePlayerFatigue(team) {
     }
     el.axSubGo.addEventListener("click", load);
     el.axSubRefresh.addEventListener("click", load);
+    el.axSubSave.addEventListener("click", save);
+    el.axSubKnowledge.addEventListener("change", load);
     cards.push({ reset: function() { clearView(); el.axSubOutcome.textContent = "Loading…"; }, poll: load, setWho: function(l) { el.axSubWho.textContent = l; } });
     setInterval(function() { if (!reviewing() && !el.axSubAt.value.trim()) load(); }, SUB_MS); // created once; recorded reviews refresh on demand
   })();

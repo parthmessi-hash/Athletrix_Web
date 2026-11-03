@@ -158,8 +158,11 @@ review time; possible replacements with role fit and their physiology (missing b
 available, never as freshness); missing evidence and why; the experimental physiological index with its baseline and
 coverage, apart from the recorded window and baseline measurements; the four-area performance scores; the role,
 formation and instruction in force; and the history of review points. A banner marks FICTIONAL profiles and mixed
-sources. Nothing is calculated in the browser, it is hidden in public mode, and the engine returns "insufficient
-evidence" when no profile is configured.
+sources. An Evidence choice switches between everything stored now (labelled retrospective when it uses evidence
+entered after the review time) and only what had been entered by then. "Save this review" stores it on the engine with
+its profiles and evidence; the saved list can reproduce each one and shows whether it reproduced, its evidence changed,
+or the calculation differs. Nothing is calculated in the browser, it is hidden in public mode, and the engine returns
+"insufficient evidence" when no profile is configured.
 
 **Performance evidence** (below Coach context) enters and shows individual-performance evidence for the recording
 under review, or the active recording in Live, for the selected athlete. Each area has its own evidence: a pass count
@@ -763,7 +766,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "80 tests, 80 passed" (experimental review: outcome, fictional banner, replacements without physiology,
+Expect "82 tests, 82 passed" (experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
 missing evidence, measurements apart from interpretation, history and cooldown holds, the chosen review time, refusals,
 an unconfigured engine, late replies; performance evidence: decision and positioning counts, corrections and statuses; counts, states, sources, linked instructions, unavailable composite, request bodies, refusals, late replies, hidden in public mode; coach context default effective time with a microsecond start and a sub-second recording; camera review: segments, gaps, breaks, stale and failed windows, late replies, the local track file; coach context: entries in force, request bodies, refusals, no recording; inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
 runner fails a test that does not finish within 10 s and yields through a
