@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Athletrix video review (local)</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #0b1220; color: #e5e7eb; font: 14px/1.5 system-ui, -apple-system, sans-serif; }
+  h1 { font-size: 1.1rem; margin: 0 0 4px; color: #fff; }
+  .note { color: #9ca3af; font-size: 0.8rem; margin: 0 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; margin: 6px 0; }
+  label { font-size: 0.8rem; color: #cbd5e1; }
+  input, select, button { font: inherit; background: #111827; color: #e5e7eb; border: 1px solid #334155; border-radius: 6px; padding: 4px 8px; }
+  button { cursor: pointer; } button:disabled { opacity: 0.5; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #f59e0b; outline-offset: 1px; }
+  #stage { position: relative; max-width: 100%; background: #000; }
+  #stage video, #stage canvas { display: block; width: 100%; height: auto; }
+  #stage canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .panel { border: 1px solid #1f2937; border-radius: 8px; padding: 8px; margin-top: 8px; }
+  .tracks button { margin: 2px; }
+  .mono { font-family: ui-monospace, monospace; font-size: 0.78rem; }
+  #status { margin-top: 6px; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<h1>Video review (local)</h1>
+<p class="note">Open a video and its tracked observations from this computer. Nothing is uploaded: the video plays from an object URL in this tab. Confirm who each temporary track is, from a frame onwards; after a close encounter between two tracked people the identity needs confirming again. Being visible again after the release period is not a confirmation. Identities you mark uncertain are kept for audit and never used for an athlete. A file's SHA-256 identifies the file; it is not permission to use it and not proof of when it was recorded.</p>
+<div class="row">
+  <label>Video file<br><input id="vrVideoFile" type="file" accept="video/*"></label>
+  <label>Observations (JSON Lines)<br><input id="vrObsFile" type="file" accept=".jsonl,.json,application/json"></label>
+  <label>Existing assignments (optional)<br><input id="vrAssignFile" type="file" accept=".json,application/json"></label>
+  <label>Operator (your name or initials)<br><input id="vrOperator" type="text" maxlength="80" style="width:150px"></label>
+</div>
+<div id="stage"><video id="vrVideo" preload="auto" muted playsinline></video><canvas id="vrCanvas"></canvas></div>
+<div class="row">
+  <button type="button" id="vrBack1s" aria-label="Back one second">−1 s</button>
+  <button type="button" id="vrBack1" aria-label="Back one frame">−1 frame</button>
+  <label>Frame<br><input id="vrFrame" type="number" min="0" value="0" style="width:90px"></label>
+  <button type="button" id="vrFwd1" aria-label="Forward one frame">+1 frame</button>
+  <button type="button" id="vrFwd1s" aria-label="Forward one second">+1 s</button>
+  <span id="vrTime" class="mono"></span>
+</div>
+<div class="panel">
+  <div>Tracks in this frame (choose one): <span id="vrTracks" class="tracks"></span></div>
+  <div class="row">
+    <label>Selected track<br><input id="vrTrack" type="text" readonly style="width:90px"></label>
+    <label>Athlete id<br><input id="vrAthlete" type="text" maxlength="128" style="width:150px"></label>
+    <button type="button" id="vrConfirm">Confirm identity from this frame</button>
+    <button type="button" id="vrUncertain">Mark identity uncertain from this frame</button>
+    <button type="button" id="vrEnd">End assignment at this frame</button>
+  </div>
+  <div id="vrTrackState" class="mono"></div>
+</div>
+<div class="panel">
+  <div>Assignments and operator work</div>
+  <div id="vrWork" class="mono"></div>
+  <div id="vrAssignments" class="mono"></div>
+  <div class="row"><button type="button" id="vrExport">Download assignments (format 2)</button></div>
+</div>
+<div class="panel">
+  <div>Link a manual performance observation to frames of the selected track (local engine only)</div>
+  <div class="row">
+    <label>Engine<br><input id="vrEngine" type="text" value="http://127.0.0.1:8000" style="width:200px"></label>
+    <label>Recording id<br><input id="vrRecording" type="text" style="width:220px"></label>
+    <label>Video frame 0 is (UTC)<br><input id="vrAnchor" type="text" class="mono" style="width:220px" placeholder="2026-11-03T10:00:00Z"></label>
+    <label>From / to frame<br><input id="vrFrom" type="number" min="0" style="width:80px"> <input id="vrTo" type="number" min="0" style="width:80px"></label>
+  </div>
+  <div class="row">
+    <label>Kind<br><select id="vrKind"><option value="pass">passes</option><option value="turnover">possessions / turnovers</option><option value="tactical_observation">coach instruction</option></select></label>
+    <label>Assessment<br><select id="vrAssessment"><option value="assessed">assessed</option><option value="unable_to_assess">unable to assess</option></select></label>
+    <label>Count / outcome count<br><input id="vrA" type="number" min="0" style="width:60px"> <input id="vrB" type="number" min="0" style="width:60px"></label>
+    <label>Outcome (instruction)<br><select id="vrOutcome"><option value="followed">followed</option><option value="partially_followed">partially followed</option><option value="not_followed">not followed</option></select></label>
+    <label>Instruction<br><input id="vrInstruction" type="text" maxlength="200" style="width:180px"></label>
+    <button type="button" id="vrSend">Send observation to the local engine</button>
+  </div>
+  <div id="vrSendStatus" class="mono"></div>
+</div>
+<div id="status"></div>
+<script src="video-review.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.AthletrixVideoReview, $ = function (id) { return document.getElementById(id); };
+  var data = null, state = V.newState(""), frame = 0, selected = null, sending = false;
+  var video = $("vrVideo"), canvas = $("vrCanvas"), ctx = canvas.getContext("2d");
+  var COLORS = { assigned: "#22c55e", uncertain: "#f59e0b", needs_reconfirmation: "#ef4444", unassigned: "#9ca3af" };
+  function status(t, c) { $("status").textContent = t; $("status").style.color = c || "#9ca3af"; }
+  function text(el, rows) { el.textContent = ""; rows.forEach(function (r) { var d = document.createElement("div"); d.textContent = r; el.appendChild(d); }); }
+  function seek(f) {
+    if (!data) return;
+    frame = Math.max(0, Math.min(data.lastFrame, Math.round(f)));
+    $("vrFrame").value = frame;
+    $("vrTime").textContent = "video time " + (frame / data.fps).toFixed(3) + " s (frame / fps; not capture time)";
+    if (video.src) video.currentTime = (frame + 0.5) / data.fps;   // the middle of the frame, so the browser shows this frame
+    draw();
+  }
+  function draw() {
+    if (!data) return;
+    canvas.width = data.header.video.width; canvas.height = data.header.video.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    var here = data.byFrame[frame] || [];
+    var tracks = $("vrTracks"); tracks.textContent = "";
+    here.forEach(function (o) {
+      var st = V.trackState(data, state.assignments, o.track_id, frame);
+      ctx.strokeStyle = ctx.fillStyle = COLORS[st.state]; ctx.lineWidth = o.track_id === selected ? 4 : 2;
+      ctx.beginPath(); ctx.arc(o.u_px, o.v_px, 9, 0, 2 * Math.PI); ctx.stroke();
+      ctx.font = "16px system-ui"; ctx.fillText(o.track_id + (st.athlete_id ? " → " + st.athlete_id : "") + (o.near_other_track ? " (encounter)" : ""), o.u_px + 12, o.v_px - 10);
+      var b = document.createElement("button"); b.type = "button"; b.textContent = o.track_id + " · " + st.state.replace("_", " ") + (st.athlete_id ? " · " + st.athlete_id : "");
+      b.addEventListener("click", function () { selected = o.track_id; $("vrTrack").value = o.track_id; if (st.athlete_id) $("vrAthlete").value = st.athlete_id; draw(); });
+      tracks.appendChild(b);
+    });
+    if (!here.length) tracks.textContent = "none in this frame";
+    if (selected) {
+      var st = V.trackState(data, state.assignments, selected, frame);
+      $("vrTrackState").textContent = selected + " at frame " + frame + ": " + st.state.replace("_", " ") + (st.athlete_id ? " (" + st.athlete_id + ")" : "") +
+        (st.state === "needs_reconfirmation" ? " — close encounter at frame " + st.encounter_frame + "; confirm who this is again" : "");
+    }
+    renderWork();
+  }
+  function renderWork() {
+    var doc = V.exportDoc(state, data);
+    text($("vrWork"), ["confirmations " + doc.operator_work.confirmations + " · corrections " + doc.operator_work.corrections + " · uncertain marks " + doc.operator_work.uncertain_marks +
+                       " · observation-seconds without a usable assignment " + doc.operator_work.unassigned_seconds + " · time spent " + doc.operator_work.seconds_spent + " s (counted while this tab is visible and files are open)"]);
+    text($("vrAssignments"), state.assignments.map(function (a) { return a.track_id + " → " + a.athlete_id + " frames " + a.from_frame + "–" + (a.to_frame === null ? "end" : a.to_frame) + " · " + a.identity + " · by " + a.assigned_by + " (" + a.confirmed_by + ")"; }));
+  }
+  function act(identity) {
+    if (!data || !selected) { status("Choose a track first.", "#f59e0b"); return; }
+    var athlete = $("vrAthlete").value.trim();
+    if (!athlete) { status("Enter the athlete id.", "#f59e0b"); return; }
+    if (athlete === selected) { status("An athlete id must differ from a track id.", "#ef4444"); return; }
+    state.operator = $("vrOperator").value.trim() || "operator";
+    V.assign(state, selected, athlete, frame, identity);
+    status((identity === "uncertain" ? "Marked uncertain: " : "Confirmed: ") + selected + " is " + athlete + " from frame " + frame + ".", "#22c55e");
+    draw();
+  }
+  function readFile(input, cb) { var f = input.files && input.files[0]; if (!f) return; var r = new FileReader(); r.onload = function () { cb(r.result, f); }; r.readAsText(f); }
+  $("vrObsFile").addEventListener("change", function () { readFile(this, function (t) { try { data = V.parseObservations(t); selected = null; seek(0); status("Observations: " + Object.keys(data.byTrack).length + " tracks, frames 0–" + data.lastFrame + " at " + data.fps + " fps.", "#22c55e"); } catch (e) { data = null; status("Not an observations file: " + e.message, "#ef4444"); } }); });
+  $("vrAssignFile").addEventListener("change", function () { readFile(this, function (t) {
+    try { var d = JSON.parse(t); if (d.format !== "athletrix-track-assignments") throw new Error("not an assignments file");
+      state.assignments = d.assignments.map(function (a) { return Object.assign({ from_frame: 0, to_frame: null, assigned_by: "", identity: "confirmed", confirmed_by: "person" }, a); });
+      status("Loaded " + state.assignments.length + " assignments" + (state.assignments.some(function (a) { return a.confirmed_by === "simulated_oracle"; }) ? " (some from a SIMULATED oracle, not a person)" : "") + ".", "#22c55e"); draw();
+    } catch (e) { status("Assignments not loaded: " + e.message, "#ef4444"); } }); });
+  $("vrVideoFile").addEventListener("change", function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    video.src = URL.createObjectURL(f); state.video = { name: f.name, sha256: null };
+    status("Hashing " + f.name + " locally…");
+    f.arrayBuffer().then(function (buf) { return crypto.subtle.digest("SHA-256", buf); }).then(function (h) {
+      state.video.sha256 = Array.prototype.map.call(new Uint8Array(h), function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
+      status(f.name + " sha256 " + state.video.sha256.slice(0, 16) + "… (identifies the file; not permission, not capture time)", "#22c55e");
+    }).catch(function () { status("The file could not be hashed in this browser; exports will not name it.", "#f59e0b"); });
+    if (data && data.header.video.name && data.header.video.name !== f.name) status("Warning: the observations were made from " + data.header.video.name + ", not " + f.name + ".", "#f59e0b");
+  });
+  $("vrFrame").addEventListener("change", function () { seek(Number(this.value)); });
+  [["vrBack1", -1], ["vrFwd1", 1]].forEach(function (b) { $(b[0]).addEventListener("click", function () { seek(frame + b[1]); }); });
+  [["vrBack1s", -1], ["vrFwd1s", 1]].forEach(function (b) { $(b[0]).addEventListener("click", function () { if (data) seek(frame + b[1] * data.fps); }); });
+  $("vrConfirm").addEventListener("click", function () { act("confirmed"); });
+  $("vrUncertain").addEventListener("click", function () { act("uncertain"); });
+  $("vrEnd").addEventListener("click", function () { if (selected && V.endAssignment(state, selected, frame)) { status("Ended " + selected + "'s assignment before frame " + frame + ".", "#22c55e"); draw(); } });
+  $("vrExport").addEventListener("click", function () {
+    var blob = new Blob([JSON.stringify(V.exportDoc(state, data), null, 2)], { type: "application/json" });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "assignments.json"; a.click();
+  });
+  $("vrSend").addEventListener("click", function () {
+    if (sending) return;
+    if (!V.isLoopback(location.hostname)) { $("vrSendStatus").textContent = "Only from a local copy of this page (loopback host): nothing is sent from a public page."; return; }
+    if (!data || !selected) { $("vrSendStatus").textContent = "Choose a track first."; return; }
+    var st = V.trackState(data, state.assignments, selected, Number($("vrFrom").value));
+    var athlete = st.athlete_id || $("vrAthlete").value.trim();
+    try {
+      var body = V.observationBody({ fps: data.fps, anchorUtc: $("vrAnchor").value.trim(), fromFrame: Number($("vrFrom").value), toFrame: Number($("vrTo").value), athleteId: athlete,
+        kind: $("vrKind").value, assessment: $("vrAssessment").value, attempts: Number($("vrA").value), completions: Number($("vrB").value), outcome: $("vrOutcome").value,
+        instruction: $("vrInstruction").value.trim(), trackState: st.state, videoName: state.video ? state.video.name : data.header.video.name, videoSha: state.video && state.video.sha256, annotator: $("vrOperator").value.trim() });
+    } catch (e) { $("vrSendStatus").textContent = "Not sent: " + e.message; return; }
+    var base = $("vrEngine").value.replace(/\/+$/, "");
+    try { if (!V.isLoopback(new URL(base).hostname)) { $("vrSendStatus").textContent = "Not sent: the engine address must be on this computer (loopback)."; return; } } catch (e) { $("vrSendStatus").textContent = "Not sent: invalid engine address."; return; }
+    sending = true; $("vrSendStatus").textContent = "Sending…";
+    fetch(base + "/api/v1/recordings/" + encodeURIComponent($("vrRecording").value.trim()) + "/performance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (res) { return res.json().then(function (j) { $("vrSendStatus").textContent = res.status === 201 ? "Stored " + j.id + " (identity " + body.identity + ")." : "Not stored: " + JSON.stringify(j.detail); }); })
+      .catch(function () { $("vrSendStatus").textContent = "Not stored: the engine could not be reached."; })
+      .then(function () { sending = false; });
+  });
+  setInterval(function () { if (data && document.visibilityState === "visible") { state.work.seconds_spent += 1; renderWork(); } }, 1000);
+  window.__vr = { state: function () { return state; }, seek: seek, data: function () { return data; } };
+})();
+</script>
+</body>
+</html>

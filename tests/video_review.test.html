@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Athletrix video review tests</title>
+<style>body{font:14px system-ui;padding:16px}.pass{color:#15803d}.fail{color:#b91c1c}</style></head>
+<body>
+<h1>Video review logic tests</h1>
+<p>Serve this folder and open <code>/tests/video_review.test.html</code>. Fixture data only.</p>
+<div id="summary">Running…</div><ul id="results"></ul>
+<script src="../tools/video-review.js"></script>
+<script>
+(function () {
+  "use strict";
+  var V = window.AthletrixVideoReview, results = [], tests = [];
+  function test(name, fn) { tests.push({ name: name, fn: fn }); }
+  var assert = {
+    equal: function (a, b, m) { if (a !== b) throw new Error((m ? m + ": " : "") + "expected " + JSON.stringify(b) + ", got " + JSON.stringify(a)); },
+    deepEqual: function (a, b, m) { var x = JSON.stringify(a), y = JSON.stringify(b); if (x !== y) throw new Error((m ? m + ": " : "") + "expected " + y + ", got " + x); },
+    ok: function (v, m) { if (!v) throw new Error(m || "expected truthy"); },
+  };
+  function file(rows) {
+    return [JSON.stringify({ format: "athletrix-camera-observations", format_version: 3, video: { width: 100, height: 100, fps: 10, name: "v.mp4" }, time_base: "video_relative", extractor: "t" })]
+      .concat(rows.map(function (r) { return JSON.stringify(Object.assign({ video_time_s: r.frame / 10, u_px: 10, v_px: 10, confidence: 0.9, athlete_id: null }, r)); })).join("\n");
+  }
+  var rows = [];
+  for (var f = 0; f < 30; f++) { rows.push({ frame: f, track_id: "trk-1", near_other_track: f >= 10 && f <= 14 ? true : undefined }); rows.push({ frame: f, track_id: "trk-2" }); }
+  var data = V.parseObservations(file(rows));
+
+  test("the encounter rule: an assignment lapses at the first encounter after it starts; being visible again is not confirmation", function () {
+    var s = V.newState("op");
+    V.assign(s, "trk-1", "ath-1", 0, "confirmed");
+    assert.equal(V.trackState(data, s.assignments, "trk-1", 9).state, "assigned");
+    assert.equal(V.trackState(data, s.assignments, "trk-1", 10).state, "needs_reconfirmation");
+    var late = V.trackState(data, s.assignments, "trk-1", 25);
+    assert.deepEqual([late.state, late.encounter_frame], ["needs_reconfirmation", 10], "still unconfirmed long after the release period");
+    V.assign(s, "trk-1", "ath-1", 20, "confirmed");
+    assert.equal(V.trackState(data, s.assignments, "trk-1", 25).state, "assigned", "a person confirmed it again");
+    assert.deepEqual(s.assignments.map(function (a) { return [a.from_frame, a.to_frame]; }), [[0, 19], [20, null]], "time-bounded rows, never overlapping");
+    assert.deepEqual([s.work.confirmations, s.work.corrections], [2, 0]);
+  });
+
+  test("corrections, uncertain marks and unassigned time are counted; uncertain is never a usable assignment", function () {
+    var s = V.newState("op");
+    V.assign(s, "trk-2", "ath-2", 0, "confirmed");
+    V.assign(s, "trk-2", "ath-3", 15, "confirmed");
+    V.assign(s, "trk-1", "ath-1", 0, "uncertain");
+    assert.deepEqual([s.work.confirmations, s.work.corrections, s.work.uncertain_marks], [2, 1, 1]);
+    assert.equal(V.trackState(data, s.assignments, "trk-1", 5).state, "uncertain");
+    assert.equal(V.unassignedSeconds(data, s.assignments), 3.0, "trk-1's 30 frames at 10 fps are not usable");
+    var doc = V.exportDoc(Object.assign(s, { video: { name: "v.mp4", sha256: new Array(65).join("a") } }), data);
+    assert.equal(doc.format_version, 2);
+    assert.deepEqual(Object.keys(doc.operator_work), ["seconds_spent", "confirmations", "corrections", "uncertain_marks", "unassigned_seconds", "tool"]);
+    assert.ok(doc.assignments.every(function (a) { return a.confirmed_by === "person"; }) && doc.video.sha256.length === 64);
+    assert.ok(V.endAssignment(s, "trk-2", 20) && s.assignments.filter(function (a) { return a.track_id === "trk-2"; }).pop().to_frame === 19);
+  });
+
+  test("a linked observation carries the frames, the file hash and the identity state; public hosts never send", function () {
+    var b = V.observationBody({ fps: 10, anchorUtc: "2026-11-03T10:00:00Z", fromFrame: 20, toFrame: 50, athleteId: "ath-1", kind: "pass", assessment: "assessed", attempts: 4, completions: 3,
+                                trackState: "needs_reconfirmation", videoName: "v.mp4", videoSha: new Array(65).join("b") });
+    assert.deepEqual([b.period_start, b.period_end, b.identity, b.attempts, b.completions, b.evidence_source], ["2026-11-03T10:00:02.000Z", "2026-11-03T10:00:05.000Z", "uncertain", 4, 3, "human_review_of_camera"]);
+    assert.deepEqual(b.frames[0], { video: "v.mp4", frame: 20, video_time_s: 2, video_sha256: new Array(65).join("b") });
+    assert.equal(V.observationBody({ fps: 10, anchorUtc: "2026-11-03T10:00:00Z", fromFrame: 0, toFrame: 5, athleteId: "a", kind: "pass", assessment: "unable_to_assess", trackState: "assigned", videoName: "v" }).identity, "confirmed");
+    var threw = false; try { V.observationBody({ fps: 10, anchorUtc: "2026-11-03T10:00:00Z", fromFrame: 5, toFrame: 5, kind: "pass", assessment: "assessed" }); } catch (e) { threw = true; }
+    assert.ok(threw, "an empty interval is refused");
+    assert.deepEqual(["127.0.0.1", "localhost", "example.com", "assistantcoachai.net"].map(V.isLoopback), [true, true, false, false]);
+  });
+
+  tests.forEach(function (t) { var li = document.createElement("li"); try { t.fn(); results.push({ name: t.name, ok: true }); li.className = "pass"; li.textContent = "PASS " + t.name; }
+    catch (e) { results.push({ name: t.name, ok: false, error: String(e.message) }); li.className = "fail"; li.textContent = "FAIL " + t.name + ": " + e.message; } document.getElementById("results").appendChild(li); });
+  var failed = results.filter(function (r) { return !r.ok; }).length;
+  document.getElementById("summary").textContent = results.length + " tests, " + (results.length - failed) + " passed, " + failed + " failed";
+  window.__results = results;
+})();
+</script></body></html>
