@@ -12952,6 +12952,7 @@ function initializePlayerFatigue(team) {
     var NAMES = { vest_only: "Vest only", camera_only: "Camera only", combined: "Combined" };
     var log = window.__athletrixPilotDisplay = [];
     function setStatus(text, color) { el.axPiStatus.textContent = text; el.axPiStatus.style.color = color; }
+    function texts(target) { return (target.children ? Array.prototype.map.call(target.children, function(c) { return c.textContent; }) : []); }
     function lines(target, rows) { target.textContent = ""; rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; target.appendChild(d); }); }
     function clear(text) { el.axPiMain.textContent = text; el.axPiTrend.textContent = ""; el.axPiFactors.textContent = ""; el.axPiMissing.textContent = ""; el.axPiTech.textContent = ""; el.axPiWho.textContent = "no active wearer"; el.axPiMode.textContent = DASH; }
     function probe() {
@@ -12997,9 +12998,17 @@ function initializePlayerFatigue(team) {
       var top = ((main && main.contributions) || []).slice().sort(function(a, b) { return b.contribution - a.contribution; }).slice(0, 3);
       lines(el.axPiFactors, top.length ? ["Main factors (" + NAMES[main === cs.combined ? "combined" : main === cs.vest_only ? "vest_only" : "camera_only"] + "): " +
         top.map(function(t) { return t.feature.replace(/_/g, " ") + " " + Math.round(t.score) + " (weight " + Math.round(t.weight * 100) + "%)"; }).join(" · ")] : ["No estimate is available, so no factors are shown."]);
+      var fresh = [], st = e.streams || {};
+      [["wearable", "Wearable"], ["camera", "Camera"]].forEach(function(x) { var v = st[x[0]]; if (v) fresh.push(x[1] + (v.age_s !== undefined && v.age_s !== null ? " newest " + Math.round(v.age_s) + " s old" : " none") + (v.fresh ? "" : " (STALE)")); });
+      var sess = r.session ? "Session " + r.session.label + " (" + r.session.protocol.replace(/_/g, " ") + ")" : "No study session";
+      var lp = r.last_saved_prediction;
+      var info = [sess + " · " + (fresh.join(" · ") || "no stream data")];
+      if (lp) info.push("Last saved pre-sprint prediction: round " + lp.round + " at " + availUtc(lp.cutoff) + (lp.prospective ? "" : " (RETROSPECTIVE: backdated marker)") + " · " +
+        ["combined", "vest_only", "camera_only"].map(function(k) { return NAMES[k] + " " + (lp.values[k] === null || lp.values[k] === undefined ? NA : Math.round(lp.values[k])); }).join(" · "));
       var miss = [];
       ["combined", "vest_only", "camera_only"].forEach(function(k) { if (cs[k] && !cs[k].available) miss.push(NAMES[k] + " not available: " + (cs[k].reasons || []).join("; ")); });
       lines(el.axPiMissing, miss);
+      lines(el.axPiFactors, texts(el.axPiFactors).concat(info));
       var tech = [e.display || "", "Profile " + (e.profile ? e.profile.version + " (" + e.profile.sha256.slice(0, 12) + (e.profile.fictional ? ", FICTIONAL" : "") + ")" : "none")];
       Object.keys(e.features || {}).forEach(function(f) { var x = e.features[f];
         tech.push(f.replace(/_/g, " ") + " [" + (x.inputs || []).join("+") + "]: " + (x.available ? x.value + " · " + JSON.stringify(x.measure) : "unavailable: " + x.reason) +

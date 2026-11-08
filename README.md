@@ -169,8 +169,19 @@ inputs the review used. Since the engine's decision rules version 2, a player wh
 "Insufficient evidence", never an earlier "Keep". A performance-only route and a context-only observation are labelled
 as such.
 
-**Session setup and readiness** (engine mode, above Team review) shows the engine's preflight as three separate areas
-(raw recording, camera tracking review, experimental recommendation) and, while a recording is active, each player's
+**Fatigue pilot** (engine mode, at the top of the engine cards) shows the current vest wearer's EXPERIMENTAL estimate
+from the engine (`GET /api/v1/recordings/{id}/study/pilot`): combined, vest-only and camera-only values (0 is a value,
+"Not available" carries its reason), the recent trend (a missing point is a gap, never a zero bar), the main contributing
+factors, missing-data reasons, LIVE or RECORDED and FICTIONAL labels, and technical detail (features, windows,
+references, exclusions, clock offset) on demand. It gives no substitution advice. It polls once a second; a failure
+clears it, and an older answer after a newer failure is dropped. After each visible update it records the display time,
+mapped onto the engine clock through `GET /api/v1/clock` (± half the probe round trip), in
+`window.__athletrixPilotDisplay` for the engine's `scripts/pilot_display_delay.py`. In public mode it is hidden and
+makes no request.
+
+**Session setup and readiness** (engine mode, above Team review) shows the engine's preflight as separate areas
+(raw recording, camera tracking review, fatigue pilot estimate, and the experimental substitution review, which the
+pilot does not need) and, while a recording is active, each player's
 wearable status (present, delayed, stale, disconnected, unavailable, not used, unknown). It is read-only. Plan, start
 and stop with the engine's `scripts/sideline_session.py`. Two requests per refresh; a failure clears the view.
 
@@ -810,7 +821,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "89 tests, 89 passed" (session setup: three readiness areas, wearable status per player, failure clears the view, no request in public mode; team review: an older success after a newer failure, evidence lines and details, context-only observations, rows, unavailable values, unreviewed players, failure clears rows, late responses, responses saved once, lineup body; baselines and profiles: unconfigured profiles, decisions need a reason and a name, preview body; experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
+Expect "91 tests, 91 passed" (fatigue pilot: no request in public mode, labels, a real zero, unavailable with reasons, trend gaps, factors, failure clearing, late older answers; session setup: three readiness areas, wearable status per player, failure clears the view, no request in public mode; team review: an older success after a newer failure, evidence lines and details, context-only observations, rows, unavailable values, unreviewed players, failure clears rows, late responses, responses saved once, lineup body; baselines and profiles: unconfigured profiles, decisions need a reason and a name, preview body; experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
 missing evidence, measurements apart from interpretation, history and cooldown holds, the chosen review time, refusals,
 an unconfigured engine, late replies; performance evidence: decision and positioning counts, corrections and statuses; counts, states, sources, linked instructions, unavailable composite, request bodies, refusals, late replies, hidden in public mode; coach context default effective time with a microsecond start and a sub-second recording; camera review: segments, gaps, breaks, stale and failed windows, late replies, the local track file; coach context: entries in force, request bodies, refusals, no recording; inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
 runner fails a test that does not finish within 10 s and yields through a

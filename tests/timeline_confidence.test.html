@@ -2294,6 +2294,24 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.match(ctx.els.axPiMain.textContent, /^No active wearer/);
   });
 
+  test("fatigue pilot: freshness, session state and the last saved prediction; an older answer for the previous wearer never replaces the new wearer", async () => {
+    const ctx = boot({ extra: PI_IDS });
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const old = ctx.pending.find(p => p.url.includes("/study/pilot"));
+    await click(ctx, "axPiRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const est = Object.assign({}, piBody().estimate, { streams: { wearable: { fresh: true, age_s: 1.2 }, camera: { fresh: false, age_s: 14 } } });
+    const newer = ctx.pending.filter(p => p.url.includes("/study/pilot")).pop();
+    await ctx.resolveLate(newer, piBody({ wearer: { participant_code: "P2", device_id: "fictional-vest-1", since: iso(-10) }, estimate: est,
+      session: { label: "day1", protocol: "controlled_study" }, last_saved_prediction: { round: 3, cutoff: iso(-60), prospective: false, values: { combined: null, vest_only: 41.6, camera_only: 12 } } }));
+    await ctx.resolveLate(old, piBody());
+    assert.match(ctx.els.axPiWho.textContent, /^P2 /, "the older P1 answer arrived last and was ignored");
+    const info = texts(ctx.els.axPiFactors);
+    assert.ok(info.includes("Session day1 (controlled study) · Wearable newest 1 s old · Camera newest 14 s old (STALE)"), info.join("\n"));
+    assert.ok(info.some(t => /^Last saved pre-sprint prediction: round 3 at .* \(RETROSPECTIVE: backdated marker\) · Combined Not available · Vest only 42 · Camera only 12$/.test(t)), info.join("\n"));
+  });
+
   // ---- session setup card ----
   const SU_IDS = ["axSuCard", "axSuRefresh", "axSuAreas", "axSuRecording", "axSuStatus"];
   const pfBody = (active) => ({ checked_at: iso(0), engine: { version: "0.1.0" }, free_storage_mb: 12000, active_recording: active || null,
