@@ -2238,6 +2238,37 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(row.children[2].textContent, " reproducing…", "a1's late answer is not written after the switch");
   });
 
+  // ---- session setup card ----
+  const SU_IDS = ["axSuCard", "axSuRefresh", "axSuAreas", "axSuRecording", "axSuStatus"];
+  const pfBody = (active) => ({ checked_at: iso(0), engine: { version: "0.1.0" }, free_storage_mb: 12000, active_recording: active || null,
+    readiness: { raw_recording: { verdict: "ready_with_warnings", checks: [{ level: "ok", text: "database accepts writes" }, { level: "warn", text: "f01: no wearable reading in the last 30 s" }] },
+                 camera_review: { verdict: "ready", checks: [{ level: "ok", text: "camera not selected" }] },
+                 experimental_recommendation: { verdict: "blocked", checks: [{ level: "block", text: "no performance rubric is configured" }] } } });
+
+  test("session setup: three separate readiness areas; while recording, wearable status per player; a failure clears the view", async () => {
+    const pub = boot({ hostname: "assistantcoachai.net", extra: SU_IDS });
+    await pub.flush();
+    assert.equal(pub.pending.length, 0, "public mode makes no engine request");
+    assert.equal(pub.els.axSuCard.style.display, "none");
+    const ctx = boot({ extra: SU_IDS });
+    await start(ctx);
+    await ctx.respond("/api/v1/preflight", pfBody({ id: "rec-1", name: "FICTIONAL", is_this_plan: false }));
+    await ctx.respond("/recordings/rec-1/evidence", { recording_id: "rec-1", recording_status: "active", at: iso(0), athletes: [
+      { athlete: { id: "f01", name: "Fictional f01", jersey_number: 8 }, evidence: { sources: { wearable: { status: "present" } } } },
+      { athlete: { id: "f02", name: "Fictional f02", jersey_number: 4 }, evidence: { sources: { wearable: { status: "unavailable" } } } },
+      { athlete: { id: "f04", name: "Fictional f04", jersey_number: 7 }, evidence: { sources: { wearable: { status: "not_used" } } } }] });
+    const areas = ctx.els.axSuAreas.children.map(b => texts(b).join(" | "));
+    assert.match(areas[0], /^Raw recording: Ready, with warnings \| Note: f01: no wearable reading/);
+    assert.match(areas[2], /^Experimental recommendation: Blocked \| Blocked: no performance rubric/);
+    const rec = texts(ctx.els.axSuRecording);
+    assert.ok(rec.includes("  unavailable (1): Fictional f02 #4") && rec.includes("  not used (1): Fictional f04 #7") && rec.includes("  present (1): Fictional f01 #8"), rec.join("\n"));
+    await click(ctx, "axSuRefresh");
+    await ctx.respond("/api/v1/preflight", { detail: "down" }, 500);
+    assert.equal(ctx.els.axSuAreas.textContent, "Not available.");
+    assert.equal(ctx.els.axSuRecording.textContent, "");
+    assert.match(ctx.els.axSuStatus.textContent, /nothing earlier is shown as current/);
+  });
+
   // ---- team review card ----
   const TR_IDS = ["axTrCard", "axTrKnowledge", "axTrRefresh", "axTrTarget", "axTrBanner", "axTrList", "axTrDetail", "axTrDetailTitle", "axTrDetailBody", "axTrAck", "axTrKeep",
     "axTrDefer", "axTrDismiss", "axTrReason", "axTrIncoming", "axTrRole", "axTrWhen", "axTrLineup", "axTrRespStatus", "axTrHistory", "axTrStatus", "axTrEvidenceBody"];

@@ -3653,6 +3653,18 @@
           </div>
           <div id="axRecList" style="display:flex;flex-direction:column;gap:6px;font-size:0.82rem;color:#e5e7eb;"></div>
         </div>
+        <div class="card" id="axSuCard" style="margin-bottom:18px;border-left:4px solid #22c55e;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Session setup and readiness</div>
+              <div class="card-sub">Read-only. Readiness is shown separately for recording raw data, reviewing camera tracking and calculating the experimental recommendation. Plan, start and stop a session with <code>scripts/sideline_session.py</code>; local calibration and time-alignment files are checked there. A missing input is shown as missing, never filled in.</div>
+            </div>
+            <button type="button" id="axSuRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
+          </div>
+          <div id="axSuAreas" style="display:flex;flex-wrap:wrap;gap:8px;font-size:0.78rem;">&mdash;</div>
+          <div class="card-sub" id="axSuRecording" style="margin-top:8px;font-size:0.78rem;line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div>
+          <div class="card-sub" id="axSuStatus" style="margin-top:6px;font-size:0.76rem;"></div>
+        </div>
         <div class="card" id="axTrCard" style="margin-bottom:18px;border-left:4px solid #f59e0b;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
@@ -10536,7 +10548,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axTrCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axPerfCard", "axSubCard", "axBlCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axSuCard", "axTrCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axPerfCard", "axSubCard", "axBlCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -12908,6 +12920,63 @@ function initializePlayerFatigue(team) {
     el.axSubKnowledge.addEventListener("change", load);
     cards.push({ reset: function() { clearView(); el.axSubOutcome.textContent = "Loading…"; }, poll: load, setWho: function(l) { el.axSubWho.textContent = l; } });
     setInterval(function() { if (!reviewing() && !el.axSubAt.value.trim()) load(); }, SUB_MS); // created once; recorded reviews refresh on demand
+  })();
+
+  // ---- Session setup card: engine preflight (three readiness areas) and, while recording, what is arriving or missing ----
+  // Two requests per refresh (preflight, and the active recording's evidence); every failure clears the view.
+  (function(){
+    var SU_MS = 15000;
+    var ids = ["axSuCard", "axSuRefresh", "axSuAreas", "axSuRecording", "axSuStatus"];
+    var el = {};
+    for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
+    var su = { seq: 0 };
+    var AREAS = [["raw_recording", "Raw recording"], ["camera_review", "Camera tracking review"], ["experimental_recommendation", "Experimental recommendation"]];
+    var VERDICT = { ready: "Ready", ready_with_warnings: "Ready, with warnings", blocked: "Blocked" };
+    var TONE = { ready: COLORS.live, ready_with_warnings: COLORS.warn, blocked: COLORS.error };
+    function getJson(url) { return fetch(url, { cache: "no-store" }).then(function(res) { if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); }); return res.json(); }); }
+    function setStatus(text, color) { el.axSuStatus.textContent = text; el.axSuStatus.style.color = color; }
+    function clear(text) { el.axSuAreas.textContent = text; el.axSuRecording.textContent = ""; }
+    function render(pf, ev) {
+      el.axSuAreas.textContent = "";
+      AREAS.forEach(function(a) {
+        var r = pf.readiness[a[0]], box = document.createElement("div");
+        box.style.flex = "1 1 220px"; box.style.minWidth = "0"; box.style.padding = "6px 8px"; box.style.borderRadius = "6px"; box.style.background = "rgba(255,255,255,0.04)";
+        var head = document.createElement("div"); head.style.fontWeight = "600"; head.style.color = TONE[r.verdict] || COLORS.muted; head.textContent = a[1] + ": " + (VERDICT[r.verdict] || r.verdict);
+        box.appendChild(head);
+        r.checks.filter(function(c) { return c.level !== "ok"; }).slice(0, 6).forEach(function(c) { var d = document.createElement("div"); d.className = "card-sub"; d.style.fontSize = "0.74rem"; d.textContent = (c.level === "block" ? "Blocked: " : "Note: ") + c.text; box.appendChild(d); });
+        el.axSuAreas.appendChild(box);
+      });
+      if (!ev) { el.axSuRecording.textContent = pf.active_recording ? "" : "No recording is active."; return; }
+      var groups = {};
+      ev.athletes.forEach(function(x) {
+        var st = x.error ? "not readable" : (x.evidence.sources.wearable || {}).status || "unknown";
+        (groups[st] = groups[st] || []).push(x.athlete.name + " #" + x.athlete.jersey_number);
+      });
+      var rows = ["Recording " + ev.recording_id + " (" + ev.recording_status + ") at " + availUtc(ev.at) + ". Wearable per player:"];
+      Object.keys(groups).sort().forEach(function(k) { rows.push("  " + k.replace(/_/g, " ") + " (" + groups[k].length + "): " + groups[k].join(", ")); });
+      el.axSuRecording.textContent = "";
+      rows.forEach(function(t) { var d = document.createElement("div"); d.textContent = t; el.axSuRecording.appendChild(d); });
+    }
+    function load() {
+      if (!dashboardVisible()) return;
+      var my = ++su.seq;
+      getJson(API_BASE + "/api/v1/preflight").then(function(pf) {
+        if (my !== su.seq) return;
+        var act = pf.active_recording;
+        return (act ? getJson(API_BASE + "/api/v1/recordings/" + encodeURIComponent(act.id) + "/evidence?knowledge=as_entered") : Promise.resolve(null)).then(function(ev) {
+          if (my !== su.seq) return;
+          render(pf, ev);
+          setStatus("Checked " + availUtc(pf.checked_at) + " · engine " + pf.engine.version + (pf.free_storage_mb !== null ? " · " + pf.free_storage_mb + " MB free" : ""), COLORS.muted);
+        });
+      }).catch(function(err) {
+        if (my !== su.seq) return;
+        clear("Not available.");
+        setStatus("Readiness could not be read from " + API_BASE + " (" + err.message + "); nothing earlier is shown as current.", COLORS.error);
+      });
+    }
+    el.axSuRefresh.addEventListener("click", load);
+    cards.push({ reset: function() {}, poll: load, setWho: function() {} });
+    setInterval(function() { if (!reviewing()) load(); }, SU_MS);
   })();
 
   // ---- Team review card (experimental): one engine request for the whole team at one review time ----
