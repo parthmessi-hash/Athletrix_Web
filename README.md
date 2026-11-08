@@ -173,7 +173,11 @@ as such.
 from the engine (`GET /api/v1/recordings/{id}/study/pilot`): combined, vest-only and camera-only values (0 is a value,
 "Not available" carries its reason), the recent trend (a missing point is a gap, never a zero bar), the main contributing
 factors, missing-data reasons, LIVE or RECORDED and FICTIONAL labels, and technical detail (features, windows,
-references, exclusions, clock offset) on demand. It gives no substitution advice. It polls once a second; a failure
+references, exclusions, clock offset) on demand. It gives no substitution advice. Its timed-sprint controls follow the pilot's order: enter the round, press **1. Save
+score** (the engine saves the score at that moment and the card confirms it, with whether all three estimates are
+available), and only then **2. Start timed sprint**, which confirms that saved score. A double click sends once; a
+wearer or round change after the save blocks the start until the score is saved again. The time itself is entered
+separately by the timer (the engine's `scripts/sprint_timing.py`). It polls once a second; a failure
 clears it, and an older answer after a newer failure is dropped. After each visible update it records the display time,
 mapped onto the engine clock through `GET /api/v1/clock` (± half the probe round trip), in
 `window.__athletrixPilotDisplay` for the engine's `scripts/pilot_display_delay.py`. In public mode it is hidden and
@@ -821,7 +825,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "91 tests, 91 passed" (fatigue pilot: no request in public mode, labels, a real zero, unavailable with reasons, trend gaps, factors, failure clearing, late older answers; session setup: three readiness areas, wearable status per player, failure clears the view, no request in public mode; team review: an older success after a newer failure, evidence lines and details, context-only observations, rows, unavailable values, unreviewed players, failure clears rows, late responses, responses saved once, lineup body; baselines and profiles: unconfigured profiles, decisions need a reason and a name, preview body; experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
+Expect "93 tests, 93 passed" (fatigue pilot: save then start, double clicks, stale confirmations, freshness and the last saved prediction; no request in public mode, labels, a real zero, unavailable with reasons, trend gaps, factors, failure clearing, late older answers; session setup: three readiness areas, wearable status per player, failure clears the view, no request in public mode; team review: an older success after a newer failure, evidence lines and details, context-only observations, rows, unavailable values, unreviewed players, failure clears rows, late responses, responses saved once, lineup body; baselines and profiles: unconfigured profiles, decisions need a reason and a name, preview body; experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
 missing evidence, measurements apart from interpretation, history and cooldown holds, the chosen review time, refusals,
 an unconfigured engine, late replies; performance evidence: decision and positioning counts, corrections and statuses; counts, states, sources, linked instructions, unavailable composite, request bodies, refusals, late replies, hidden in public mode; coach context default effective time with a microsecond start and a sub-second recording; camera review: segments, gaps, breaks, stale and failed windows, late replies, the local track file; coach context: entries in force, request bodies, refusals, no recording; inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
 runner fails a test that does not finish within 10 s and yields through a
