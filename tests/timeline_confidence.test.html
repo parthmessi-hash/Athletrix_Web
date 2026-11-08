@@ -2240,7 +2240,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
 
   // ---- team review card ----
   const TR_IDS = ["axTrCard", "axTrKnowledge", "axTrRefresh", "axTrTarget", "axTrBanner", "axTrList", "axTrDetail", "axTrDetailTitle", "axTrDetailBody", "axTrAck", "axTrKeep",
-    "axTrDefer", "axTrDismiss", "axTrReason", "axTrIncoming", "axTrRole", "axTrWhen", "axTrLineup", "axTrRespStatus", "axTrHistory", "axTrStatus"];
+    "axTrDefer", "axTrDismiss", "axTrReason", "axTrIncoming", "axTrRole", "axTrWhen", "axTrLineup", "axTrRespStatus", "axTrHistory", "axTrStatus", "axTrEvidenceBody"];
   const trBoot = () => { const ctx = boot({ extra: TR_IDS }); ctx.els.axTrKnowledge.value = "as_entered"; return ctx; };
   const trRow = (id, o) => Object.assign({ athlete: { id, name: "Fictional " + id, jersey_number: 1 }, reviewed: true, roster: { status: "on_field", current_role: "centre back", able_roles: ["centre back"] },
     latest_reading: { observed_at: iso(-2), received_at: null, availability: "unknown: no receipt metadata (assumed available at its timestamp)", age_s: 2, values: { heart_rate_bpm: 150 } },
@@ -2294,6 +2294,42 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     await ctx.respond("/team-review", { detail: "engine failed" }, 500);
     assert.equal(ctx.els.axTrList.textContent, "Not available.");
     assert.match(ctx.els.axTrStatus.textContent, /no earlier result is shown as current/);
+  });
+
+  test("team review: an older success arriving after a newer failure is not shown; a later dropout replaces an earlier keep", async () => {
+    const ctx = trBoot();
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const first = ctx.pending.find(p => p.url.includes("/team-review"));
+    await click(ctx, "axTrRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const second = ctx.pending.filter(p => p.url.includes("/team-review")).pop();
+    await ctx.resolveLateRaw(second, { ok: false, status: 503, json: async () => ({ detail: "engine restarting" }), text: async () => "engine restarting" });
+    assert.equal(ctx.els.axTrList.textContent, "Not available.");
+    await ctx.resolveLate(first, trBody([trRow("p06", { reason: "OLD KEEP" })]));
+    assert.equal(ctx.els.axTrList.textContent, "Not available.", "the older success never replaces the newer failure");
+    await click(ctx, "axTrRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/team-review", trBody([trRow("p06", { evidence: { summary: ["all planned inputs present"], sources: {}, used_by_review: {} } })]));
+    assert.match(ctx.els.axTrList.children[0].textContent, /Keep: .* · evidence: all planned inputs present$/);
+    await click(ctx, "axTrRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const ev = { summary: ["Wearable stale (newest value 18 s old (stale after 10 s))"], used_by_review: { physiological_index: "required but unavailable", performance_composite: "used" },
+                 sources: { wearable: { status: "stale", basis: "newest value 18 s old (stale after 10 s)", last_observed_at: iso(-18), last_received_at: iso(-18), age_s: 18,
+                                        window: { window_seconds: 20, observed: 2, expected: 20, expected_basis: "stated sampling interval 1 s", coverage: 0.1, received_after_review_time: 0, retries: 1, replacements: 0,
+                                                  excluded_by_index_rules: { low_quality: 1 } }, rejected_writes: { count: 2, last_reason: "invalid: heart_rate_bpm" } },
+                            tracking: { status: "unknown", basis: "nothing received" } } };
+    ctx.els.axTrList.children[0].dispatch("click"); await ctx.flush();
+    await ctx.respond("/team-review", trBody([trRow("p06", { outcome: "insufficient_evidence", reason: "required input unavailable: physiological index", evidence: ev,
+      review: { reasons: ["required input unavailable: physiological index"], tradeoffs: [], constraints_applied: [], replacements: [], missing: [], role: {},
+                context_observation: { observation: "role asked is not recorded", unavailable_comparisons: ["physiological index unavailable: stale"] } } })]));
+    const row = ctx.els.axTrList.children[0].textContent;
+    assert.ok(!/Keep/.test(row) && /Insufficient evidence: required input unavailable/.test(row) && /evidence: Wearable stale/.test(row), row);
+    const detail = texts(ctx.els.axTrDetailBody), evd = texts(ctx.els.axTrEvidenceBody);
+    assert.ok(detail.some(t => /^Context-only observation \(not a recommendation\): .* comparisons not made: physiological index unavailable/.test(t)), detail.join("\n"));
+    assert.match(evd[0], /^Wearable: stale \(newest value 18 s old/);
+    assert.match(evd[1], /20 s: 2 values · expected 20 .* coverage 10% · 1 retries \(kept once\) · excluded: low quality 1 · 2 rejected writes \(nothing stored/);
+    assert.ok(evd.some(t => t === "Used by this review: physiological index required but unavailable · performance composite used"));
   });
 
   test("team review: a response saves the review first, then once per token; a lineup change names both players and a time", async () => {

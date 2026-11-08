@@ -3671,6 +3671,7 @@
           <div id="axTrDetail" aria-live="polite" style="margin-top:10px;display:none;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;">
             <div id="axTrDetailTitle" style="font-weight:600;color:#fff;margin-bottom:4px;"></div>
             <div class="card-sub" id="axTrDetailBody" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;"></div>
+            <details id="axTrEvidence" style="margin-top:6px;font-size:0.74rem;"><summary class="card-sub" style="cursor:pointer;">Evidence details (technical)</summary><div class="card-sub" id="axTrEvidenceBody" style="line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div></details>
             <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 8px;margin-top:8px;">
               <span class="card-sub" style="margin:0;color:#fff;">Your response:</span>
               <button type="button" id="axTrAck" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Acknowledge</button>
@@ -12916,7 +12917,7 @@ function initializePlayerFatigue(team) {
   (function(){
     var TR_MS = 10000;
     var ids = ["axTrCard", "axTrKnowledge", "axTrRefresh", "axTrTarget", "axTrBanner", "axTrList", "axTrDetail", "axTrDetailTitle", "axTrDetailBody", "axTrAck", "axTrKeep",
-               "axTrDefer", "axTrDismiss", "axTrReason", "axTrIncoming", "axTrRole", "axTrWhen", "axTrLineup", "axTrRespStatus", "axTrHistory", "axTrStatus"];
+               "axTrDefer", "axTrDismiss", "axTrReason", "axTrIncoming", "axTrRole", "axTrWhen", "axTrLineup", "axTrRespStatus", "axTrHistory", "axTrStatus", "axTrEvidenceBody"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     var tr = { seq: 0, rec: null, data: null, picked: null, busy: false, pending: {} };
@@ -12943,7 +12944,37 @@ function initializePlayerFatigue(team) {
       return [head + " · " + (STATUS[ro.status] || ro.status) + (ro.current_role ? " · " + ro.current_role : ""),
         "reading " + (rd ? (isNum(rd.values.heart_rate_bpm) ? rd.values.heart_rate_bpm + " bpm" : "no heart rate") + ", " + age(rd.age_s) + (rd.received_at ? "" : " (receipt unknown)") : "none"),
         "experimental index " + (ix.available ? ix.value : NA) + " · performance " + (pf.available ? pf.value : NA) + (lp ? " (last entry " + age(lp.age_s) + ")" : " (no entries)"),
-        (OUTCOME[x.outcome] || x.outcome) + ": " + x.reason];
+        (OUTCOME[x.outcome] || x.outcome) + ": " + x.reason,
+        "evidence: " + (x.evidence && x.evidence.summary ? x.evidence.summary.join("; ") : "not reported")];
+    }
+    var SRC = { wearable: "Wearable", tracking: "Tracking (camera)", performance: "Performance entries" };
+    function evidenceLines(ev) {
+      if (!ev || !ev.sources) return ["No evidence details were reported."];
+      var out = [];
+      Object.keys(SRC).forEach(function(k) {
+        var v = ev.sources[k]; if (!v) return;
+        var head = SRC[k] + ": " + (v.status || "unknown") + (v.basis ? " (" + v.basis + ")" : "");
+        var t = [];
+        if (v.last_observed_at) t.push("observed " + availUtc(v.last_observed_at));
+        if (k !== "performance") t.push(v.last_received_at ? "received " + availUtc(v.last_received_at) : (v.last_observed_at ? "receipt unknown" : ""));
+        if (v.last_period_end) t.push("last period ended " + availUtc(v.last_period_end) + ", entered " + availUtc(v.last_entered_at));
+        if (isNum(v.age_s)) t.push(age(v.age_s));
+        out.push(head + (t.filter(Boolean).length ? " · " + t.filter(Boolean).join(" · ") : ""));
+        var w = v.window;
+        if (w) {
+          var ex = w.excluded_by_index_rules ? Object.keys(w.excluded_by_index_rules).map(function(r) { return r.replace(/_/g, " ") + " " + w.excluded_by_index_rules[r]; }) : [];
+          out.push("  last " + w.window_seconds + " s: " + w.observed + " values · expected " + (w.expected === null ? "unknown (" + w.expected_basis + ")" : w.expected + " (" + w.expected_basis + "), coverage " + Math.round(w.coverage * 100) + "%") +
+                   (w.received_after_review_time ? " · " + w.received_after_review_time + " arrived after the review time" : "") + (w.retries ? " · " + w.retries + " retries (kept once)" : "") +
+                   (w.replacements ? " · " + w.replacements + " replaced" : "") + (ex.length ? " · excluded: " + ex.join(", ") : "") + (v.rejected_writes && v.rejected_writes.count ? " · " + v.rejected_writes.count + " rejected writes (nothing stored; last: " + v.rejected_writes.last_reason + ")" : ""));
+        }
+        if (v.device_status) out.push("  device " + v.device_status.device_id + " reported " + (v.device_status.connected ? "connected" : "NOT connected") + " at " + availUtc(v.device_status.reported_at));
+        if (v.continuity) out.push("  " + v.continuity.segment_changes + " segment changes · " + v.continuity.gap_count + " gaps (" + v.continuity.uncovered_seconds + " s uncovered) · " + v.continuity.low_confidence + " low-confidence values. " + v.continuity.note);
+        if (k === "performance" && isNum(v.identity_uncertain_excluded) && v.identity_uncertain_excluded) out.push("  " + v.identity_uncertain_excluded + " entries left out: uncertain player identity");
+      });
+      var used = ev.used_by_review || {};
+      out.push("Used by this review: " + (used.note ? used.note : Object.keys(used).map(function(k) { return k.replace(/_/g, " ") + " " + used[k]; }).join(" · ")));
+      if (ev.thresholds_note) out.push(ev.thresholds_note);
+      return out;
     }
     function render(r) {
       tr.data = r;
@@ -12967,7 +12998,8 @@ function initializePlayerFatigue(team) {
       if (!x) { el.axTrDetail.style.display = "none"; return; }
       el.axTrDetail.style.display = "block";
       el.axTrDetailTitle.textContent = x.athlete.name + " #" + x.athlete.jersey_number + (x.reviewed ? " · " + (OUTCOME[x.outcome] || x.outcome) : " · not reviewed");
-      if (!x.reviewed) { lines(el.axTrDetailBody, [x.error]); return; }
+      if (!x.reviewed) { lines(el.axTrDetailBody, [x.error]); lines(el.axTrEvidenceBody, []); return; }
+      lines(el.axTrEvidenceBody, evidenceLines(x.evidence));
       var rv = x.review, ix = x.physiological_index || {}, pf = x.performance || {}, rd = x.latest_reading;
       var out = [];
       out.push("Recorded reading: " + (rd ? Object.keys(rd.values).map(function(k) { return k.replace(/_/g, " ") + " " + rd.values[k]; }).join(", ") + " · measured " + availUtc(rd.observed_at) + " · " + rd.availability : "none recorded"));
@@ -12977,7 +13009,9 @@ function initializePlayerFatigue(team) {
       out.push("Performance (experimental): " + (pf.available ? pf.value + " of 100" : NA) + " · " + Object.keys(AREA).map(function(k) { return AREA[k] + " " + (pf.areas && isNum(pf.areas[k]) ? pf.areas[k] : NA); }).join(" · "));
       var role = rv.role || {};
       out.push("Role asked " + (role.required ? "\"" + role.required + "\"" : "not recorded") + " · formation " + (role.formation || "not recorded") + " · instruction " + (role.team_instruction ? "\"" + role.team_instruction + "\"" : "not recorded"));
+      if (rv.route && rv.route.name === "performance_only") out.push("Route: performance only (no wearable in this player's session plan). " + rv.route.limits);
       (rv.reasons || []).forEach(function(t) { out.push("Reason: " + t); });
+      if (rv.context_observation) out.push("Context-only observation (not a recommendation): " + rv.context_observation.observation + " · comparisons not made: " + rv.context_observation.unavailable_comparisons.join("; "));
       (rv.tradeoffs || []).forEach(function(t) { out.push("Tradeoff: " + t); });
       (rv.constraints_applied || []).forEach(function(t) { out.push("Constraint: " + t); });
       (rv.replacements || []).forEach(function(c) { out.push("Option " + c.athlete_id + " (" + c.role_fit.replace(/_/g, " ") + (c.blocked_reason ? "; coach: do not bring on" : "") + "): physiology " + (c.physiology && c.physiology.available ? "index " + c.physiology.value : "cannot be compared (not recorded; not a sign of freshness)")); });
