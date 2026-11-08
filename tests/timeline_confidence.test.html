@@ -2239,7 +2239,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
   });
 
   // ---- fatigue pilot card ----
-  const PI_IDS = ["axPiCard", "axPiWho", "axPiMode", "axPiRefresh", "axPiMain", "axPiTrend", "axPiFactors", "axPiMissing", "axPiTech", "axPiStatus"];
+  const PI_IDS = ["axPiCard", "axPiWho", "axPiMode", "axPiRefresh", "axPiMain", "axPiTrend", "axPiFactors", "axPiMissing", "axPiTech", "axPiStatus", "axPiRound", "axPiSave", "axPiStart", "axPiFlow"];
   const cand = (v, reasons) => v === null ? { available: false, value: null, reasons: reasons || ["wearable stream: newest wearable sample is 20 s old (stale after 10 s)"], contributions: [] }
     : { available: true, value: v, reasons: [], contributions: [{ feature: "hr_strain", weight: 0.5, score: 40, contribution: 20 }, { feature: "hr_per_speed", weight: 0.3, score: 30, contribution: 9 }] };
   const piBody = (o) => Object.assign({ recording_id: "rec-1", recording_status: "active", mode: "live", fictional: true, at: iso(0), captured_at: iso(0), note: "Experimental estimate. No substitution advice; the coach decides.",
@@ -2273,6 +2273,42 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.deepEqual(ctx.els.axPiMain.children.map(b => texts(b)[1]), ["Not available", "Not available", "12"]);
     assert.match(texts(ctx.els.axPiMissing)[0], /^Combined not available: wearable stream: newest wearable sample is 20 s old/);
     assert.ok(!/replace|substitut(e|ion) (now|him|her)/i.test(texts(ctx.els.axPiFactors).join(" ") + texts(ctx.els.axPiMissing).join(" ")), "no substitution advice");
+  });
+
+  test("fatigue pilot: save score, then start the sprint; double clicks, a wearer change and a round change block a stale confirmation", async () => {
+    const ctx = boot({ extra: PI_IDS });
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody());
+    ctx.els.axPiRound.value = "2";
+    ctx.els.axPiSave.dispatch("click"); ctx.els.axPiSave.dispatch("click"); await ctx.flush();
+    const saves = ctx.pending.filter(p => p.url.endsWith("/study") && p.opts.method === "POST");
+    assert.equal(saves.length, 1, "a double click sends one save");
+    const sb = JSON.parse(saves[0].opts.body);
+    assert.deepEqual([sb.kind, sb.athlete_id, sb.round], ["score_save", "px1", 2]);
+    assert.equal(ctx.els.axPiStart.disabled, true, "no start before a confirmed save");
+    const pred = { id: "st-pred-1", kind: "prediction", athlete_id: "px1", round: 2, prediction: { cutoff: iso(0), all_three_available: false,
+      result: { candidates: { combined: cand(null), vest_only: cand(30), camera_only: cand(10) } } } };
+    await ctx.resolveLate(saves[0], pred);
+    assert.match(ctx.els.axPiFlow.textContent, /^SAVED for P1 round 2 at .* \(st-pred-1\) · all three estimates available: NO · Combined Not available · Vest only 30 · Camera only 10\. Now start/);
+    assert.equal(ctx.els.axPiStart.disabled, false);
+    ctx.els.axPiStart.dispatch("click"); ctx.els.axPiStart.dispatch("click"); await ctx.flush();
+    const starts = ctx.pending.filter(p => p.url.endsWith("/study") && p.opts.method === "POST");
+    assert.equal(starts.length, 1, "a double click sends one start");
+    assert.deepEqual(JSON.parse(starts[0].opts.body).confirms_prediction_id, "st-pred-1");
+    await ctx.resolveLate(starts[0], { id: "st-spri-1", kind: "sprint_start", at: iso(1) });
+    assert.match(ctx.els.axPiFlow.textContent, /^Sprint start marked at .* confirming st-pred-1\. The timer enters the time separately/);
+    assert.equal(ctx.els.axPiStart.disabled, true, "one start per saved score");
+    // a new save, then the wearer changes: the confirmation is dropped without a request
+    ctx.els.axPiSave.dispatch("click"); await ctx.flush();
+    await ctx.resolveLate(ctx.pending.filter(p => p.url.endsWith("/study")).pop(), Object.assign({}, pred, { id: "st-pred-2" }));
+    await click(ctx, "axPiRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody({ wearer: { participant_code: "P2", athlete_id: "px2", device_id: "fictional-vest-1", since: iso(-5) } }));
+    assert.equal(ctx.els.axPiStart.disabled, true);
+    assert.match(ctx.els.axPiFlow.textContent, /^The wearer changed after the score was saved: save the score again\./);
+    ctx.els.axPiStart.dispatch("click"); await ctx.flush();
+    assert.equal(ctx.pending.filter(p => p.url.endsWith("/study")).length, 0, "no stale confirmation is sent");
   });
 
   test("fatigue pilot: a failure clears the view; an older success after a newer failure is ignored", async () => {

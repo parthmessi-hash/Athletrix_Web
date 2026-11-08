@@ -3666,6 +3666,16 @@
           <div id="axPiTrend" aria-label="Recent trend" style="display:flex;align-items:flex-end;gap:2px;height:48px;margin-top:8px;max-width:100%;overflow:hidden;"></div>
           <div class="card-sub" id="axPiFactors" style="margin-top:6px;font-size:0.78rem;line-height:1.5;color:#e5e7eb;"></div>
           <div class="card-sub" id="axPiMissing" style="margin-top:4px;font-size:0.76rem;line-height:1.5;color:#fbbf24;overflow-wrap:anywhere;"></div>
+          <div id="axPiFlowBox" style="margin-top:8px;padding:6px 8px;border:1px solid rgba(168,85,247,0.4);border-radius:6px;font-size:0.78rem;">
+            <div class="card-sub" style="margin-bottom:4px;">Timed sprint: 1. save the score &rarr; 2. after the confirmation, start the sprint &rarr; 3. the timer enters the time separately.</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+              <label class="card-sub" for="axPiRound" style="margin:0;">Round</label>
+              <input id="axPiRound" type="number" min="1" max="100" value="1" class="login-input" style="width:70px;">
+              <button type="button" id="axPiSave" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">1. Save score</button>
+              <button type="button" id="axPiStart" class="btn btn-primary" style="padding:4px 10px;font-size:0.78rem;" disabled>2. Start timed sprint</button>
+            </div>
+            <div class="card-sub" id="axPiFlow" aria-live="polite" style="margin-top:4px;line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div>
+          </div>
           <details style="margin-top:6px;font-size:0.74rem;"><summary class="card-sub" style="cursor:pointer;">Technical detail (features, windows, references, exclusions, display delay)</summary><div class="card-sub" id="axPiTech" style="line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div></details>
           <div class="card-sub" id="axPiStatus" style="margin-top:6px;font-size:0.76rem;"></div>
         </div>
@@ -12945,10 +12955,10 @@ function initializePlayerFatigue(team) {
   // window.__athletrixPilotDisplay holds [display time on the engine clock (ms), newest receipt covered (ms), offset uncertainty (ms)].
   (function(){
     var PI_MS = 1000, PROBE_MS = 30000;
-    var ids = ["axPiCard", "axPiWho", "axPiMode", "axPiRefresh", "axPiMain", "axPiTrend", "axPiFactors", "axPiMissing", "axPiTech", "axPiStatus"];
+    var ids = ["axPiCard", "axPiWho", "axPiMode", "axPiRefresh", "axPiMain", "axPiTrend", "axPiFactors", "axPiMissing", "axPiTech", "axPiStatus", "axPiRound", "axPiSave", "axPiStart", "axPiFlow"];
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
-    var pi = { seq: 0, offset: null, probes: [] };
+    var pi = { seq: 0, offset: null, probes: [], wearer: null, rec: null, saved: null, busy: false, tokens: {} };
     var NAMES = { vest_only: "Vest only", camera_only: "Camera only", combined: "Combined" };
     var log = window.__athletrixPilotDisplay = [];
     function setStatus(text, color) { el.axPiStatus.textContent = text; el.axPiStatus.style.color = color; }
@@ -12981,8 +12991,9 @@ function initializePlayerFatigue(team) {
     function render(r) {
       el.axPiMode.textContent = (r.mode === "live" ? "LIVE" : "RECORDED") + (r.fictional ? " · FICTIONAL" : "") + " · recording " + r.recording_status;
       el.axPiMode.style.color = r.fictional ? COLORS.warn : COLORS.muted;
-      if (!r.wearer) { clear("No active wearer at " + availUtc(r.at) + "."); el.axPiMode.textContent = (r.mode === "live" ? "LIVE" : "RECORDED") + (r.fictional ? " · FICTIONAL" : ""); return; }
+      if (!r.wearer) { if (r.mode === "live") { pi.wearer = null; if (pi.saved) dropSaved("No active wearer: the saved score can no longer be confirmed."); } clear("No active wearer at " + availUtc(r.at) + "."); el.axPiMode.textContent = (r.mode === "live" ? "LIVE" : "RECORDED") + (r.fictional ? " · FICTIONAL" : ""); return; }
       el.axPiWho.textContent = r.wearer.participant_code + " (vest " + r.wearer.device_id + ", since " + availUtc(r.wearer.since) + ")";
+      if (r.mode === "live") { pi.wearer = r.wearer; if (pi.saved && (pi.saved.athlete !== r.wearer.athlete_id || pi.saved.since !== r.wearer.since)) dropSaved("The wearer changed after the score was saved: save the score again."); }
       var e = r.estimate || {}, cs = e.candidates || {};
       el.axPiMain.textContent = "";
       ["combined", "vest_only", "camera_only"].forEach(function(k) { el.axPiMain.appendChild(box(k, cs[k])); });
@@ -13032,7 +13043,8 @@ function initializePlayerFatigue(team) {
       if (!pi.offset) probe();
       target().then(function(rec) {
         if (stale()) return;
-        if (!rec) { clear("No recording is active and none is under review."); setStatus("", COLORS.muted); return; }
+        pi.rec = rec;
+        if (!rec) { pi.wearer = null; clear("No recording is active and none is under review."); setStatus("", COLORS.muted); return; }
         var url = API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/study/pilot?trend_span_s=300&trend_step_s=15";
         return fetch(url, { cache: "no-store" }).then(function(res) { if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); }); return res.json(); })
           .then(function(r) { if (stale()) return; render(r); stamp(r); setStatus("Updated " + availUtc(r.captured_at) + " · " + r.note, COLORS.muted); });
@@ -13042,6 +13054,48 @@ function initializePlayerFatigue(team) {
         setStatus("The pilot view could not be read from " + API_BASE + " (" + err.message + "); nothing earlier is shown as current.", COLORS.error);
       });
     }
+    function flow(text, color) { el.axPiFlow.textContent = text; el.axPiFlow.style.color = color || "#e5e7eb"; }
+    function dropSaved(why) { pi.saved = null; el.axPiStart.disabled = true; if (why) flow(why, COLORS.warn); }
+    function tokenFor(key) { if (!pi.tokens[key]) pi.tokens[key] = "ui-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10); return pi.tokens[key]; }
+    function post(body) {
+      return fetch(API_BASE + "/api/v1/recordings/" + encodeURIComponent(pi.rec.id) + "/study", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function(res) { if (res.status === 200 || res.status === 201) return res.json(); return rejectionText(res).then(function(why) { throw new Error(why); }); });
+    }
+    function saveScore() {
+      if (pi.busy) return;
+      var w = pi.wearer, rnd = parseInt(el.axPiRound.value, 10);
+      if (!pi.rec || !w) { flow("No live wearer: assign the wearer first.", COLORS.warn); return; }
+      if (!(rnd >= 1)) { flow("Enter the round number.", COLORS.warn); return; }
+      var key = "save|" + w.athlete_id + "|" + w.since + "|" + rnd;
+      pi.busy = true; dropSaved(); flow("Saving the score…", COLORS.muted);
+      post({ kind: "score_save", client_token: tokenFor(key), athlete_id: w.athlete_id, round: rnd }).then(function(p) {
+        delete pi.tokens[key];
+        if (!pi.wearer || pi.wearer.athlete_id !== p.athlete_id || pi.wearer.since !== w.since) { flow("The wearer changed while saving: save again.", COLORS.warn); return; }
+        var c = (p.prediction.result || {}).candidates || {};
+        pi.saved = { id: p.id, athlete: p.athlete_id, since: w.since, round: p.round, cutoff: p.prediction.cutoff };
+        el.axPiStart.disabled = false;
+        flow("SAVED for " + w.participant_code + " round " + p.round + " at " + availUtc(p.prediction.cutoff) + " (" + p.id + ") · all three estimates available: " + (p.prediction.all_three_available ? "yes" : "NO") + " · " +
+             ["combined", "vest_only", "camera_only"].map(function(k) { return NAMES[k] + " " + (c[k] && c[k].available ? Math.round(c[k].value) : NA); }).join(" · ") + ". Now start the timed sprint.", COLORS.live);
+      }).catch(function(err) { flow("Not saved: " + err.message + ". Pressing Save again will not save twice.", COLORS.error); })
+        .then(function() { pi.busy = false; });
+    }
+    function startSprint() {
+      if (pi.busy || !pi.saved) return;
+      var s = pi.saved, w = pi.wearer, rnd = parseInt(el.axPiRound.value, 10);
+      if (!w || w.athlete_id !== s.athlete || w.since !== s.since) { dropSaved("The wearer changed after the score was saved: save the score again."); return; }
+      if (rnd !== s.round) { dropSaved("The round number changed after the score was saved: save the score again."); return; }
+      var key = "start|" + s.id;
+      pi.busy = true; flow("Marking the sprint start…", COLORS.muted);
+      post({ kind: "sprint_start", client_token: tokenFor(key), athlete_id: s.athlete, round: s.round, confirms_prediction_id: s.id }).then(function(e) {
+        delete pi.tokens[key];
+        dropSaved();
+        flow("Sprint start marked at " + availUtc(e.at) + " for round " + s.round + ", confirming " + s.id + ". The timer enters the time separately (scripts/sprint_timing.py).", COLORS.live);
+      }).catch(function(err) { flow("Start not marked: " + err.message, COLORS.error); })
+        .then(function() { pi.busy = false; });
+    }
+    el.axPiSave.addEventListener("click", saveScore);
+    el.axPiStart.addEventListener("click", startSprint);
+    el.axPiRound.addEventListener("change", function() { if (pi.saved && parseInt(el.axPiRound.value, 10) !== pi.saved.round) dropSaved("The round number changed: save the score again."); });
     el.axPiRefresh.addEventListener("click", load);
     cards.push({ reset: function() {}, poll: load, setWho: function() {} });
     setInterval(function() { if (!reviewing()) load(); }, PI_MS);
