@@ -2239,7 +2239,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
   });
 
   // ---- fatigue pilot card ----
-  const PI_IDS = ["axPiCard", "axPiWho", "axPiMode", "axPiRefresh", "axPiMain", "axPiTrend", "axPiFactors", "axPiMissing", "axPiTech", "axPiStatus", "axPiRound", "axPiSave", "axPiStart", "axPiFlow"];
+  const PI_IDS = ["axPiCard", "axPiWho", "axPiMode", "axPiRefresh", "axPiMain", "axPiTrend", "axPiFactors", "axPiMissing", "axPiTech", "axPiStatus", "axPiRound", "axPiSave", "axPiStart", "axPiFlow", "axPiNext", "axPiRoundStart", "axPiPartial"];
   const cand = (v, reasons) => v === null ? { available: false, value: null, reasons: reasons || ["wearable stream: newest wearable sample is 20 s old (stale after 10 s)"], contributions: [] }
     : { available: true, value: v, reasons: [], contributions: [{ feature: "hr_strain", weight: 0.5, score: 40, contribution: 20 }, { feature: "hr_per_speed", weight: 0.3, score: 30, contribution: 9 }] };
   const piBody = (o) => Object.assign({ recording_id: "rec-1", recording_status: "active", mode: "live", fictional: true, at: iso(0), captured_at: iso(0), note: "Experimental estimate. No substitution advice; the coach decides.",
@@ -2309,6 +2309,48 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.match(ctx.els.axPiFlow.textContent, /^The wearer changed after the score was saved: save the score again\./);
     ctx.els.axPiStart.dispatch("click"); await ctx.flush();
     assert.equal(ctx.pending.filter(p => p.url.endsWith("/study")).length, 0, "no stale confirmation is sent");
+  });
+
+  test("fatigue pilot: the Next line names each readiness state; a refused round start is not stored; a reasoned partial start is", async () => {
+    const ctx = boot({ extra: PI_IDS });
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody({ readiness: { state: "no_stream", open_round: null, next: "no stream is arriving: check the vest and the camera feed before starting a round",
+      streams: { wearable: { usable: false, detail: "nothing arriving in the last 30 s" }, camera: { usable: false, detail: "nothing arriving in the last 30 s" } } } }));
+    assert.equal(ctx.els.axPiNext.textContent, "Next (NO STREAM): no stream is arriving: check the vest and the camera feed before starting a round · wearable: nothing arriving in the last 30 s · camera: nothing arriving in the last 30 s");
+    ctx.els.axPiRound.value = "1";
+    ctx.els.axPiRoundStart.dispatch("click"); ctx.els.axPiRoundStart.dispatch("click"); await ctx.flush();
+    const tries = ctx.pending.filter(p => p.url.endsWith("/study") && p.opts.method === "POST");
+    assert.equal(tries.length, 1, "a double click sends one start");
+    assert.deepEqual(Object.keys(JSON.parse(tries[0].opts.body)).sort(), ["athlete_id", "client_token", "kind", "round"], "no reason given: no partial_reason sent");
+    await ctx.resolveLateRaw(tries[0], { ok: false, status: 409, json: async () => ({ detail: { message: "the streams are not usable (no_stream): check the vest.", readiness: {} } }) });
+    assert.match(ctx.els.axPiFlow.textContent, /^Round NOT started: the streams are not usable \(no_stream\): check the vest\. To start anyway, type the reason/);
+    ctx.els.axPiPartial.value = "FICTIONAL: strap being refitted";
+    ctx.els.axPiRoundStart.dispatch("click"); await ctx.flush();
+    const part = ctx.pending.filter(p => p.url.endsWith("/study") && p.opts.method === "POST").pop();
+    const pb = JSON.parse(part.opts.body);
+    assert.deepEqual([pb.kind, pb.round, pb.partial_reason], ["round_start", 1, "FICTIONAL: strap being refitted"]);
+    assert.ok(pb.client_token !== JSON.parse(tries[0].opts.body).client_token, "the partial start is a different request");
+    await ctx.resolveLate(part, { id: "st-roun-1", kind: "round_start", round: 1, at: iso(0), opens_camera_reference: false, partial_reason: "FICTIONAL: strap being refitted" });
+    assert.match(ctx.els.axPiFlow.textContent, /^Round 1 started at .* camera reference not opened by this start \(started without usable data: FICTIONAL: strap being refitted\)\./);
+    assert.equal(ctx.els.axPiPartial.value, "");
+    const states = [
+      [{ state: "stale_or_unassigned", open_round: 1, next: "fix the input: wearable: stale (newest usable sample 14 s old).", streams: { wearable: { usable: false, detail: "stale (newest usable sample 14 s old)" }, camera: { usable: true, detail: "fresh" } } },
+       /^Next \(NOT USABLE, round 1 open\): fix the input: .* · wearable: stale/],
+      [{ state: "warming_up", open_round: 2, seconds_until_windows_built: 80, next: "windows still building (about 80 s): wait before saving a score for a controlled round", streams: {} }, /^Next \(WARMING UP, round 2 open\): windows still building \(about 80 s\)/],
+      [{ state: "ready_to_save", open_round: 2, next: "save the score now", streams: {} }, /^Next \(READY TO SAVE, round 2 open\): save the score now$/],
+      [{ state: "ready_to_start", open_round: null, next_round: 3, next: "both streams are usable: start round 3 now", streams: {} }, /^Next \(READY TO START\): both streams are usable: start round 3 now$/]];
+    for (const [rd, re] of states) {
+      await click(ctx, "axPiRefresh");
+      await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+      await ctx.respond("/study/pilot", piBody({ readiness: rd }));
+      assert.match(ctx.els.axPiNext.textContent, re);
+    }
+    assert.equal(ctx.els.axPiRound.value, "3", "ready_to_start fills in the next round number");
+    await click(ctx, "axPiRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody({ mode: "recorded", readiness: null }));
+    assert.equal(ctx.els.axPiNext.textContent, "Next: nothing to do here (not live, or no wearer)");
   });
 
   test("fatigue pilot: a failure clears the view; an older success after a newer failure is ignored", async () => {

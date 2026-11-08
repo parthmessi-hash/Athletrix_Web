@@ -173,7 +173,10 @@ as such.
 from the engine (`GET /api/v1/recordings/{id}/study/pilot`): combined, vest-only and camera-only values (0 is a value,
 "Not available" carries its reason), the recent trend (a missing point is a gap, never a zero bar), the main contributing
 factors, missing-data reasons, LIVE or RECORDED and FICTIONAL labels, and technical detail (features, windows,
-references, exclusions, clock offset) on demand. It gives no substitution advice. Its timed-sprint controls follow the pilot's order: enter the round, press **1. Save
+references, exclusions, clock offset) on demand. It gives no substitution advice. A **Next** line names the engine's round readiness (NO STREAM, NOT USABLE with the
+stream's reason, READY TO START, WARMING UP with seconds left, READY TO SAVE) and the next action; **Start round** starts
+the round, and the engine refuses it while the streams are not usable unless a reason is typed in the box beside it (the
+reason goes into the report and such a start never opens the camera reference). Its timed-sprint controls follow the pilot's order: enter the round, press **1. Save
 score** (the engine saves the score at that moment and the card confirms it, with whether all three estimates are
 available), and only then **2. Start timed sprint**, which confirms that saved score. A double click sends once; a
 wearer or round change after the save blocks the start until the score is saved again. The time itself is entered
