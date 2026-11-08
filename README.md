@@ -3,6 +3,14 @@
 Marketing site and demo dashboard for Athletrix. A single static page
 (`index.html`) with no build step.
 
+**Scope (since 2026-11-09): an offline soccer fatigue estimation engine.** The main view is the **Fatigue estimate**
+card: the active vest wearer's experimental combined estimate (wearable + sideline camera), its recent trend, a
+plain-language explanation of what contributed, and the reason whenever it is unavailable. Wearable-only and
+camera-only values are labelled research comparisons. Substitution recommendations, bench rankings, tactical
+evaluations and performance grades were removed from the dashboard, the browser demo and the public copy; the engine
+keeps the code needed to read old recordings and exports. Camera speed, distance and sprints are workload
+measurements, not ratings of how anyone played.
+
 The backend/engine lives in the separate `Athletrix_Vision_Synopsis_2026`
 repository. The page has two kinds of demo content:
 
@@ -11,10 +19,11 @@ repository. The page has two kinds of demo content:
   **Last 60 seconds** cards, which poll the Athletrix engine for the selected
   athlete. Shown only in *engine mode* (see below).
 - **Browser demo** (amber "Browser demo · fictional data" banner): the rest
-  of the dashboard, with fictional players, vitals, a 0–100 demo load index
-  and example rotation notes generated entirely in the browser. These numbers
-  are illustrative; they do not measure fatigue or decide substitutions, and
-  they are never substituted for engine data when the engine is unreachable.
+  of the dashboard, with fictional players, vitals and a 0–100 demo load index
+  generated entirely in the browser. These numbers are illustrative; they do
+  not measure fatigue, and they are never substituted for engine data when the
+  engine is unreachable. The demo shows load and workload only: no
+  substitution, ranking or performance rating.
 
 ## Engine mode and configuration
 
@@ -130,7 +139,7 @@ timelines show it unchanged: the tracking card reads "reported source: simulated
 show about one sample in ten; every sample is stored and drawn on the timelines. Nothing on this page detects people
 or identifies players.
 
-## Camera review and coach context (engine mode)
+## Camera review (engine mode)
 
 **Camera review** (below the timeline) describes the movement stream of the selected athlete in the same 60 s window,
 without requests of its own (it reads the timeline's window and the summary card's summary): sample count and
@@ -144,35 +153,13 @@ verified). A **track assignment aid** opens a gallery PNG or annotated MP4 writt
 are temporary track ids, not verified identity. The timeline no longer draws a line between samples of different
 continuity segments.
 
-**Coach context** stores time-bounded context with the recording under review, or with the active recording in Live:
-team formation and tactical objective, or for the selected athlete a role, instruction, one partnership and one piece
-of task-specific leadership or pressure-situation evidence per entry, each item recorded / unknown / not assessed,
-plus source, certainty, optional label, initials and note. It shows the team and athlete entries in force at a chosen
-instant (default: now, or the review end) and every entry of the recording. The engine's refusals are shown as they
-come ("Not saved: ..."). There are no ratings or scores. Corrections are new entries with the same effective time.
-
-**Team review** (engine mode, above the Live team overview) asks the engine for one team review of the recording under
-review (or the active recording) at one review time, with an explicit evidence choice (as entered by then, the
-default, or retrospective). Each player is one row, in roster order and never ranked: status and role, the latest
-recorded reading with its age (and "receipt unknown" when the engine has no receipt time), the experimental index and
-performance score (not available, never zero), the age of the last performance entry, and the experimental output
-with its main reason. Clicking a row shows the details (reading, index with baseline and per-signal contributions,
-four performance areas, role and instructions, reasons, tradeoffs, constraints, options and what cannot be compared,
-missing evidence) and lets you record a response (acknowledge, keep, review later, dismiss with a reason: the review
-is saved first so the recommendation stays pinned) or a lineup change (incoming bench player, role, effective time).
-Each action carries a token, so a retry or double click is stored once. A failed refresh clears the rows; an earlier
-result is never shown as current, and an older answer arriving after a newer failure is dropped. Each row ends with
-the engine's short evidence summary (for example "Wearable stale"), and "Evidence details (technical)" in the detail
-panel lists, per source, observed and received times, age, window counts (an expected count only when the session plan
-states a sampling interval), retries, replacements, rejected writes, exclusions, device reports, camera gaps and which
-inputs the review used. Since the engine's decision rules version 2, a player whose required input is missing shows
-"Insufficient evidence", never an earlier "Keep". A performance-only route and a context-only observation are labelled
-as such.
-
-**Fatigue pilot** (engine mode, at the top of the engine cards) shows the current vest wearer's EXPERIMENTAL estimate
-from the engine (`GET /api/v1/recordings/{id}/study/pilot`): combined, vest-only and camera-only values (0 is a value,
-"Not available" carries its reason), the recent trend (a missing point is a gap, never a zero bar), the main contributing
-factors, missing-data reasons, LIVE or RECORDED and FICTIONAL labels, and technical detail (features, windows,
+**Fatigue estimate** (engine mode, the first engine card) shows the current vest wearer's EXPERIMENTAL estimate
+from the engine (`GET /api/v1/recordings/{id}/study/pilot`): the combined estimate as the main value, with wearable-only
+and camera-only values labelled "research" (0 is a value, "Not available" carries its reason and is never replaced by a
+single-source value), a plain-language explanation built from the actual inputs (each contributing feature with its
+measured value and weight, features left out and why; or why there is no combined estimate: wearable stale, camera
+track stale or uncertain, baseline not ready, reference still building, movement not covered by the reference), the
+recent trend (a missing point is a gap, never a zero bar), the main contributing factors, missing-data reasons, LIVE or RECORDED and FICTIONAL labels, and technical detail (features, windows,
 references, exclusions, clock offset) on demand. It gives no substitution advice. A **Next** line names the engine's round readiness (NO STREAM, NOT USABLE with the
 stream's reason, READY TO START, WARMING UP with seconds left, READY TO SAVE) and the next action; **Start round** starts
 the round, and the engine refuses it while the streams are not usable unless a reason is typed in the box beside it (the
@@ -186,9 +173,8 @@ mapped onto the engine clock through `GET /api/v1/clock` (± half the probe roun
 `window.__athletrixPilotDisplay` for the engine's `scripts/pilot_display_delay.py`. In public mode it is hidden and
 makes no request.
 
-**Session setup and readiness** (engine mode, above Team review) shows the engine's preflight as separate areas
-(raw recording, camera tracking review, fatigue pilot estimate, and the experimental substitution review, which the
-pilot does not need) and, while a recording is active, each player's
+**Session setup and readiness** (engine mode) shows the engine's preflight as separate areas (raw recording, camera
+tracking review, fatigue estimate) and, while a recording is active, each player's
 wearable status (present, delayed, stale, disconnected, unavailable, not used, unknown). It is read-only. Plan, start
 and stop with the engine's `scripts/sideline_session.py`. Two requests per refresh; a failure clears the view.
 
@@ -213,38 +199,11 @@ is exported in `operator_work.confirmation_tasks`. The **Annotation sheet** pane
 with confidence and rationale. It refuses a copy holding another reviewer's labels and shows no Athletrix output.
 Logic tests: `tests/video_review.test.html` (expect "6 tests, 6 passed").
 
-**Experimental review** (below Performance evidence) asks the engine for its experimental substitution review of the
-selected athlete at a chosen time (empty = the recording's end, or now) and shows, as reported: the output (keep,
-consider replacement, review later or insufficient evidence) with reasons, tradeoffs, coach constraints and the next
-review time; possible replacements with role fit and their physiology (missing bench physiology is shown as not
-available, never as freshness); missing evidence and why; the experimental physiological index with its baseline and
-coverage, apart from the recorded window and baseline measurements; the four-area performance scores; the role,
-formation and instruction in force; and the history of review points. A banner marks FICTIONAL profiles and mixed
-sources. An Evidence choice switches between everything stored now (labelled retrospective when it uses evidence
-entered after the review time) and only what had been entered by then. "Save this review" stores it on the engine with
-its profiles and evidence; the saved list can reproduce each one and shows whether it reproduced, its evidence changed,
-or the calculation differs. Nothing is calculated in the browser, it is hidden in public mode, and the engine returns
-"insufficient evidence" when no profile is configured.
-
-**Performance evidence** (below Coach context) enters and shows individual-performance evidence for the recording
-under review, or the active recording in Live, for the selected athlete. Each area has its own evidence: a pass count
-(attempts and completions) or a possession count (possessions and turnovers) for execution, decision moments or
-positioning checks judged good, acceptable or poor against a stated criterion, and, for following coach strategy only,
-an instruction followed, partially followed or not followed (optionally linked to a coach instruction stored in Coach
-context). An observation can correct an earlier one (which is then kept as history and no longer counted), and can
-state whether the player's identity was confirmed or uncertain (uncertain is listed, never scored); the list shows
-each observation's status from the engine (counted, superseded, potential duplicate, identity uncertain, legacy). It carries an assessment state (assessed, unable to assess with a reason, or no opportunity), a role, a
-period (defaulting to the recording's exact start and stop), a source (human annotation or human review of the
-recorded video, optionally marked as a reference label), an annotator and an optional video frame. The card shows the
-engine's per-area evidence (counts, outcomes, unable-to-assess reasons), the rubric version, and whether a composite
-is available. With no rubric configured, which is the default, it shows the engine's reason instead. A fictional
-rubric's composite is labelled as such. It is labelled "Manual entry, not automatic recognition" and never shows
-leadership, chemistry or fatigue. Refusals ("Not saved: ...") are shown as the engine sends them. Rapid athlete or
-recording changes drop late responses.
-
-The camera review, coach context and performance evidence cards are hidden in public mode, which makes no engine requests. The welcome tour now describes what exists
-(heart rate and movement side by side, recordings, coach notes; no fatigue measurement, performance scoring or
-substitution decisions) and the add-team form uses soccer examples.
+The removed cards (Team review, Coach context, Performance evidence, Experimental review) no longer appear; their
+scripts stay in the page but find no card and do nothing. The camera review card is hidden in public mode, which makes
+no engine requests. The welcome tour describes what exists
+(heart rate and movement side by side, recordings, an experimental fatigue estimate untested on athletes; no
+performance rating) and the add-team form uses soccer examples.
 
 ## What the cards show
 
@@ -828,7 +787,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "93 tests, 93 passed" (fatigue pilot: save then start, double clicks, stale confirmations, freshness and the last saved prediction; no request in public mode, labels, a real zero, unavailable with reasons, trend gaps, factors, failure clearing, late older answers; session setup: three readiness areas, wearable status per player, failure clears the view, no request in public mode; team review: an older success after a newer failure, evidence lines and details, context-only observations, rows, unavailable values, unreviewed players, failure clears rows, late responses, responses saved once, lineup body; baselines and profiles: unconfigured profiles, decisions need a reason and a name, preview body; experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
+Expect "95 tests, 95 passed" (fatigue estimate: the plain-language explanation and its unavailable reasons; fatigue pilot: save then start, double clicks, stale confirmations, freshness and the last saved prediction; no request in public mode, labels, a real zero, unavailable with reasons, trend gaps, factors, failure clearing, late older answers; session setup: three readiness areas, wearable status per player, failure clears the view, no request in public mode; team review: an older success after a newer failure, evidence lines and details, context-only observations, rows, unavailable values, unreviewed players, failure clears rows, late responses, responses saved once, lineup body; baselines and profiles: unconfigured profiles, decisions need a reason and a name, preview body; experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
 missing evidence, measurements apart from interpretation, history and cooldown holds, the chosen review time, refusals,
 an unconfigured engine, late replies; performance evidence: decision and positioning counts, corrections and statuses; counts, states, sources, linked instructions, unavailable composite, request bodies, refusals, late replies, hidden in public mode; coach context default effective time with a microsecond start and a sub-second recording; camera review: segments, gaps, breaks, stale and failed windows, late replies, the local track file; coach context: entries in force, request bodies, refusals, no recording; inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
 runner fails a test that does not finish within 10 s and yields through a

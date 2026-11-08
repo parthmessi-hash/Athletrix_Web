@@ -2261,7 +2261,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(ctx.els.axPiMode.textContent, "LIVE · FICTIONAL · recording active");
     assert.match(ctx.els.axPiWho.textContent, /^P1 \(vest fictional-vest-1/);
     const boxes = ctx.els.axPiMain.children.map(b => texts(b).join(" | "));
-    assert.deepEqual(boxes, ["Combined | 29", "Vest only | 40", "Camera only | 0"], "0 is a value");
+    assert.deepEqual(boxes, ["Combined estimate | 29", "Wearable only · research | 40", "Camera only · research | 0"], "0 is a value; single-source values are labelled research");
     assert.equal(ctx.els.axPiTrend.children.length, 3);
     assert.equal(ctx.els.axPiTrend.children[1].style.background, "transparent", "a missing point is a gap, not a zero bar");
     assert.match(texts(ctx.els.axPiFactors)[0], /^Main factors \(Combined\): hr strain 40 \(weight 50%\) · hr per speed 30/);
@@ -2273,6 +2273,33 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.deepEqual(ctx.els.axPiMain.children.map(b => texts(b)[1]), ["Not available", "Not available", "12"]);
     assert.match(texts(ctx.els.axPiMissing)[0], /^Combined not available: wearable stream: newest wearable sample is 20 s old/);
     assert.ok(!/replace|substitut(e|ion) (now|him|her)/i.test(texts(ctx.els.axPiFactors).join(" ") + texts(ctx.els.axPiMissing).join(" ")), "no substitution advice");
+  });
+
+  test("fatigue estimate: the plain-language explanation names what contributed, or why the combined estimate is unavailable", async () => {
+    const ctx = boot({ extra: PI_IDS.concat(["axPiExplain"]) });
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const est = piBody().estimate;
+    est.features.hr_strain.measure = { mean_hr_bpm: 152.4, fraction_of_reserve: 0.66 };
+    est.features.hr_per_speed = { inputs: ["wearable", "camera"], available: true, value: 30, measure: { increase: 0.09 } };
+    est.candidates.combined.features_left_out = [{ feature: "recovery", reason: "no qualifying effort (heart rate at or above the qualifying level) in the lookback" }];
+    await ctx.respond("/study/pilot", piBody({ estimate: est }));
+    const ex = texts(ctx.els.axPiExplain).join(" ");
+    assert.match(ex, /^Combined estimate 29 of 100 for P1, relative to their own baseline\. What contributed: heart-rate strain 40 \(mean 152 bpm, 66% of heart-rate reserve\), 50% of the weight; heart rate per unit of movement 30 \(\+9% heart rate per m\/s against the reference\), 30% of the weight\./);
+    assert.match(ex, /Left out of this estimate: heart-rate recovery: no qualifying effort/);
+    await click(ctx, "axPiRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody({ estimate: Object.assign({}, est, { candidates: { combined: cand(null, ["wearable stream: newest wearable sample is 20 s old (stale after 10 s)"]),
+      vest_only: cand(null), camera_only: cand(12) } }) }));
+    assert.deepEqual(ctx.els.axPiMain.children.map(b => texts(b)[1]), ["Not available", "Not available", "12"], "the combined box says Not available, never a single-source value");
+    const ex2 = texts(ctx.els.axPiExplain);
+    assert.equal(ex2[0], "No combined estimate for P1: the wearable's readings are stale or missing (newest wearable sample is 20 s old (stale after 10 s)).");
+    assert.match(ex2[1], /A missing estimate is not zero, and the wearable-only or camera-only research values are never shown in its place\./);
+    await click(ctx, "axPiRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody({ estimate: Object.assign({}, est, { candidates: { combined: cand(null, ["required feature hr_speed_matched unavailable: the reference does not cover this kind of movement: only 10% of recent samples"]),
+      vest_only: cand(40), camera_only: cand(null) } }) }));
+    assert.match(texts(ctx.els.axPiExplain)[0], /^No combined estimate for P1: the player's reference does not include this kind of movement, so there is no confident comparison\.$/);
   });
 
   test("fatigue pilot: save score, then start the sprint; double clicks, a wearer change and a round change block a stale confirmation", async () => {
@@ -2290,7 +2317,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const pred = { id: "st-pred-1", kind: "prediction", athlete_id: "px1", round: 2, prediction: { cutoff: iso(0), all_three_available: false,
       result: { candidates: { combined: cand(null), vest_only: cand(30), camera_only: cand(10) } } } };
     await ctx.resolveLate(saves[0], pred);
-    assert.match(ctx.els.axPiFlow.textContent, /^SAVED for P1 round 2 at .* \(st-pred-1\) · all three estimates available: NO · Combined Not available · Vest only 30 · Camera only 10\. Now start/);
+    assert.match(ctx.els.axPiFlow.textContent, /^SAVED for P1 round 2 at .* \(st-pred-1\) · all three estimates available: NO · Combined Not available · Wearable only 30 · Camera only 10\. Now start/);
     assert.equal(ctx.els.axPiStart.disabled, false);
     ctx.els.axPiStart.dispatch("click"); ctx.els.axPiStart.dispatch("click"); await ctx.flush();
     const starts = ctx.pending.filter(p => p.url.endsWith("/study") && p.opts.method === "POST");
@@ -2388,7 +2415,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.match(ctx.els.axPiWho.textContent, /^P2 /, "the older P1 answer arrived last and was ignored");
     const info = texts(ctx.els.axPiFactors);
     assert.ok(info.includes("Session day1 (controlled study) · Wearable newest 1 s old · Camera newest 14 s old (STALE)"), info.join("\n"));
-    assert.ok(info.some(t => /^Last saved pre-sprint prediction: round 3 at .* \(RETROSPECTIVE: backdated marker\) · Combined Not available · Vest only 42 · Camera only 12$/.test(t)), info.join("\n"));
+    assert.ok(info.some(t => /^Last saved pre-sprint prediction: round 3 at .* \(RETROSPECTIVE: backdated marker\) · Combined Not available · Wearable only 42 · Camera only 12$/.test(t)), info.join("\n"));
   });
 
   // ---- session setup card ----
@@ -2412,7 +2439,8 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
       { athlete: { id: "f04", name: "Fictional f04", jersey_number: 7 }, evidence: { sources: { wearable: { status: "not_used" } } } }] });
     const areas = ctx.els.axSuAreas.children.map(b => texts(b).join(" | "));
     assert.match(areas[0], /^Raw recording: Ready, with warnings \| Note: f01: no wearable reading/);
-    assert.match(areas[2], /^Experimental substitution review \(not needed for the pilot\): Blocked \| Blocked: no performance rubric/);
+    assert.ok(areas.length <= 3, "raw recording, camera review and the fatigue estimate only");
+    assert.ok(!areas.some(a => /substitution|rubric/i.test(a)), "no substitution readiness area is shown");
     const rec = texts(ctx.els.axSuRecording);
     assert.ok(rec.includes("  unavailable (1): Fictional f02 #4") && rec.includes("  not used (1): Fictional f04 #7") && rec.includes("  present (1): Fictional f01 #8"), rec.join("\n"));
     await click(ctx, "axSuRefresh");

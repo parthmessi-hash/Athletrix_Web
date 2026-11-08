@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Athletrix – AI-Powered Coaching Suite</title>
-  <meta name="description" content="Athletrix tracks live player vitals, scores fatigue in real time, and recommends substitutions — so coaches can protect athletes and win games.">
+  <title>Athletrix – Offline Fatigue Estimation</title>
+  <meta name="description" content="Athletrix is an offline soccer fatigue estimation engine in development: one wearable, one fixed sideline camera and one laptop produce an experimental 0–100 estimate relative to each player's own baseline, with the reasons behind it.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="image" href="images/hero-arena.jpg">
@@ -2880,7 +2880,7 @@
 
   <div id="axDemoBanner" role="note" style="display:none;background:rgba(215,150,11,0.12);border-top:1px solid rgba(215,150,11,0.5);border-bottom:1px solid rgba(215,150,11,0.5);color:#f1d08a;font-size:0.82rem;line-height:1.5;padding:8px 16px;text-align:center;">
     <b style="font-family:'Barlow Condensed',sans-serif;letter-spacing:0.12em;text-transform:uppercase;color:#d7960b;">Browser demo &middot; fictional data</b>
-    &nbsp;Players, vitals, load indexes and rotation notes in this demo are generated in your browser for illustration. They do not measure fatigue or decide substitutions. Only cards marked <span style="color:#3b82f6;font-weight:600;">Engine-connected</span> read from the Athletrix engine.
+    &nbsp;Players, vitals and load indexes in this demo are generated in your browser for illustration. They do not measure fatigue. Only cards marked <span style="color:#3b82f6;font-weight:600;">Engine-connected</span> read from the Athletrix engine.
   </div>
   <div id="view-home" class="app-view">
 
@@ -2889,7 +2889,7 @@
         <div class="mk-hero-content">
           <div class="mk-kicker">AI-Powered Coaching Suite</div>
           <h1 class="mk-h1">See fatigue before it <em>costs you the game.</em></h1>
-          <p class="mk-sub">Athletrix streams live athlete vitals from the field to your sideline, scores fatigue in real time, and tells you exactly who to rotate — and why.</p>
+          <p class="mk-sub">Athletrix estimates fatigue offline from one wearable and one fixed sideline camera: an experimental 0–100 estimate for the player wearing the vest, relative to their own baseline, with what moved it and when there is not enough evidence.</p>
           <div class="mk-hero-ctas">
             <button class="mk-btn mk-btn-primary" onclick="launchDemo()">Explore the Live Demo</button>
             <button class="mk-btn mk-btn-outline" onclick="showMarketingPage('pricing')">View Pricing</button>
@@ -2923,28 +2923,28 @@
           <div class="mk-card mk-reveal" onclick="launchDemo()">
             <div class="mk-card-img"><img src="images/card-wearable.jpg" alt="Athlete checking vitals on a smartwatch" loading="lazy"></div>
             <h3>Athlete Monitoring</h3>
-            <p>Heart rate, HRV, SpO₂, respiration, temperature and workload — streamed live from wearables for every athlete on the floor.</p>
+            <p>Heart rate from one wearable and movement from one fixed sideline camera, recorded locally on one laptop.</p>
             <span class="mk-card-link">See it in the demo →</span>
           </div>
           <div class="mk-card mk-reveal" onclick="launchDemo()">
             <div class="mk-card-img"><img src="images/card-game.jpg" alt="Basketball dropping through the net during a game" loading="lazy"></div>
             <h3>In-Game Decisions</h3>
-            <p>An AI that links each athlete's fatigue to their real on-court performance and times the swap that wins the trade — who to pull, who to send in, and the exact moment.</p>
+            <p>The combined estimate puts heart rate and camera-measured movement side by side against the player's own reference, and says plainly when either input is stale or uncertain.</p>
             <span class="mk-card-link">See it in the demo →</span>
           </div>
           <div class="mk-card mk-reveal" onclick="launchDemo()">
             <div class="mk-card-img"><img src="images/card-analytics.jpg" alt="Performance analytics dashboards on a laptop" loading="lazy"></div>
             <h3>Analytics &amp; Review</h3>
-            <p>Per-athlete biometric reports that turn into targeted drills, plus a post-game review of every AI call — so the next game's decisions are sharper.</p>
+            <p>Every estimate saved before a timed sprint can be reproduced later and compared with independently timed sprint results.</p>
             <span class="mk-card-link">See it in the demo →</span>
           </div>
         </div>
         <div class="mk-caps">
           <div class="mk-cap mk-reveal"><div><h4>Live Vitals Tracking</h4><p>Eight physiological signals per athlete, synced to the game clock.</p></div></div>
-          <div class="mk-cap mk-reveal"><div><h4>Fatigue–Performance Model</h4><p>Learns how fatigue hits each athlete's real output — not one generic curve.</p></div></div>
-          <div class="mk-cap mk-reveal"><div><h4>AI Substitution Engine</h4><p>Times the swap that wins the trade, with the reasoning spelled out.</p></div></div>
+          <div class="mk-cap mk-reveal"><div><h4>Personal baseline</h4><p>Each estimate is relative to that player's own resting and early-session reference, not a league average.</p></div></div>
+          <div class="mk-cap mk-reveal"><div><h4>Explainable estimate</h4><p>Shows which inputs contributed, and says "not enough data" instead of guessing.</p></div></div>
           <div class="mk-cap mk-reveal"><div><h4>Camera Sync</h4><p>Reads execution and positioning, second by second, into the model.</p></div></div>
-          <div class="mk-cap mk-reveal"><div><h4>Post-Game Review</h4><p>Grades every call and flags the drills each athlete needs.</p></div></div>
+          <div class="mk-cap mk-reveal"><div><h4>Reproducible record</h4><p>Saved estimates, the frozen scoring profile and the evidence behind them export together.</p></div></div>
           <div class="mk-cap mk-reveal"><div><h4>Opponent Scouting</h4><p>Scouting reports on rival squads — what to exploit, who to watch.</p></div></div>
         </div>
       </div>
@@ -2970,7 +2970,7 @@
           <div class="mk-step mk-reveal">
             <div class="mk-step-num">03</div>
             <h3>Coach With Answers</h3>
-            <p>Fatigue alerts and substitution calls arrive in real time, so every rotation has data behind it.</p>
+            <p>The estimate updates as readings arrive, and shows the reason whenever it cannot be calculated.</p>
           </div>
         </div>
       </div>
@@ -3000,7 +3000,7 @@
               <li>25 player profiles</li>
               <li>Live fatigue monitoring</li>
               <li>Basic injury alerts</li>
-              <li>Weekly performance reports</li>
+              <li>Session estimate and evidence reports</li>
               <li>Email support</li>
             </ul>
             <button class="mk-btn mk-btn-dark" onclick="startSignup('academy')">Start With Academy</button>
@@ -3012,7 +3012,7 @@
             <div class="mk-price-period">Per Club / Season</div>
             <ul class="mk-price-features">
               <li>Unlimited squads</li>
-              <li>Real-time AI substitution engine</li>
+              <li>Combined wearable + camera fatigue estimate</li>
               <li>Live match dashboard</li>
               <li>Camera auto sync</li>
               <li>API access</li>
@@ -3110,11 +3110,11 @@
           <div>
             <div class="mk-kicker mk-kicker-dark">Module 03</div>
             <h3>In-Game Decisions</h3>
-            <p>This is more than a fatigue meter. Our AI learns the correlation between each athlete's fatigue — from the vest and the camera — and their actual performance on the floor: execution, decision-making, the quality of their reps. It times every substitution to the exact moment that maximizes the performance you get for the energy spent, while weighing how costly that athlete is to take off. Two players at the same fatigue are not the same sub.</p>
+            <p>The estimate compares the vest wearer's heart rate and the camera's measure of their movement with that player's own reference. Speed, distance and sprints are workload measurements, not a rating of how anyone played. Whether the estimate tracks fatigue is still being tested: it is experimental, and the coach decides what to do with it.</p>
             <div class="mk-scale">
-              <div class="s1"><b>HOLDING UP</b><span>Performance steady — stay in.</span></div>
-              <div class="s2"><b>SLIPPING</b><span>Output dropping — line up a sub.</span></div>
-              <div class="s3"><b>COSTING YOU</b><span>Fresh legs win the trade — go.</span></div>
+              <div class="s1"><b>NEAR BASELINE</b><span>Estimate close to the player's own reference.</span></div>
+              <div class="s2"><b>RISING</b><span>Heart rate or movement moving away from the reference.</span></div>
+              <div class="s3"><b>NOT ENOUGH DATA</b><span>An input is stale or uncertain: no estimate is shown.</span></div>
             </div>
           </div>
         </div>
@@ -3123,7 +3123,7 @@
           <div style="order: 1;">
             <div class="mk-kicker mk-kicker-dark">Module 04</div>
             <h3>Analytics &amp; Review</h3>
-            <p>Two things, after the final whistle. Each athlete gets a report of how their biometrics moved across the game — turned into the specific drills that will push the vitals holding them back. And the whole game gets reviewed: were the AI's substitution calls right, what did they cost or save, and what should change next time. Every game makes the next decision smarter.</p>
+            <p>After the session, the recording exports with every saved estimate, its inputs and the frozen scoring rules, and a verification step checks that each saved estimate reproduces on a fresh copy.</p>
           </div>
         </div>
       </div>
@@ -3147,7 +3147,7 @@
       <div class="mk-wrap">
         <div class="mk-kicker">How It Works</div>
         <h1 class="mk-h1">From roster to sideline <em>in one afternoon.</em></h1>
-        <p class="mk-sub">No installation project, no analyst on payroll. Here's the full path from signing up to making your first data-backed substitution.</p>
+        <p class="mk-sub">No installation project, no analyst on payroll. Here's the path from setting up to your first saved fatigue estimate.</p>
       </div>
     </header>
     <section class="mk-section" style="padding-top: 40px;">
@@ -3166,7 +3166,7 @@
           <div class="mk-step mk-reveal" style="border-top-color: #d9dde2;">
             <div class="mk-step-num">03</div>
             <h3 style="color: #111419;">Coach With Answers</h3>
-            <p style="color: #40454d;">When fatigue crosses a threshold you get the alert, the reason, and the recommended swap. Take it or leave it — the call is always yours, now with data behind it.</p>
+            <p style="color: #40454d;">The estimate shows its value, its recent trend and what contributed — or why it is unavailable. What to do with it is always your call.</p>
           </div>
         </div>
       </div>
@@ -3191,7 +3191,7 @@
           <div class="mk-step mk-reveal">
             <div class="mk-step-num">4:10</div>
             <h3>The Call</h3>
-            <p>It names the freshest matchup on your bench. You make the swap in a timeout — thirty seconds from alert to action.</p>
+            <p>Before a timed sprint, the operator saves the estimate; an independent timer records the sprint, so the two can be compared later.</p>
           </div>
         </div>
       </div>
@@ -3240,7 +3240,7 @@
               <li>25 player profiles</li>
               <li>Live fatigue monitoring</li>
               <li>Basic injury alerts</li>
-              <li>Weekly performance reports</li>
+              <li>Session estimate and evidence reports</li>
               <li>Email support</li>
             </ul>
             <button class="mk-btn mk-btn-dark" onclick="startSignup('academy')">Start With Academy</button>
@@ -3252,7 +3252,7 @@
             <div class="mk-price-period">Per Club / Season</div>
             <ul class="mk-price-features">
               <li>Unlimited squads</li>
-              <li>Real-time AI substitution engine</li>
+              <li>Combined wearable + camera fatigue estimate</li>
               <li>Live match dashboard</li>
               <li>Camera auto sync</li>
               <li>API access</li>
@@ -3271,7 +3271,7 @@
           </div>
           <div class="mk-faq-item mk-reveal">
             <h4>Can we try it before buying?</h4>
-            <p>Yes — the live demo is open to everyone, no account needed. It runs a complete game with two example teams using fictional, browser-generated data so you can see how the dashboard reads. The demo's numbers are illustrative; they do not measure fatigue or decide substitutions.</p>
+            <p>Yes — the live demo is open to everyone, no account needed. It runs a complete game with two example teams using fictional, browser-generated data so you can see how the dashboard reads. The demo's numbers are illustrative; they do not measure fatigue.</p>
           </div>
           <div class="mk-faq-item mk-reveal">
             <h4>What counts as a season?</h4>
@@ -3366,7 +3366,7 @@
         <div class="mk-values">
           <div class="mk-value mk-reveal">
             <h3>Athletes First</h3>
-            <p>Wins matter, but athletes matter more. Athletrix exists so no one plays through exhaustion that a coach could have seen coming. Healthy rotations are how seasons — and careers — last.</p>
+            <p>Wins matter, but athletes matter more. Athletrix exists so no one plays through exhaustion that a coach could have seen coming. Knowing when a player is far from their own baseline is how seasons — and careers — last.</p>
           </div>
           <div class="mk-value mk-reveal">
             <h3>Data For Every Program</h3>
@@ -3628,6 +3628,36 @@
             <b>Recorded-time review</b> &middot; <span id="axReviewBounds">enter a window end and click Review</span>. <span id="axReviewBannerNote">Shows only the samples the engine still retains (the newest per stream, up to the engine's own retention caps; see Available data under each card); older records may already have been removed. Not a live feed.</span>
           </div>
         </div>
+        <div class="card" id="axPiCard" style="margin-bottom:18px;border-left:4px solid #a855f7;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Fatigue estimate &middot; <span id="axPiWho">no active wearer</span></div>
+              <div class="card-sub">Experimental combined estimate for the player wearing the vest, from the wearable and the sideline camera, relative to their own baseline (0 = at their own reference, 100 = at the profile's bound; &ldquo;not available&rdquo; is never 0). Wearable-only and camera-only values are research comparisons, never the main estimate. Untested on athletes: the coach decides.</div>
+            </div>
+            <span id="axPiMode" class="card-sub" style="font-weight:600;">&mdash;</span>
+            <button type="button" id="axPiRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
+          </div>
+          <div id="axPiMain" style="display:flex;flex-wrap:wrap;gap:8px;font-size:0.8rem;">&mdash;</div>
+          <div class="card-sub" id="axPiExplain" aria-live="polite" style="margin-top:8px;font-size:0.82rem;line-height:1.55;color:#f3f4f6;overflow-wrap:anywhere;"></div>
+          <div id="axPiTrend" aria-label="Recent trend" style="display:flex;align-items:flex-end;gap:2px;height:48px;margin-top:8px;max-width:100%;overflow:hidden;"></div>
+          <div class="card-sub" id="axPiFactors" style="margin-top:6px;font-size:0.78rem;line-height:1.5;color:#e5e7eb;"></div>
+          <div class="card-sub" id="axPiMissing" style="margin-top:4px;font-size:0.76rem;line-height:1.5;color:#fbbf24;overflow-wrap:anywhere;"></div>
+          <div id="axPiFlowBox" style="margin-top:8px;padding:6px 8px;border:1px solid rgba(168,85,247,0.4);border-radius:6px;font-size:0.78rem;">
+            <div id="axPiNext" aria-live="polite" style="font-weight:600;margin-bottom:4px;line-height:1.5;overflow-wrap:anywhere;">Next: &mdash;</div>
+            <div class="card-sub" style="margin-bottom:4px;">Round: start it when Next says both streams are usable &rarr; 1. save the score &rarr; 2. after the confirmation, start the sprint &rarr; 3. the timer enters the time separately.</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+              <label class="card-sub" for="axPiRound" style="margin:0;">Round</label>
+              <input id="axPiRound" type="number" min="1" max="100" value="1" class="login-input" style="width:70px;">
+              <button type="button" id="axPiRoundStart" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Start round</button>
+              <input id="axPiPartial" type="text" maxlength="300" class="login-input" style="flex:1 1 180px;min-width:0;" placeholder="Reason, only to start without usable data" aria-label="Reason to start the round without usable data">
+              <button type="button" id="axPiSave" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">1. Save score</button>
+              <button type="button" id="axPiStart" class="btn btn-primary" style="padding:4px 10px;font-size:0.78rem;" disabled>2. Start timed sprint</button>
+            </div>
+            <div class="card-sub" id="axPiFlow" aria-live="polite" style="margin-top:4px;line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div>
+          </div>
+          <details style="margin-top:6px;font-size:0.74rem;"><summary class="card-sub" style="cursor:pointer;">Technical detail (features, windows, references, exclusions, display delay)</summary><div class="card-sub" id="axPiTech" style="line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div></details>
+          <div class="card-sub" id="axPiStatus" style="margin-top:6px;font-size:0.76rem;"></div>
+        </div>
         <div class="card" id="axRecordingCard" style="margin-bottom:18px;border-left:4px solid #22c55e;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
@@ -3653,35 +3683,6 @@
           </div>
           <div id="axRecList" style="display:flex;flex-direction:column;gap:6px;font-size:0.82rem;color:#e5e7eb;"></div>
         </div>
-        <div class="card" id="axPiCard" style="margin-bottom:18px;border-left:4px solid #a855f7;">
-          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
-            <div style="flex:1 1 240px;min-width:0;">
-              <div class="card-title">Fatigue pilot &middot; <span id="axPiWho">no active wearer</span></div>
-              <div class="card-sub">Experimental estimate for the current vest wearer, relative to their own baseline (0 = at their own reference, 100 = at the profile's bound, &ldquo;not available&rdquo; is never 0). No substitution advice: the coach decides.</div>
-            </div>
-            <span id="axPiMode" class="card-sub" style="font-weight:600;">&mdash;</span>
-            <button type="button" id="axPiRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
-          </div>
-          <div id="axPiMain" style="display:flex;flex-wrap:wrap;gap:8px;font-size:0.8rem;">&mdash;</div>
-          <div id="axPiTrend" aria-label="Recent trend" style="display:flex;align-items:flex-end;gap:2px;height:48px;margin-top:8px;max-width:100%;overflow:hidden;"></div>
-          <div class="card-sub" id="axPiFactors" style="margin-top:6px;font-size:0.78rem;line-height:1.5;color:#e5e7eb;"></div>
-          <div class="card-sub" id="axPiMissing" style="margin-top:4px;font-size:0.76rem;line-height:1.5;color:#fbbf24;overflow-wrap:anywhere;"></div>
-          <div id="axPiFlowBox" style="margin-top:8px;padding:6px 8px;border:1px solid rgba(168,85,247,0.4);border-radius:6px;font-size:0.78rem;">
-            <div id="axPiNext" aria-live="polite" style="font-weight:600;margin-bottom:4px;line-height:1.5;overflow-wrap:anywhere;">Next: &mdash;</div>
-            <div class="card-sub" style="margin-bottom:4px;">Round: start it when Next says both streams are usable &rarr; 1. save the score &rarr; 2. after the confirmation, start the sprint &rarr; 3. the timer enters the time separately.</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
-              <label class="card-sub" for="axPiRound" style="margin:0;">Round</label>
-              <input id="axPiRound" type="number" min="1" max="100" value="1" class="login-input" style="width:70px;">
-              <button type="button" id="axPiRoundStart" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Start round</button>
-              <input id="axPiPartial" type="text" maxlength="300" class="login-input" style="flex:1 1 180px;min-width:0;" placeholder="Reason, only to start without usable data" aria-label="Reason to start the round without usable data">
-              <button type="button" id="axPiSave" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">1. Save score</button>
-              <button type="button" id="axPiStart" class="btn btn-primary" style="padding:4px 10px;font-size:0.78rem;" disabled>2. Start timed sprint</button>
-            </div>
-            <div class="card-sub" id="axPiFlow" aria-live="polite" style="margin-top:4px;line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div>
-          </div>
-          <details style="margin-top:6px;font-size:0.74rem;"><summary class="card-sub" style="cursor:pointer;">Technical detail (features, windows, references, exclusions, display delay)</summary><div class="card-sub" id="axPiTech" style="line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div></details>
-          <div class="card-sub" id="axPiStatus" style="margin-top:6px;font-size:0.76rem;"></div>
-        </div>
         <div class="card" id="axSuCard" style="margin-bottom:18px;border-left:4px solid #22c55e;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
@@ -3693,45 +3694,6 @@
           <div id="axSuAreas" style="display:flex;flex-wrap:wrap;gap:8px;font-size:0.78rem;">&mdash;</div>
           <div class="card-sub" id="axSuRecording" style="margin-top:8px;font-size:0.78rem;line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div>
           <div class="card-sub" id="axSuStatus" style="margin-top:6px;font-size:0.76rem;"></div>
-        </div>
-        <div class="card" id="axTrCard" style="margin-bottom:18px;border-left:4px solid #f59e0b;">
-          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
-            <div style="flex:1 1 240px;min-width:0;">
-              <div class="card-title">Team review &middot; experimental</div>
-              <div class="card-sub">Every player of the recording under review (or the active recording), from one engine request at one review time: status and role, the latest <b>recorded reading</b>, the <b>experimental</b> physiological index and performance score with their age and coverage, and the experimental output with its main reason. Players are listed in roster order, never ranked; a missing value is shown as not available, never as zero. Decision support only: the coach decides.</div>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;">
-              <label for="axTrKnowledge" class="card-sub" style="margin:0;">Evidence</label>
-              <select id="axTrKnowledge" class="coach-select" style="max-width:100%;"><option value="as_entered">as entered by then (live)</option><option value="retrospective">everything stored now (retrospective)</option></select>
-              <button type="button" id="axTrRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
-            </div>
-          </div>
-          <div class="card-sub" id="axTrTarget" style="margin-bottom:6px;">Looking for a recording&hellip;</div>
-          <div class="card-sub" id="axTrBanner" style="display:none;margin-bottom:6px;padding:6px 8px;border-radius:6px;background:rgba(245,158,11,0.15);color:#fbbf24;font-size:0.78rem;"></div>
-          <div id="axTrList" role="list" style="display:flex;flex-direction:column;gap:4px;font-size:0.8rem;">&mdash;</div>
-          <div id="axTrDetail" aria-live="polite" style="margin-top:10px;display:none;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;">
-            <div id="axTrDetailTitle" style="font-weight:600;color:#fff;margin-bottom:4px;"></div>
-            <div class="card-sub" id="axTrDetailBody" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;"></div>
-            <details id="axTrEvidence" style="margin-top:6px;font-size:0.74rem;"><summary class="card-sub" style="cursor:pointer;">Evidence details (technical)</summary><div class="card-sub" id="axTrEvidenceBody" style="line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div></details>
-            <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 8px;margin-top:8px;">
-              <span class="card-sub" style="margin:0;color:#fff;">Your response:</span>
-              <button type="button" id="axTrAck" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Acknowledge</button>
-              <button type="button" id="axTrKeep" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Keep player</button>
-              <button type="button" id="axTrDefer" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Review later</button>
-              <button type="button" id="axTrDismiss" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Dismiss</button>
-              <input id="axTrReason" type="text" maxlength="300" class="login-input" placeholder="reason (optional)" aria-label="Reason" style="flex:1 1 160px;min-width:0;">
-            </div>
-            <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 8px;margin-top:6px;">
-              <span class="card-sub" style="margin:0;color:#fff;">Lineup change:</span>
-              <label class="card-sub" style="margin:0;max-width:100%;">Incoming<br><select id="axTrIncoming" class="coach-select" style="max-width:100%;width:260px;"><option value="">choose a bench player</option></select></label>
-              <label class="card-sub" style="margin:0;max-width:100%;">Role<br><input id="axTrRole" type="text" maxlength="80" class="login-input" style="width:150px;max-width:100%;"></label>
-              <label class="card-sub" style="margin:0;max-width:100%;">Effective (UTC)<br><input id="axTrWhen" type="text" class="login-input" style="width:230px;max-width:100%;font-family:monospace;"></label>
-              <button type="button" id="axTrLineup" class="btn btn-primary" style="padding:4px 10px;font-size:0.78rem;">Record lineup change</button>
-            </div>
-            <div class="card-sub" id="axTrRespStatus" style="margin-top:4px;font-size:0.76rem;"></div>
-            <div class="card-sub" id="axTrHistory" style="margin-top:4px;font-size:0.74rem;line-height:1.5;color:#e5e7eb;"></div>
-          </div>
-          <div class="card-sub" id="axTrStatus" style="margin-top:6px;font-size:0.76rem;"></div>
         </div>
         <div class="card" id="axTeamCard" style="margin-bottom:18px;border-left:4px solid #3b82f6;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
@@ -3913,125 +3875,6 @@
             <div id="axCamPreview" style="margin-top:8px;"></div>
           </div>
         </div>
-        <div class="card" id="axCtxCard" style="margin-bottom:24px;border-left:4px solid #22c55e;">
-          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
-            <div style="flex:1 1 240px;min-width:0;">
-              <div class="card-title">Coach context &middot; <span id="axCtxWho">no athlete selected</span></div>
-              <div class="card-sub">Time-bounded match context entered by people and stored with a recording: formation, tactical objective, the selected athlete's role and instruction, lineup partnerships, and task-specific leadership or pressure-situation evidence. Every item is <i>recorded</i>, <i>unknown</i> or <i>not assessed</i>. No ratings or scores: these are inputs for a later substitution model, not judgements.</div>
-            </div>
-            <button type="button" id="axCtxRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
-          </div>
-          <div class="card-sub" id="axCtxTarget" style="margin-bottom:6px;">Looking for a recording&hellip;</div>
-          <details id="axCtxFormBox" style="margin-bottom:8px;">
-            <summary class="card-sub" style="cursor:pointer;margin:0;color:#fff;">Add a context entry</summary>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 12px;margin-top:8px;font-size:0.8rem;">
-              <label class="card-sub" style="margin:0;">Applies to<br><select id="axCtxScope" class="coach-select" style="width:100%;"><option value="team">The team</option><option value="athlete">The selected athlete</option></select></label>
-              <label class="card-sub" style="margin:0;">Effective from (UTC, ISO 8601)<br><input id="axCtxFrom" type="text" class="login-input" placeholder="2026-10-29T15:00:00Z" style="width:100%;font-family:monospace;"></label>
-              <label class="card-sub" style="margin:0;">Match or session label (optional)<br><input id="axCtxMatch" type="text" maxlength="120" class="login-input" placeholder="U17 v Fictional FC, first half" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Formation (team)<br><select id="axCtxFormationStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <input id="axCtxFormation" type="text" maxlength="200" class="login-input" placeholder="4-3-3" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Tactical objective or instruction<br><select id="axCtxTacticStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <input id="axCtxTactic" type="text" maxlength="200" class="login-input" placeholder="press high after losing the ball" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Role (athlete)<br><select id="axCtxRoleStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <input id="axCtxRole" type="text" maxlength="200" class="login-input" placeholder="inverted left back" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Lineup partnership (athlete)<br><select id="axCtxPartnerStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <select id="axCtxPartner" class="coach-select" style="max-width:100%;"></select> <input id="axCtxPartnerNote" type="text" maxlength="300" class="login-input" placeholder="what was observed" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Task-specific evidence (athlete)<br><select id="axCtxEvidenceStatus" class="coach-select"><option value="not_assessed">not assessed</option><option value="unknown">unknown</option><option value="recorded">recorded</option></select> <select id="axCtxEvidenceKind" class="coach-select"><option value="leadership">leadership</option><option value="pressure_situation">pressure situation</option></select> <input id="axCtxEvidenceTask" type="text" maxlength="120" class="login-input" placeholder="task, e.g. organising the back line at corners" style="width:100%;"> <input id="axCtxEvidenceDesc" type="text" maxlength="300" class="login-input" placeholder="what was observed" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Source<br><select id="axCtxSource" class="coach-select"><option value="head_coach">head coach</option><option value="assistant_coach">assistant coach</option><option value="analyst">analyst</option><option value="player_self_report">player self-report</option><option value="other">other</option></select></label>
-              <label class="card-sub" style="margin:0;">Certainty<br><select id="axCtxCertainty" class="coach-select"><option value="confirmed">confirmed</option><option value="probable">probable</option><option value="uncertain">uncertain</option></select></label>
-              <label class="card-sub" style="margin:0;">Entered by (optional)<br><input id="axCtxBy" type="text" maxlength="80" class="login-input" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Note (optional, the source's words)<br><input id="axCtxNote" type="text" maxlength="500" class="login-input" style="width:100%;"></label>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
-              <button type="button" id="axCtxSubmit" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Save context entry</button>
-              <span class="card-sub" id="axCtxFormStatus" style="margin:0;">Entries are never edited: to correct one, save another with the same effective time (the later one is then in force).</span>
-            </div>
-          </details>
-          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-bottom:6px;">
-            <label for="axCtxAt" class="card-sub" style="margin:0;">In force at (UTC)</label>
-            <input id="axCtxAt" type="text" class="login-input" placeholder="now, or 2026-10-29T15:30:00Z" style="max-width:240px;font-family:monospace;font-size:0.78rem;">
-            <button type="button" id="axCtxShowAt" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Show</button>
-          </div>
-          <div class="card-sub" id="axCtxEffective" style="font-size:0.8rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
-          <details style="margin-top:6px;"><summary class="card-sub" style="cursor:pointer;margin:0;">All entries of this recording</summary><div class="card-sub" id="axCtxList" style="font-family:monospace;font-size:0.74rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
-          <div class="card-sub" id="axCtxStatus" style="margin-top:6px;font-size:0.76rem;"></div>
-        </div>
-        <div class="card" id="axPerfCard" style="margin-bottom:24px;border-left:4px solid #a855f7;">
-          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
-            <div style="flex:1 1 240px;min-width:0;">
-              <div class="card-title">Performance evidence &middot; <span id="axPerfWho">no athlete selected</span></div>
-              <div class="card-sub">Evidence for the four-area individual performance review (execution, decision-making, movement and positioning, following coach strategy), entered by people for a recording. <b>Manual entry, not automatic recognition.</b> Leadership, chemistry and pressure situations stay in Coach context and are not counted here; fatigue never enters this review.</div>
-            </div>
-            <button type="button" id="axPerfRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
-          </div>
-          <div class="card-sub" id="axPerfTarget" style="margin-bottom:6px;">Looking for a recording&hellip;</div>
-          <details id="axPerfFormBox" style="margin-bottom:8px;">
-            <summary class="card-sub" style="cursor:pointer;margin:0;color:#fff;">Add an observation for the selected athlete</summary>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 12px;margin-top:8px;font-size:0.8rem;">
-              <label class="card-sub" style="margin:0;">Event<br><select id="axPerfKind" class="coach-select" style="width:100%;"><option value="pass">Pass attempts and completions (execution)</option><option value="turnover">Possessions and turnovers (execution)</option><option value="decision">Decision moments (decision-making)</option><option value="positioning">Positioning checks (movement and positioning)</option><option value="tactical_observation">Coach instruction followed (following coach strategy)</option></select></label>
-              <label class="card-sub" style="margin:0;">Area (follows the event; each area has its own evidence)<br><select id="axPerfArea" class="coach-select" style="width:100%;" disabled><option value="execution">execution</option><option value="decision_making">decision-making</option><option value="movement_positioning">movement and positioning</option><option value="coach_strategy">following coach strategy</option></select></label>
-              <label class="card-sub" style="margin:0;">Assessment<br><select id="axPerfAssessment" class="coach-select" style="width:100%;"><option value="assessed">assessed</option><option value="unable_to_assess">unable to assess</option><option value="no_opportunity">no opportunity</option></select></label>
-              <label class="card-sub" style="margin:0;">Unable-to-assess reason<br><select id="axPerfUnable" class="coach-select" style="width:100%;"><option value="not_visible">not visible</option><option value="off_camera">off camera</option><option value="occluded">occluded</option><option value="video_quality">video quality</option><option value="ambiguous">ambiguous</option><option value="other">other</option></select></label>
-              <label class="card-sub" style="margin:0;">Period start (UTC, ISO 8601)<br><input id="axPerfStart" type="text" class="login-input" style="width:100%;font-family:monospace;"></label>
-              <label class="card-sub" style="margin:0;">Period end (UTC, ISO 8601)<br><input id="axPerfEnd" type="text" class="login-input" style="width:100%;font-family:monospace;"></label>
-              <label class="card-sub" style="margin:0;">Role during the period (optional)<br><input id="axPerfRole" type="text" maxlength="80" class="login-input" placeholder="left back" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Attempts / completed (pass)<br><input id="axPerfAttempts" type="number" min="0" class="login-input" style="width:45%;"> <input id="axPerfCompletions" type="number" min="0" class="login-input" style="width:45%;"></label>
-              <label class="card-sub" style="margin:0;">Possessions / turnovers<br><input id="axPerfPossessions" type="number" min="0" class="login-input" style="width:45%;"> <input id="axPerfTurnovers" type="number" min="0" class="login-input" style="width:45%;"></label>
-              <label class="card-sub" style="margin:0;">Moments judged: good / acceptable / poor (decision, positioning)<br><input id="axPerfGood" type="number" min="0" class="login-input" style="width:30%;"> <input id="axPerfAcceptable" type="number" min="0" class="login-input" style="width:30%;"> <input id="axPerfPoor" type="number" min="0" class="login-input" style="width:30%;"></label>
-              <label class="card-sub" style="margin:0;">Criterion judged (decision, positioning)<br><input id="axPerfCriterion" type="text" maxlength="200" class="login-input" placeholder="chose the option that broke the press" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Outcome (coach instruction)<br><select id="axPerfOutcome" class="coach-select" style="width:100%;"><option value="followed">followed</option><option value="partially_followed">partially followed</option><option value="not_followed">not followed</option></select></label>
-              <label class="card-sub" style="margin:0;">Instruction judged (coach instruction)<br><input id="axPerfInstruction" type="text" maxlength="200" class="login-input" placeholder="the coach's words" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Linked coach instruction (optional)<br><select id="axPerfContext" class="coach-select" style="width:100%;"><option value="">none</option></select></label>
-              <label class="card-sub" style="margin:0;">Evidence source<br><select id="axPerfSource" class="coach-select" style="width:100%;"><option value="human_annotation">human annotation</option><option value="human_review_of_camera">human review of the recorded video</option></select></label>
-              <label class="card-sub" style="margin:0;"><input id="axPerfReference" type="checkbox"> Reference label (for evaluating a future automatic method)</label>
-              <label class="card-sub" style="margin:0;">Player identity<br><select id="axPerfIdentity" class="coach-select" style="width:100%;"><option value="">not stated</option><option value="confirmed">confirmed</option><option value="uncertain">uncertain (listed, never scored)</option></select></label>
-              <label class="card-sub" style="margin:0;">Corrects observation (optional)<br><select id="axPerfSupersedes" class="coach-select" style="width:100%;"><option value="">none (a new observation)</option></select></label>
-              <label class="card-sub" style="margin:0;">Correction reason (with a correction)<br><input id="axPerfCorrection" type="text" maxlength="300" class="login-input" placeholder="recounted from the video" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Annotator (optional)<br><input id="axPerfAnnotator" type="text" maxlength="80" class="login-input" style="width:100%;"></label>
-              <label class="card-sub" style="margin:0;">Video and frame (optional)<br><input id="axPerfVideo" type="text" maxlength="200" class="login-input" placeholder="file name" style="width:60%;"> <input id="axPerfFrame" type="number" min="0" class="login-input" placeholder="frame" style="width:30%;"></label>
-              <label class="card-sub" style="margin:0;">Description or note (optional)<br><input id="axPerfNote" type="text" maxlength="500" class="login-input" style="width:100%;"></label>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;">
-              <button type="button" id="axPerfSubmit" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Save observation</button>
-              <span class="card-sub" id="axPerfFormStatus" style="margin:0;">Counts are kept as entered (attempts and outcomes), never only a percentage. Unable to assess and no opportunity are never zeros. A correction replaces the earlier observation (kept as history), so both are never counted.</span>
-            </div>
-          </details>
-          <div class="card-sub" id="axPerfComposite" style="font-size:0.82rem;color:#e5e7eb;margin-bottom:6px;">&mdash;</div>
-          <div class="card-sub" id="axPerfAreas" style="font-size:0.8rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
-          <details style="margin-top:6px;" open><summary class="card-sub" style="cursor:pointer;margin:0;">Observations of this athlete</summary><div class="card-sub" id="axPerfList" style="font-family:monospace;font-size:0.74rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
-          <div class="card-sub" id="axPerfStatus" style="margin-top:6px;font-size:0.76rem;"></div>
-        </div>
-        <div class="card" id="axSubCard" style="margin-bottom:24px;border-left:4px solid #f59e0b;">
-          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
-            <div style="flex:1 1 240px;min-width:0;">
-              <div class="card-title">Experimental review &middot; <span id="axSubWho">no athlete selected</span></div>
-              <div class="card-sub">Physiology against this athlete's own baseline, the four-area performance assessment, coach context and roster state, combined by configured rules into <b>keep</b>, <b>consider replacement</b>, <b>review later</b> or <b>insufficient evidence</b>. Experimental decision support only: the coach decides. Recorded measurements and interpretations are shown separately; nothing here confirms fatigue, injury, safety or readiness.</div>
-            </div>
-            <button type="button" id="axSubRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px;margin-bottom:6px;">
-            <label class="card-sub" style="margin:0;font-size:0.8rem;max-width:100%;">Review time (UTC, ISO 8601; empty = the recording's end, or now)<br><input id="axSubAt" type="text" class="login-input" style="width:260px;max-width:100%;font-family:monospace;"></label>
-            <label class="card-sub" style="margin:0;font-size:0.8rem;max-width:100%;">Evidence<br><select id="axSubKnowledge" class="coach-select" style="max-width:100%;"><option value="retrospective">everything stored now (retrospective)</option><option value="as_entered">only what was entered by then (as entered)</option></select></label>
-            <button type="button" id="axSubGo" class="btn btn-primary" style="padding:6px 14px;font-size:0.82rem;">Review</button>
-            <button type="button" id="axSubSave" class="btn btn-ghost" style="padding:6px 14px;font-size:0.82rem;">Save this review</button>
-          </div>
-          <div class="card-sub" id="axSubKnowledgeLabel" style="margin-bottom:6px;font-size:0.78rem;"></div>
-          <div class="card-sub" id="axSubTarget" style="margin-bottom:6px;">Looking for a recording&hellip;</div>
-          <div class="card-sub" id="axSubBanner" style="display:none;margin-bottom:6px;padding:6px 8px;border-radius:6px;background:rgba(245,158,11,0.15);color:#fbbf24;font-size:0.78rem;"></div>
-          <div id="axSubOutcome" style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:4px;">&mdash;</div>
-          <div class="card-sub" id="axSubReasons" style="font-size:0.8rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
-          <div class="card-sub" style="margin:8px 0 2px;color:#fff;">Possible replacements</div>
-          <div class="card-sub" id="axSubReplacements" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
-          <div class="card-sub" style="margin:8px 0 2px;color:#fff;">Missing evidence and why something is unavailable</div>
-          <div class="card-sub" id="axSubMissing" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 16px;margin-top:8px;">
-            <div><div class="card-sub" style="margin:0 0 2px;color:#fff;">Physiological index (interpretation)</div><div class="card-sub" id="axSubPhys" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div></div>
-            <div><div class="card-sub" style="margin:0 0 2px;color:#fff;">Recorded measurements (window and baseline)</div><div class="card-sub" id="axSubMeasures" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div></div>
-            <div><div class="card-sub" style="margin:0 0 2px;color:#fff;">Performance (four areas)</div><div class="card-sub" id="axSubPerf" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div></div>
-            <div><div class="card-sub" style="margin:0 0 2px;color:#fff;">Coach context and roster state</div><div class="card-sub" id="axSubContext" style="font-size:0.78rem;line-height:1.55;color:#e5e7eb;">&mdash;</div></div>
-          </div>
-          <details style="margin-top:6px;"><summary class="card-sub" style="cursor:pointer;margin:0;">History of review points (index, composite, states, output)</summary><div class="card-sub" id="axSubHistory" style="font-family:monospace;font-size:0.74rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
-          <details style="margin-top:6px;"><summary class="card-sub" style="cursor:pointer;margin:0;">Saved reviews of this athlete (reproduced from their pinned profiles and evidence)</summary>
-            <div class="card-sub" id="axSubSaveStatus" style="margin-top:4px;font-size:0.76rem;"></div>
-            <div class="card-sub" id="axSubSaved" style="font-size:0.76rem;line-height:1.55;color:#e5e7eb;margin-top:4px;">&mdash;</div></details>
-          <div class="card-sub" id="axSubStatus" style="margin-top:6px;font-size:0.76rem;"></div>
-        </div>
         <div class="card" id="axBlCard" style="margin-bottom:24px;border-left:4px solid #14b8a6;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
@@ -4177,13 +4020,13 @@
         <section id="homeView">
           <div id="emptyDashboard" class="empty-dashboard" style="display: none;">
             <h2>Welcome to Athletrix!</h2>
-            <p>Add your team to explore the demo dashboard. Demo players and numbers are fictional; Athletrix does not measure fatigue or score performance yet.</p>
+            <p>Add your team to explore the demo dashboard. Demo players and numbers are fictional; the engine's fatigue estimate is experimental and untested on athletes.</p>
             <button class="add-team-btn" onclick="showAddTeamForm()">Add Your First Team</button>
           </div>
           <div id="guestWelcome" style="display: none; padding: 48px 20px 8px; text-align: center;">
             <div class="demo-kicker">Live Demo</div>
             <h2 class="demo-title">Coach a full game. Right now.</h2>
-            <p class="demo-sub">Every athlete in this browser demo gets a fictional 0–100 load index, and a rule-based assistant writes example rotation notes in plain language. The numbers are generated in your browser for illustration; they do not measure fatigue or decide substitutions.</p>
+            <p class="demo-sub">Every athlete in this browser demo gets a fictional 0–100 load index. The numbers are generated in your browser for illustration; they do not measure fatigue. The engine's real estimate appears in the Fatigue estimate card when a local engine is connected.</p>
             <div class="demo-legend">
               <div class="dl"><i style="background:#3b82f6;"></i><div><b>0–33 · LOW</b><span>Illustrative band</span></div></div>
               <div class="dl"><i style="background:#d7960b;"></i><div><b>34–66 · MEDIUM</b><span>Illustrative band</span></div></div>
@@ -4362,7 +4205,6 @@
                     <div class="card-title">Assistant Coach</div>
                     <div class="card-sub">Context‑aware AI analyzing fatigue, impact, and game state.</div>
                   </div>
-                  <button class="btn btn-primary" id="subBtn">Make Sub</button>
                 </div>
                 <div id="aiPanel"></div>
                 <div class="card" style="margin-top: 10px;" id="cardsContainer">
@@ -4392,22 +4234,10 @@
                   <p style="color:#9ca3af; margin-top:5px;">Post-Match Intelligence Report</p>
               </div>
               
-              <div class="report-section-title">Key Performance Indicators</div>
+              <div class="report-section-title">Load (fictional demo; not a rating of how anyone played)</div>
               <div class="report-grid">
-                  <div class="report-card">
-                      <div class="report-label">Game MVP</div>
-                      <div class="report-val" id="reportMVP">-</div>
-                  </div>
                    <div class="report-card">
-                      <div class="report-label">Clutch Player</div>
-                      <div class="report-val" id="reportClutch">-</div>
-                  </div>
-                   <div class="report-card">
-                      <div class="report-label">Best Sub</div>
-                      <div class="report-val" id="reportBestSub">-</div>
-                  </div>
-                   <div class="report-card">
-                      <div class="report-label">Fatigue Watch</div>
+                      <div class="report-label">Highest demo load index</div>
                       <div class="report-val" id="reportFatigue">-</div>
                   </div>
               </div>
@@ -4421,14 +4251,6 @@
                    <div class="report-card">
                       <div class="report-label">Highest Intensity (HR)</div>
                       <div class="report-val" id="reportHeart">-</div>
-                  </div>
-                   <div class="report-card">
-                      <div class="report-label">Most Efficient</div>
-                      <div class="report-val" id="reportEfficient">-</div>
-                  </div>
-                   <div class="report-card">
-                      <div class="report-label">Performance Grade</div>
-                      <div class="report-val" id="reportGrade">-</div>
                   </div>
               </div>
               
@@ -4538,7 +4360,7 @@
             <div class="empty-state">No active players. Add players or start match from Dashboard.</div>
         </div>
         
-        <div class="section-divider" id="benchDivider" style="display:none;">Bench / Substitutes</div>
+        <div class="section-divider" id="benchDivider" style="display:none;">Not on the field</div>
         <div class="grid" id="benchGrid" style="display:none;"></div>
         
     </div>
@@ -6911,7 +6733,7 @@ function initializePlayerFatigue(team) {
           aiPanel.innerHTML = `
             <div class="ai-title">Live Insights (${currentCoachStyle})</div>
             <p class="ai-text">
-              Everyone is within safe fatigue ranges. Keep your lineup to maintain rhythm.
+              Demo load indexes are moving within each player's usual range.
             </p>
             <ul class="ai-list">
               <li>Highest fatigue: #${maxFat.num} ${maxFat.name} at ${Math.round(maxFat.fatigue)}/100.</li>
@@ -6922,15 +6744,13 @@ function initializePlayerFatigue(team) {
         } else {
           const p = risky[0];
           aiPanel.innerHTML = `
-            <div class="ai-title">Example rotation note (demo)</div>
+            <div class="ai-title">Load note (fictional demo)</div>
             <p class="ai-text">
-              Take #${p.num} ${p.name} (Fatigue ${Math.round(p.fatigue)}) out and put
-              #${benchFresh.num} ${benchFresh.name} in (Fatigue ${Math.round(benchFresh.fatigue)}) to boost performance.
+              #${p.num} ${p.name} has the highest demo load index (${Math.round(p.fatigue)}), well above their own baseline in this demo.
             </p>
             <ul class="ai-list">
-              <li>Estimated efficiency upgrade: ~${Math.max(upgrade, 5)}%.</li>
-              <li>Opponent strategy chip reflects changing tempo – fresher legs help maintain edge.</li>
-              <li>Use “Make Sub” to confirm or adjust the suggested move.</li>
+              <li>Generated data: an illustration of an estimate relative to a player's own baseline, not a fatigue measurement.</li>
+              <li>No substitution or performance advice is given; the coach decides.</li>
             </ul>
           `;
         }
@@ -7100,15 +6920,15 @@ function initializePlayerFatigue(team) {
         }
 
         // 3. Populate DOM
-        reportMVP.innerText = `${mvp.name} (#${mvp.num})`;
-        reportClutch.innerText = `${clutch.name} (#${clutch.num})`;
-        reportBestSub.innerText = `${bestSub.name} (#${bestSub.num})`;
+        if (reportMVP) reportMVP.innerText = `${mvp.name} (#${mvp.num})`;
+        if (reportClutch) reportClutch.innerText = `${clutch.name} (#${clutch.num})`;
+        if (reportBestSub) reportBestSub.innerText = `${bestSub.name} (#${bestSub.num})`;
         reportFatigue.innerText = `${tired.name} (${Math.round(tired.fatigue)}%)`;
         
         reportDistance.innerText = `${distanceLeader.name} (${distanceLeader.dist.toFixed(1)} km)`;
         reportHeart.innerText = `${intensityLeader.name} (${Math.round(intensityLeader.hr)} bpm)`;
-        reportEfficient.innerText = `${efficiencyLeader.name} (#${efficiencyLeader.num})`;
-        reportGrade.innerText = grade;
+        if (reportEfficient) reportEfficient.innerText = `${efficiencyLeader.name} (#${efficiencyLeader.num})`;
+        if (reportGrade) reportGrade.innerText = grade;
         
         // 4. Role Breakdown List
         const roles = ["Leader", "Scorer", "Defender", "Energy"];
@@ -7134,11 +6954,11 @@ function initializePlayerFatigue(team) {
         const styleText = currentCoachStyle;
         
         if (scoreDiff > 10) {
-            summaryText = `Dominant performance executing a <strong>${styleText}</strong> strategy. The team maintained high efficiency (Grade ${grade}) while controlling the pace. MVP <strong>${mvp.name}</strong> led the charge.`;
+            summaryText = `Fictional match. Highest demo load index at full time: <strong>${tired.name}</strong>. Generated data: an illustration, not a fatigue measurement or a rating of the team.`;
         } else if (scoreDiff > 0) {
-            summaryText = `A gritty win in a tight contest. The <strong>${styleText}</strong> approach paid off in late-game situations. Fatigue management was key, with <strong>${tired.name}</strong> pushing limits.`;
+            summaryText = `Fictional match. Highest demo load index at full time: <strong>${tired.name}</strong>. Generated data: an illustration, not a fatigue measurement or a rating of the team.`;
         } else {
-            summaryText = `A tough loss. Despite strong efforts from <strong>${mvp.name}</strong>, the <strong>${styleText}</strong> strategy struggled against opponent counters. Defensive lapses were noted in Q3.`;
+            summaryText = `Fictional match. Highest demo load index at full time: <strong>${tired.name}</strong>. Generated data: an illustration, not a fatigue measurement or a rating of the team.`;
         }
         reportSummary.innerHTML = summaryText;
         
@@ -7363,7 +7183,7 @@ function initializePlayerFatigue(team) {
     viewCardsBtn.addEventListener("click", () => {
        document.getElementById("cardsContainer").scrollIntoView({ behavior: "smooth", block: "center" });
     });
-    subBtn.addEventListener("click", openSubPanel);
+    if (subBtn) subBtn.addEventListener("click", openSubPanel);   // the substitution control was removed (fatigue-only scope)
     slideActionBtn.addEventListener("click", applySub);
     closeSlideBtn.addEventListener("click", () => (slideBackdrop.style.display = "none"));
     slideBackdrop.addEventListener("click", e => { if (e.target === slideBackdrop) slideBackdrop.style.display = "none"; });
@@ -7656,9 +7476,9 @@ function initializePlayerFatigue(team) {
         
         let actionBtnHtml = '';
         if(player.status === 'active') {
-            actionBtnHtml = `<button class="sub-btn" onclick="openSwapMenu(${player.id})">⇄ Sub Out</button>`;
+            actionBtnHtml = '';
         } else {
-            actionBtnHtml = `<div style="text-align:center; color:#64748b; font-size:0.8rem; padding:5px;">Bench / Substitute</div>`;
+            actionBtnHtml = `<div style="text-align:center; color:#64748b; font-size:0.8rem; padding:5px;">Not on the field</div>`;
         }
 
         card.innerHTML = `
@@ -9141,8 +8961,8 @@ function initializePlayerFatigue(team) {
     // Tutorial functions
     let tutorialStep = 0;
     const tutorialSteps = [
-        { title: 'Welcome!', content: 'Athletrix is a soccer-first sideline tool in development. This version shows heart rate and movement side by side, records sessions and keeps coach notes. It does not measure fatigue, score performance or decide substitutions: the coach decides.' },
-        { title: 'Dashboard', content: 'Browse fictional player vitals and a demo load index with example rotation notes. Demonstration data only; cards marked Engine-connected read from the local Athletrix engine.' },
+        { title: 'Welcome!', content: 'Athletrix is a soccer-first sideline tool in development. This version shows heart rate and movement side by side, records sessions and keeps coach notes. Its fatigue estimate is experimental and untested on athletes; it does not rate performance: the coach decides.' },
+        { title: 'Dashboard', content: 'Browse fictional player vitals and a demo load index. Demonstration data only; cards marked Engine-connected read from the local Athletrix engine.' },
         { title: 'Camera', content: 'Movement can come from a recorded video processed on your own computer (person detection and tracking; you assign each track to a player). A live camera feed and wearable sync are not connected yet.' },
         { title: 'Recordings', content: 'With the local engine you can record a session, review any 60-second window, save effort periods and export a portable package. Players and numbers in this browser demo are fictional.' }
     ];
@@ -9408,7 +9228,7 @@ function initializePlayerFatigue(team) {
               <div class="ax-sec-head">
                 <div>
                   <div class="ax-sec-title">Roster Status</div>
-                  <div class="ax-sec-sub">Fatigue 0–100 · Performance 0–100 · live sub analysis</div>
+                  <div class="ax-sec-sub">Fictional demo load index 0–100 (relative to each player's own baseline in this demo; not a measurement)</div>
                 </div>
                 <div class="ax-toggle" id="axSortToggle">
                   <button data-s="playing" class="on">Playing</button>
@@ -9417,7 +9237,7 @@ function initializePlayerFatigue(team) {
               </div>
               <div style="overflow-x:auto;">
                 <table class="ax-table">
-                  <thead><tr><th>#</th><th>Player</th><th>Pos</th><th>Fatigue</th><th>Performance</th><th>Sub Analysis</th></tr></thead>
+                  <thead><tr><th>#</th><th>Player</th><th>Pos</th><th>Load index (demo)</th><th>Load trend</th></tr></thead>
                   <tbody id="axTableBody"></tbody>
                 </table>
               </div>
@@ -9426,17 +9246,15 @@ function initializePlayerFatigue(team) {
           <div class="ax-card ax-sec" style="position:sticky; top:90px;">
             <div class="ax-sec-head">
               <div>
-                <div class="ax-sec-title">Assistant Coach</div>
-                <div class="ax-sec-sub">Reads fatigue × performance, game trends & matchups</div>
+                <div class="ax-sec-title">Load notes (fictional demo)</div>
+                <div class="ax-sec-sub">Which players' demo load index is highest or rising; no substitution or performance advice</div>
               </div>
-              <button class="ax-btn ax-btn-primary" id="axSubBtn">Make Sub</button>
             </div>
             <div id="axAI"></div>
           </div>
         </div>
       </div>`;
     document.getElementById("axStartBtn").addEventListener("click", ()=> window.startMatch());
-    document.getElementById("axSubBtn").addEventListener("click", ()=> window.axOpenSub && window.axOpenSub());
     document.getElementById("axSortToggle").querySelectorAll("button").forEach(b=>{
       b.addEventListener("click", ()=>{ AX.dashSort=b.dataset.s;
         document.querySelectorAll("#axSortToggle button").forEach(x=>x.classList.toggle("on", x.dataset.s===AX.dashSort));
@@ -9526,76 +9344,50 @@ function initializePlayerFatigue(team) {
     body.innerHTML = "";
     rows.forEach(p=>{
       const onFloor = AX.dashSort==="playing";
-      const perf = Math.round(p.ps);
-      let analysisHtml, cls;
-      if(onFloor){ const a=analyze(t,p); cls=a.level; analysisHtml=a.text; }
-      else if(window.axIsInjured && window.axIsInjured(p.id)){ cls="rec"; analysisHtml = "Injured — unavailable"; }
-      else { cls="ok"; analysisHtml = `Fresh — ready (exp ~${Math.round(clamp(p._base-4-(p.fatigue/100)*(1-effResil(p))*44,20,100))})`; }
+      const prev = typeof p._prevFatigue === "number" ? p._prevFatigue : null;
+      const trend = prev === null ? "—" : (p.fatigue > prev + 0.3 ? "rising" : p.fatigue < prev - 0.3 ? "easing" : "steady");
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><span class="ax-num">${p.num}</span></td>
         <td><span class="ax-pname">${p.name}</span><div class="ax-mini ax-muted">${p.role}</div></td>
         <td class="ax-mini">${p.pos}</td>
         <td><span class="ax-score-pill" style="color:${fColor(p.fatigue)}">${Math.round(p.fatigue)}</span></td>
-        <td><span class="ax-score-pill" style="color:${pColor(perf)}">${perf}</span></td>
-        <td><span class="ax-mini ax-rec ${cls}">${analysisHtml}</span></td>`;
+        <td><span class="ax-mini ax-muted">${trend}</span></td>`;
       tr.addEventListener("click", ()=> openGraphsV2(p, "both"));
       body.appendChild(tr);
     });
-    if(!rows.length){ body.innerHTML = `<tr><td colspan="6" class="ax-muted" style="padding:20px;text-align:center;">No players in this group.</td></tr>`; }
+    if(!rows.length){ body.innerHTML = `<tr><td colspan="5" class="ax-muted" style="padding:20px;text-align:center;">No players in this group.</td></tr>`; }
   }
 
   function renderAIV2(){
     const el = document.getElementById("axAI"); if(!el) return;
     const t = teamCfg();
+    const note = `<li class="ax-muted">Fictional demo data generated in this browser: the load index is an illustration, not a fatigue measurement. The real engine's estimate is in the Fatigue estimate card (engine mode).</li>`;
     if(!inGame && !gameEnded){
-      const fresh = t.bench.slice().sort((a,b)=>a.fatigue-b.fatigue)[0];
-      const learns = loadLearnings();
-      const known = Object.values(learns).filter(l=>l.games>0).length;
       el.innerHTML = `
-        <div class="ax-ai-block"><span class="ax-ai-tag info">Pre-Game Read</span>
+        <div class="ax-ai-block"><span class="ax-ai-tag info">Before kick-off</span>
         <ul class="ax-ai-list">
-          <li>All vests & camera tracking synced. Baselines set per athlete.</li>
-          <li>Freshest off the bench: <b>#${fresh.num} ${fresh.name}</b> (fatigue ${Math.round(fresh.fatigue)}).</li>
-          ${known? `<li>Loaded <b>${known} learned player profiles</b> from past games — fatigue×performance curves will shape sub timing.</li>`
-                 : `<li>No game history yet — the AI will start learning each athlete's fatigue×performance curve this game.</li>`}
-          <li>Tip the game off to begin live tracking.</li>
+          <li>Each player's demo load index starts near their own baseline.</li>
+          <li>Start the match to watch heart rate and movement change the index over time.</li>
+          ${note}
         </ul></div>`;
       return;
     }
     if(gameEnded){
       el.innerHTML = `<div class="ax-ai-block"><span class="ax-ai-tag info">Full Time</span>
         <ul class="ax-ai-list">
-          <li>Final: <b>Athletrix ${homeScore} – ${awayScore} ${OPP[t.type].short}</b>.</li>
-          <li>Post-game report generated — open <b>History</b> for the full breakdown & learnings.</li>
+          <li>The match load summary is in <b>History</b>.</li>
+          ${note}
         </ul></div>`;
       return;
     }
-    // live
-    const analyzed = t.starters.map(p=>({p, a:analyze(t,p)}));
-    const recs = analyzed.filter(x=>x.a.level==="rec").sort((a,b)=> b.a.net - a.a.net);
-    const topFat = t.starters.slice().sort((a,b)=>b.fatigue-a.fatigue)[0];
-    const mo = momentumChip();
-    let html = "";
-    if(recs.length){
-      const r = recs[0];
-      const L = loadLearnings()[r.p.id];
-      html += `<div class="ax-ai-sub">
-        <span class="ax-ai-tag rec">Example rotation note</span>
-        <div class="swap">Pull <b>#${r.p.num} ${r.p.name}</b> (fatigue ${Math.round(r.p.fatigue)}, performance ${Math.round(r.a.cur)} ↓ proj ${Math.round(r.a.proj)}) for <b>#${r.a.recIn.num} ${r.a.recIn.name}</b> (fresh, exp ${Math.round(r.a.rep.exp)}).</div>
-        <div class="swap ax-muted" style="margin-top:8px;">Net performance gain ~<b style="color:#f0674f">+${Math.max(1,Math.round(r.a.net))}</b> after weighing how costly ${r.p.name} is to lose. ${L? `History: ${r.p.name} ${L.note}.`:'Correlation learned live this game.'}</div>
-      </div>`;
-    }
-    html += `<div class="ax-ai-block"><span class="ax-ai-tag info">Game Trends</span><ul class="ax-ai-list">`;
-    html += `<li>Momentum <b style="color:${mo.col}">${mo.arrow} ${mo.txt}</b> — ${AX.runText}.</li>`;
-    html += `<li>${OPP[t.type].short} running <b>${AX.oppStyle}</b>; our counter is <b>${AX.yourPlan}</b>.</li>`;
-    html += `<li>Highest load: <b>#${topFat.num} ${topFat.name}</b> at fatigue ${Math.round(topFat.fatigue)} — performance ${Math.round(topFat.ps)}.</li>`;
-    const slipping = analyzed.filter(x=>x.a.level==="warn");
-    if(slipping.length) html += `<li>Watch list: ${slipping.slice(0,3).map(x=>'#'+x.p.num+' '+x.p.name).join(", ")} — output dipping with fatigue.</li>`;
-    if(!recs.length) html += `<li>No sub needed yet — on-floor five are winning their energy trade.</li>`;
-    html += `</ul></div>`;
+    const byLoad = t.starters.slice().sort((a,b)=>b.fatigue-a.fatigue);
+    let html = `<div class="ax-ai-block"><span class="ax-ai-tag info">Highest demo load now</span><ul class="ax-ai-list">`;
+    byLoad.slice(0,3).forEach(p=>{ html += `<li><b>#${p.num} ${p.name}</b>: load index ${Math.round(p.fatigue)}.</li>`; });
+    html += note + `</ul></div>`;
     el.innerHTML = html;
   }
+
 
   // expose dashboard renderers
   window.axRenderDash = function(){ renderScoreboard(); renderChips(); renderSurfaceV2(); renderTableV2(); renderAIV2(); };
@@ -9828,6 +9620,7 @@ function initializePlayerFatigue(team) {
       gameSeconds -= 12*60; quarter++;
     }
     AX.tick++;
+    t.starters.concat(t.bench).forEach(p=>{ p._prevFatigue = p.fatigue; });   // for the load-trend column
     axScore();
     if(typeof simulateGameTick==="function") simulateGameTick(teams, currentTeamKey, currentCoachStyle, quarter, gameSeconds);
     // overwrite ps with our performance model
@@ -9945,57 +9738,18 @@ function initializePlayerFatigue(team) {
     document.getElementById("axReportModal").classList.add("show");
   }
   function postGameHTML(game, fresh){
-    const a=game.analysis; const t=teams[game.teamKey]; const accent=game.result==='W'?'#3b82f6':'#d43830';
-    // backward-compat for older saved games
-    if(!a.story){ return `<div class="ax-kick">Post-Game Report</div><div class="ax-h" style="font-size:1.6rem;margin:6px 0 12px;">${a.headline||'Match Report'}</div>
-      <div class="ax-doc">${a.wellBad||''}</div><div style="text-align:center;margin-top:20px;"><button class="ax-btn ax-btn-primary" onclick="document.getElementById('axReportModal').classList.remove('show')">Close</button></div>`; }
+    const a=game.analysis||{}; const t=teams[game.teamKey];
     return `
-      <div class="ax-kick">${fresh?"Post-Game Report · Just Generated":"Post-Game Report"}</div>
-      <div class="ax-h" style="font-size:1.8rem;margin:6px 0 2px;">${a.headline}</div>
+      <div class="ax-kick">${fresh?"Match Load Summary · Just Generated":"Match Load Summary"}</div>
+      <div class="ax-h" style="font-size:1.8rem;margin:6px 0 2px;">Fictional match: load summary</div>
       <div class="ax-muted" style="margin-bottom:20px;">Athletrix ${game.homeScore}–${game.awayScore} ${OPP[t.type].short} · vs ${game.opp} · ${new Date(game.date).toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'})}</div>
-
-      <div class="ax-doc" style="border-left-color:${accent}">
-        <div class="ax-kick">The Game Story</div>
-        <p style="color:#c7ccd2;line-height:1.7;margin:8px 0 0;">${a.story}</p>
+      <div class="ax-doc"><p style="color:#c7ccd2;line-height:1.7;margin:0;">This browser demo uses generated data. Its load index illustrates how an estimate relative to each player's own baseline can change during a match; it is not a fatigue measurement, and there is no rating of how anyone played.</p></div>
+      <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:20px;">
+        <div class="ax-statbox"><div class="big" style="font-size:1.15rem;color:#d43830;">${a.gassedName||'—'}</div><div class="lab">Highest demo load index at full time · ${a.gassedVal||'—'}</div></div>
       </div>
-
-      <div class="ax-kick" style="margin:4px 0 10px;">Quarter by Quarter</div>
-      <div style="margin-bottom:18px;">
-        ${a.quarters.map(q=>`<div class="ax-injury-row"><span><b style="color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;letter-spacing:.05em;">${q.q}</b> &nbsp;<span class="ax-muted">${q.line}</span></span></div>`).join("")}
-      </div>
-
-      <div class="ax-doc">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div class="ax-kick">Were the AI's Calls Right?</div>
-          <span class="ax-result ${game.result==='W'?'w':'l'}" style="background:${a.grade[0]==='A'?'rgba(59,130,246,.15)':a.grade[0]==='C'?'rgba(212,56,48,.15)':'rgba(215,150,11,.15)'};color:${a.grade[0]==='A'?'#6ea8fe':a.grade[0]==='C'?'#f0674f':'#e0a93a'};">Sub Timing: ${a.grade}</span>
-        </div>
-        <p style="color:#c7ccd2;line-height:1.7;margin:10px 0 0;">${a.decisions}</p>
-        <p style="color:#c7ccd2;line-height:1.7;margin:12px 0 0;"><b style="color:#fff;">The fix:</b> ${a.fix}</p>
-      </div>
-
-      <div class="ax-doc"><div class="ax-kick">Key Moments</div>
-        <ul class="ax-ai-list" style="margin-top:6px;">${a.keyMoments.map(k=>`<li>${k}</li>`).join("")}</ul></div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
-        <div class="ax-statbox"><div class="big" style="font-size:1.15rem;color:#3b82f6;">${a.mvp}</div><div class="lab">Top Performer · ${a.mvpVal}</div></div>
-        <div class="ax-statbox"><div class="big" style="font-size:1.15rem;color:#d43830;">${a.gassedName}</div><div class="lab">Most Fatigued · ${a.gassedVal}</div></div>
-        <div class="ax-statbox"><div class="big" style="font-size:1.15rem;color:#fff;">${a.effName}</div><div class="lab">Best Output / Energy</div></div>
-      </div>
-
-      <div class="ax-kick" style="margin-bottom:10px;">Player Training Focus</div>
-      <div style="margin-bottom:20px;">
-      ${a.drills.map(d=>`<div style="padding:13px 14px;background:#0e1013;border:1px solid #22252a;border-radius:4px;margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
-          <b style="color:#fff;">#${d.num} ${d.name} <span class="ax-muted" style="font-weight:400;">${d.pos}</span></b>
-          <span class="ax-mini" style="color:#ff4e1b;font-weight:600;">${d.focus}</span></div>
-        <div class="ax-muted" style="font-size:.84rem;margin-top:5px;">${d.line} <span style="color:#6ea8fe;">${d.note}.</span></div></div>`).join("")}
-      </div>
-
-      <div class="ax-doc" style="border-left-color:#ff4e1b;margin-bottom:0;"><div class="ax-kick">Carry Into Next Game</div>
-        <ul class="ax-ai-list" style="margin-top:6px;">${a.takeaways.map(k=>`<li>${k}</li>`).join("")}</ul></div>
-
-      <div style="text-align:center;margin-top:22px;"><button class="ax-btn ax-btn-primary" onclick="document.getElementById('axReportModal').classList.remove('show')">Close Report</button></div>`;
+      <div style="text-align:center;margin-top:22px;"><button class="ax-btn ax-btn-primary" onclick="document.getElementById('axReportModal').classList.remove('show')">Close</button></div>`;
   }
+
 
   // seed fake past games per team (first visit)
   function seedGames(){
@@ -10248,11 +10002,11 @@ function initializePlayerFatigue(team) {
               <li>Playing <b>${AX.tempo.toLowerCase()}</b> tempo at <b>${AX.intensity.toLowerCase()}</b> intensity.</li>
               <li class="ax-muted">Link a <b>Camera Sync</b> feed to unlock possession-level play tags and shot charts.</li>
             </ul></div>
-          <div class="ax-card ax-sec"><div class="ax-sec-title" style="margin-bottom:12px;">Leaders &amp; Standouts</div>
-            <div class="ax-stat-row"><span class="lab">Distance covered</span><span class="val">#${distLead.num} ${distLead.name} · ${(distLead.dist||0).toFixed(1)} km</span></div>
-            <div class="ax-stat-row"><span class="lab">Best output-per-energy</span><span class="val">#${effLead.num} ${effLead.name}</span></div>
-            <div class="ax-sec-title" style="margin:16px 0 8px;font-size:1rem;">Top Performers</div>
-            ${standouts.map((p,i)=>`<div class="ax-stat-row"><span class="lab">${['①','②','③'][i]} #${p.num} ${p.name} <span class="ax-muted">${p.pos}</span></span><span class="val" style="color:${pColor(p.ps)}">${Math.round(p.ps)}</span></div>`).join("")}
+          <div class="ax-card ax-sec"><div class="ax-sec-title" style="margin-bottom:12px;">Workload (fictional demo)</div>
+            <div class="ax-stat-row"><span class="lab">Distance covered (most)</span><span class="val">#${distLead.num} ${distLead.name} · ${(distLead.dist||0).toFixed(1)} km</span></div>
+            <div class="ax-sec-title" style="margin:16px 0 8px;font-size:1rem;">Highest demo load index</div>
+            ${players.slice().sort((x,y)=>y.fatigue-x.fatigue).slice(0,3).map(p=>`<div class="ax-stat-row"><span class="lab">#${p.num} ${p.name} <span class="ax-muted">${p.pos}</span></span><span class="val" style="color:${p.fatigue>=67?'#d43830':(p.fatigue>=34?'#d7960b':'#3b82f6')}">${Math.round(p.fatigue)}</span></div>`).join("")}
+            <div class="ax-mini ax-muted" style="margin-top:8px;">Workload measurements, not a rating of how anyone played.</div>
           </div>
         </div>
       </div></div>`;
@@ -10371,7 +10125,7 @@ function initializePlayerFatigue(team) {
 
       <div class="ax-set-sec">
         <h2>Injury Tracking</h2>
-        <p class="ax-muted" style="margin-top:-8px;margin-bottom:16px;font-size:.86rem;">Logged injuries flag the athlete across the roster and remove them from AI substitution options.</p>
+        <p class="ax-muted" style="margin-top:-8px;margin-bottom:16px;font-size:.86rem;">Logged injuries flag the athlete across the roster.</p>
         <div class="ax-field"><label>Athlete</label><select id="axInjPlayer"><option value="">Select athlete…</option>${roster.map(p=>`<option value="${p.id}">#${p.num} ${p.name} (${p.pos})</option>`).join("")}</select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
           <div class="ax-field"><label>Injury</label><input type="text" id="axInjType" placeholder="e.g. Sprained ankle"></div>
@@ -12962,12 +12716,52 @@ function initializePlayerFatigue(team) {
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     var pi = { seq: 0, offset: null, probes: [], wearer: null, rec: null, saved: null, busy: false, tokens: {} };
-    var NAMES = { vest_only: "Vest only", camera_only: "Camera only", combined: "Combined" };
+    var NAMES = { vest_only: "Wearable only · research", camera_only: "Camera only · research", combined: "Combined estimate" };
+    var SHORT = { vest_only: "Wearable only", camera_only: "Camera only", combined: "Combined" };
+    var FEAT = { hr_strain: "heart-rate strain", time_above_threshold: "time above the heart-rate threshold", recovery: "heart-rate recovery",
+                 hr_per_speed: "heart rate per unit of movement", hr_speed_matched: "heart rate at similar movement", output_change: "change in movement output",
+                 sprint_quality: "sprint peak speed" };
+    function measureText(f, x) {
+      var m = (x && x.measure) || {}, n = function(v) { return typeof v === "number" && isFinite(v); };
+      if (f === "hr_strain" && n(m.mean_hr_bpm)) return "mean " + Math.round(m.mean_hr_bpm) + " bpm, " + Math.round(100 * m.fraction_of_reserve) + "% of heart-rate reserve";
+      if (f === "time_above_threshold" && n(m.fraction)) return Math.round(100 * m.fraction) + "% of the window above the threshold";
+      if (f === "recovery" && n(m.drop_bpm)) return "heart rate fell " + Math.round(m.drop_bpm) + " bpm after the last hard effort";
+      if (f === "hr_per_speed" && n(m.increase)) return (m.increase >= 0 ? "+" : "") + Math.round(100 * m.increase) + "% heart rate per m/s against the reference";
+      if (f === "hr_speed_matched" && n(m.excess_bpm)) return (m.excess_bpm >= 0 ? "+" : "") + m.excess_bpm.toFixed(1) + " bpm against the reference at similar movement";
+      if (f === "output_change" && n(m.recent_mean_speed_mps)) return "mean speed " + m.recent_mean_speed_mps.toFixed(2) + " m/s against " + m.reference_mean_speed_mps.toFixed(2) + " m/s in the reference";
+      if (f === "sprint_quality" && n(m.recent_mean_peak_mps)) return "sprint peaks " + m.recent_mean_peak_mps.toFixed(1) + " against " + m.reference_mean_peak_mps.toFixed(1) + " m/s";
+      return "";
+    }
+    function plainReason(r) {
+      r = String(r || "");
+      if (/^wearable stream/.test(r)) return "the wearable's readings are stale or missing (" + r.replace(/^wearable stream: /, "") + ")";
+      if (/^camera stream/.test(r)) return "the camera track is stale or missing (" + r.replace(/^camera stream: /, "") + ")";
+      if (/low-confidence|predicted|identity/.test(r)) return "the camera track is uncertain (" + r + ")";
+      if (/baseline/.test(r)) return "the player's baseline is not ready (" + r + ")";
+      if (/does not cover this kind of movement/.test(r)) return "the player's reference does not include this kind of movement, so there is no confident comparison";
+      if (/reference window|camera reference|not complete at the cutoff|overlaps the reference/.test(r)) return "the player's reference period is still building (" + r + ")";
+      if (/clock/.test(r)) return "the camera and wearable clocks cannot be paired (" + r + ")";
+      return r;
+    }
+    function explain(e, who) {
+      var c = ((e && e.candidates) || {}).combined;
+      if (!c) return ["No estimate for " + who + " yet."];
+      if (!c.available) return ["No combined estimate for " + who + ": " + plainReason((c.reasons || [])[0]) + ".",
+                                "A missing estimate is not zero, and the wearable-only or camera-only research values are never shown in its place."];
+      var parts = (c.contributions || []).slice().sort(function(a, b) { return b.contribution - a.contribution; }).map(function(t) {
+        var mt = measureText(t.feature, (e.features || {})[t.feature]);
+        return (FEAT[t.feature] || t.feature) + " " + Math.round(t.score) + (mt ? " (" + mt + ")" : "") + ", " + Math.round(t.weight * 100) + "% of the weight";
+      });
+      var left = (c.features_left_out || []).map(function(f) { return (FEAT[f.feature] || f.feature) + ": " + plainReason(f.reason); });
+      var L = ["Combined estimate " + Math.round(c.value) + " of 100 for " + who + ", relative to their own baseline. What contributed: " + parts.join("; ") + "."];
+      if (left.length) L.push("Left out of this estimate: " + left.join("; ") + ".");
+      return L;
+    }
     var log = window.__athletrixPilotDisplay = [];
     function setStatus(text, color) { el.axPiStatus.textContent = text; el.axPiStatus.style.color = color; }
     function texts(target) { return (target.children ? Array.prototype.map.call(target.children, function(c) { return c.textContent; }) : []); }
     function lines(target, rows) { target.textContent = ""; rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; target.appendChild(d); }); }
-    function clear(text) { el.axPiMain.textContent = text; el.axPiTrend.textContent = ""; el.axPiFactors.textContent = ""; el.axPiMissing.textContent = ""; el.axPiTech.textContent = ""; el.axPiWho.textContent = "no active wearer"; el.axPiMode.textContent = DASH; }
+    function clear(text) { var ex = byId("axPiExplain"); if (ex) ex.textContent = ""; el.axPiMain.textContent = text; el.axPiTrend.textContent = ""; el.axPiFactors.textContent = ""; el.axPiMissing.textContent = ""; el.axPiTech.textContent = ""; el.axPiWho.textContent = "no active wearer"; el.axPiMode.textContent = DASH; }
     function probe() {
       var t0 = Date.now();
       return fetch(API_BASE + "/api/v1/clock", { cache: "no-store" }).then(function(res) { return res.json(); }).then(function(b) {
@@ -12984,9 +12778,9 @@ function initializePlayerFatigue(team) {
     }
     function box(name, c) {
       var d = document.createElement("div");
-      d.style.flex = "1 1 140px"; d.style.minWidth = "0"; d.style.padding = "6px 8px"; d.style.borderRadius = "6px"; d.style.background = name === "combined" ? "rgba(168,85,247,0.15)" : "rgba(255,255,255,0.04)";
+      d.style.flex = name === "combined" ? "2 1 240px" : "1 1 140px"; d.style.minWidth = "0"; d.style.padding = "6px 8px"; d.style.borderRadius = "6px"; d.style.background = name === "combined" ? "rgba(168,85,247,0.15)" : "rgba(255,255,255,0.04)";
       var h = document.createElement("div"); h.className = "card-sub"; h.textContent = NAMES[name]; d.appendChild(h);
-      var v = document.createElement("div"); v.style.fontSize = "1.3rem"; v.style.fontWeight = "700"; v.style.color = "#fff";
+      var v = document.createElement("div"); v.style.fontSize = name === "combined" ? "1.9rem" : "1.1rem"; v.style.fontWeight = "700"; v.style.color = "#fff";
       v.textContent = c && c.available ? String(Math.round(c.value)) : NA; d.appendChild(v);
       if (c && !c.available) { var w = document.createElement("div"); w.className = "card-sub"; w.style.fontSize = "0.72rem"; w.textContent = (c.reasons || [])[0] || "unavailable"; d.appendChild(w); }
       return d;
@@ -13013,6 +12807,8 @@ function initializePlayerFatigue(team) {
       var e = r.estimate || {}, cs = e.candidates || {};
       el.axPiMain.textContent = "";
       ["combined", "vest_only", "camera_only"].forEach(function(k) { el.axPiMain.appendChild(box(k, cs[k])); });
+      var explainEl = byId("axPiExplain");
+      if (explainEl) lines(explainEl, explain(e, r.wearer.participant_code));
       el.axPiTrend.textContent = "";
       (r.trend || []).forEach(function(p) {
         var b = document.createElement("div"); var v = p.combined;
@@ -13023,7 +12819,7 @@ function initializePlayerFatigue(team) {
       });
       var main = cs.combined && cs.combined.available ? cs.combined : (cs.vest_only && cs.vest_only.available ? cs.vest_only : cs.camera_only);
       var top = ((main && main.contributions) || []).slice().sort(function(a, b) { return b.contribution - a.contribution; }).slice(0, 3);
-      lines(el.axPiFactors, top.length ? ["Main factors (" + NAMES[main === cs.combined ? "combined" : main === cs.vest_only ? "vest_only" : "camera_only"] + "): " +
+      lines(el.axPiFactors, top.length ? ["Main factors (" + SHORT[main === cs.combined ? "combined" : main === cs.vest_only ? "vest_only" : "camera_only"] + "): " +
         top.map(function(t) { return t.feature.replace(/_/g, " ") + " " + Math.round(t.score) + " (weight " + Math.round(t.weight * 100) + "%)"; }).join(" · ")] : ["No estimate is available, so no factors are shown."]);
       var fresh = [], st = e.streams || {};
       [["wearable", "Wearable"], ["camera", "Camera"]].forEach(function(x) { var v = st[x[0]]; if (v) fresh.push(x[1] + (v.age_s !== undefined && v.age_s !== null ? " newest " + Math.round(v.age_s) + " s old" : " none") + (v.fresh ? "" : " (STALE)")); });
@@ -13031,9 +12827,9 @@ function initializePlayerFatigue(team) {
       var lp = r.last_saved_prediction;
       var info = [sess + " · " + (fresh.join(" · ") || "no stream data")];
       if (lp) info.push("Last saved pre-sprint prediction: round " + lp.round + " at " + availUtc(lp.cutoff) + (lp.prospective ? "" : " (RETROSPECTIVE: backdated marker)") + " · " +
-        ["combined", "vest_only", "camera_only"].map(function(k) { return NAMES[k] + " " + (lp.values[k] === null || lp.values[k] === undefined ? NA : Math.round(lp.values[k])); }).join(" · "));
+        ["combined", "vest_only", "camera_only"].map(function(k) { return SHORT[k] + " " + (lp.values[k] === null || lp.values[k] === undefined ? NA : Math.round(lp.values[k])); }).join(" · "));
       var miss = [];
-      ["combined", "vest_only", "camera_only"].forEach(function(k) { if (cs[k] && !cs[k].available) miss.push(NAMES[k] + " not available: " + (cs[k].reasons || []).join("; ")); });
+      ["combined", "vest_only", "camera_only"].forEach(function(k) { if (cs[k] && !cs[k].available) miss.push(SHORT[k] + " not available: " + (cs[k].reasons || []).join("; ")); });
       lines(el.axPiMissing, miss);
       lines(el.axPiFactors, texts(el.axPiFactors).concat(info));
       var tech = [e.display || "", "Profile " + (e.profile ? e.profile.version + " (" + e.profile.sha256.slice(0, 12) + (e.profile.fictional ? ", FICTIONAL" : "") + ")" : "none")];
@@ -13091,7 +12887,7 @@ function initializePlayerFatigue(team) {
         pi.saved = { id: p.id, athlete: p.athlete_id, since: w.since, round: p.round, cutoff: p.prediction.cutoff };
         el.axPiStart.disabled = false;
         flow("SAVED for " + w.participant_code + " round " + p.round + " at " + availUtc(p.prediction.cutoff) + " (" + p.id + ") · all three estimates available: " + (p.prediction.all_three_available ? "yes" : "NO") + " · " +
-             ["combined", "vest_only", "camera_only"].map(function(k) { return NAMES[k] + " " + (c[k] && c[k].available ? Math.round(c[k].value) : NA); }).join(" · ") + ". Now start the timed sprint.", COLORS.live);
+             ["combined", "vest_only", "camera_only"].map(function(k) { return SHORT[k] + " " + (c[k] && c[k].available ? Math.round(c[k].value) : NA); }).join(" · ") + ". Now start the timed sprint.", COLORS.live);
       }).catch(function(err) { flow("Not saved: " + err.message + ". Pressing Save again will not save twice.", COLORS.error); })
         .then(function() { pi.busy = false; });
     }
@@ -13145,7 +12941,7 @@ function initializePlayerFatigue(team) {
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     var su = { seq: 0 };
-    var AREAS = [["raw_recording", "Raw recording"], ["camera_review", "Camera tracking review"], ["fatigue_pilot", "Fatigue pilot estimate"], ["experimental_recommendation", "Experimental substitution review (not needed for the pilot)"]];
+    var AREAS = [["raw_recording", "Raw recording"], ["camera_review", "Camera tracking review"], ["fatigue_pilot", "Fatigue estimate"]];
     var VERDICT = { ready: "Ready", ready_with_warnings: "Ready, with warnings", blocked: "Blocked" };
     var TONE = { ready: COLORS.live, ready_with_warnings: COLORS.warn, blocked: COLORS.error };
     function getJson(url) { return fetch(url, { cache: "no-store" }).then(function(res) { if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); }); return res.json(); }); }
