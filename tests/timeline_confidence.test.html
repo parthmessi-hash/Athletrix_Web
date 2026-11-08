@@ -2323,8 +2323,9 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     const tries = ctx.pending.filter(p => p.url.endsWith("/study") && p.opts.method === "POST");
     assert.equal(tries.length, 1, "a double click sends one start");
     assert.deepEqual(Object.keys(JSON.parse(tries[0].opts.body)).sort(), ["athlete_id", "client_token", "kind", "round"], "no reason given: no partial_reason sent");
-    await ctx.resolveLateRaw(tries[0], { ok: false, status: 409, json: async () => ({ detail: { message: "the streams are not usable (no_stream): check the vest.", readiness: {} } }) });
+    await ctx.resolveLateRaw(tries[0], { ok: false, status: 409, json: async () => ({ detail: { message: "the streams are not usable (no_stream): check the vest. To start anyway, give partial_reason (it goes into the report).", readiness: {} } }) });
     assert.match(ctx.els.axPiFlow.textContent, /^Round NOT started: the streams are not usable \(no_stream\): check the vest\. To start anyway, type the reason/);
+    assert.ok(!/partial_reason/.test(ctx.els.axPiFlow.textContent), "the engine's field name is not shown to the operator");
     ctx.els.axPiPartial.value = "FICTIONAL: strap being refitted";
     ctx.els.axPiRoundStart.dispatch("click"); await ctx.flush();
     const part = ctx.pending.filter(p => p.url.endsWith("/study") && p.opts.method === "POST").pop();

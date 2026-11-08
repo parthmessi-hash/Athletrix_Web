@@ -13124,7 +13124,7 @@ function initializePlayerFatigue(team) {
              (e.opens_camera_reference === true ? "OPENED by this start" : e.opens_camera_reference === false ? "not opened by this start" + (e.partial_reason ? " (started without usable data: " + e.partial_reason + ")" : "") : "not recorded") + ".",
              e.partial_reason ? COLORS.warn : COLORS.live);
         load();
-      }).catch(function(err) { delete pi.tokens[key]; flow("Round NOT started: " + err.message + " To start anyway, type the reason in the box and press Start round again.", COLORS.error); })
+      }).catch(function(err) { delete pi.tokens[key]; flow("Round NOT started: " + err.message.replace(/\s*To start anyway, give partial_reason[^.]*\.\s*$/, "") + " To start anyway, type the reason in the box and press Start round again.", COLORS.error); })
         .then(function() { pi.busy = false; });
     }
     el.axPiRoundStart.addEventListener("click", startRound);
