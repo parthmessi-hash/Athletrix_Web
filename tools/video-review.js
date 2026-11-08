@@ -177,11 +177,48 @@
     return JSON.parse(JSON.stringify(b));   // drops undefined fields
   }
 
+  // ---- blind annotation sheets (same format as app/core/annotation.py; nothing here judges anything automatically) ----
+  var JUDGEMENTS = { decision: ["good", "acceptable", "poor"], positioning: ["good", "acceptable", "poor"], tactical: ["followed", "partially_followed", "not_followed"] };
+  function sheetCheck(sheet, reviewer) {
+    if (!sheet || sheet.format !== "athletrix-annotation-sheet" || sheet.format_version !== 1) return { ok: false, problem: "not an athletrix-annotation-sheet version 1 file" };
+    if (!reviewer) return { ok: false, problem: "enter your reviewer name (Operator) first" };
+    var labelled = sheet.moments.some(function (m) { return m.labels && Object.keys(m.labels).length; });
+    if (labelled && sheet.reviewer && sheet.reviewer !== reviewer)
+      return { ok: false, problem: "this sheet already holds labels by " + sheet.reviewer + "; to annotate independently, load a blank copy (scripts/annotate.py blank)" };
+    return { ok: true };
+  }
+  function setLabel(sheet, momentId, q, lab) {
+    var m = sheet.moments.filter(function (x) { return x.id === momentId; })[0];
+    if (!m) throw new Error("no moment " + momentId);
+    if ((m.asks || []).indexOf(q) < 0) throw new Error("question " + q + " is not asked for " + momentId);
+    var out = { assessment: lab.assessment };
+    if (lab.assessment === "unable_to_assess") { if (!lab.unable_reason) throw new Error("say why it cannot be assessed"); out.unable_reason = lab.unable_reason; }
+    else if (lab.assessment === "assessed") {
+      if (q === "execution_pass") {
+        if (!(lab.attempts >= 1 && lab.completions >= 0 && lab.completions <= lab.attempts)) throw new Error("attempts >= 1 and 0 <= completions <= attempts");
+        out.attempts = lab.attempts; out.completions = lab.completions;
+      } else {
+        if (JUDGEMENTS[q].indexOf(lab.judgement) < 0) throw new Error("choose a judgement");
+        out.judgement = lab.judgement;
+      }
+    } else if (lab.assessment !== "no_opportunity") throw new Error("choose an assessment");
+    if (lab.confidence) out.confidence = lab.confidence;
+    if (lab.rationale) out.rationale = lab.rationale;
+    m.labels = m.labels || {}; m.labels[q] = out;
+    return out;
+  }
+  function sheetProgress(sheet) {
+    var asked = 0, done = 0;
+    sheet.moments.forEach(function (m) { (m.asks || []).forEach(function (q) { asked++; if (m.labels && m.labels[q]) done++; }); });
+    return { asked: asked, labelled: done };
+  }
+
   function newState(operator) { return { operator: operator, assignments: [], video: null, left: {}, work: { seconds_spent: 0, confirmations: 0, corrections: 0, uncertain_marks: 0 } }; }
 
   function isLoopback(host) { return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1" || /\.localhost$/.test(host); }
 
   root.AthletrixVideoReview = { parseObservations: parseObservations, trackState: trackState, assign: assign, endAssignment: endAssignment, unassignedSeconds: unassignedSeconds,
                                 exportDoc: exportDoc, observationBody: observationBody, newState: newState, isLoopback: isLoopback,
-                                confirmationQueue: confirmationQueue, leaveUnassigned: leaveUnassigned, queueSummary: queueSummary, LAPSE_GAP_S: LAPSE_GAP_S };
+                                confirmationQueue: confirmationQueue, leaveUnassigned: leaveUnassigned, queueSummary: queueSummary, LAPSE_GAP_S: LAPSE_GAP_S,
+                                sheetCheck: sheetCheck, setLabel: setLabel, sheetProgress: sheetProgress, JUDGEMENTS: JUDGEMENTS };
 })(typeof window !== "undefined" ? window : this);

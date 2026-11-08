@@ -70,6 +70,27 @@
   <div class="row"><button type="button" id="vrExport">Download assignments (format 2)</button></div>
 </div>
 <div class="panel">
+  <div>Annotation sheet (blind): load YOUR copy of a moments sheet, judge each asked question from the clip, download it. This page shows no other reviewer's labels and no Athletrix result, and it judges nothing by itself.</div>
+  <div class="row">
+    <label>Sheet (JSON)<br><input id="anSheetFile" type="file" accept=".json,application/json"></label>
+    <label>Moment<br><select id="anMoment" style="max-width:100%"></select></label>
+    <button type="button" id="anGo">Go to the moment</button>
+    <label>Question<br><select id="anQuestion"></select></label>
+  </div>
+  <div id="anContext" class="mono"></div>
+  <div class="row">
+    <label>Assessment<br><select id="anAssessment"><option value="assessed">assessed</option><option value="unable_to_assess">unable to assess</option><option value="no_opportunity">no opportunity</option></select></label>
+    <label>Judgement<br><select id="anJudgement"></select></label>
+    <label>Attempts / completed<br><input id="anAttempts" type="number" min="0" style="width:60px"> <input id="anCompleted" type="number" min="0" style="width:60px"></label>
+    <label>Why not assessable<br><select id="anUnable"><option value="">-</option><option>off_camera</option><option>not_visible</option><option>occluded</option><option>video_quality</option><option>ambiguous</option><option>other</option></select></label>
+    <label>Confidence<br><select id="anConfidence"><option value="">-</option><option>high</option><option>medium</option><option>low</option></select></label>
+    <label>Rationale<br><input id="anRationale" type="text" maxlength="300" style="width:220px;max-width:100%"></label>
+    <button type="button" id="anSave">Save this label</button>
+    <button type="button" id="anDownload">Download my sheet</button>
+  </div>
+  <div id="anStatus" class="mono"></div>
+</div>
+<div class="panel">
   <div>Link a manual performance observation to frames of the selected track (local engine only)</div>
   <div class="row">
     <label>Engine<br><input id="vrEngine" type="text" value="http://127.0.0.1:8000" style="width:200px"></label>
@@ -216,8 +237,55 @@
       .catch(function () { $("vrSendStatus").textContent = "Not stored: the engine could not be reached."; })
       .then(function () { sending = false; });
   });
+  // ---- annotation sheet ----
+  var sheet = null;
+  function anStatus(t, c) { $("anStatus").textContent = t; $("anStatus").style.color = c || "#9ca3af"; }
+  function curMoment() { return sheet && sheet.moments.filter(function (m) { return m.id === $("anMoment").value; })[0]; }
+  function fillQuestion() {
+    var m = curMoment(); if (!m) return;
+    var q = $("anQuestion").value, j = $("anJudgement"); j.textContent = "";
+    (V.JUDGEMENTS[q] || []).forEach(function (v) { var o = document.createElement("option"); o.value = v; o.textContent = v.replace(/_/g, " "); j.appendChild(o); });
+    j.disabled = q === "execution_pass"; $("anAttempts").disabled = $("anCompleted").disabled = q !== "execution_pass";
+    var crit = (m.criterion || {})[q], ins = m.active_instruction;
+    $("anContext").textContent = m.athlete_id + " (" + (m.role || "role not recorded") + ") frames " + m.from_frame + "-" + m.to_frame +
+      (q === "tactical" && ins ? " · instruction: \"" + ins.text + "\"" + (ins.exception ? " · stated exception: \"" + ins.exception + "\"" : "") : "") + (crit ? " · judged against: " + crit : "") + (m.note ? " · " + m.note : "");
+    var lab = (m.labels || {})[q] || {};
+    $("anAssessment").value = lab.assessment || "assessed"; if (lab.judgement) j.value = lab.judgement;
+    $("anAttempts").value = lab.attempts !== undefined ? lab.attempts : ""; $("anCompleted").value = lab.completions !== undefined ? lab.completions : "";
+    $("anUnable").value = lab.unable_reason || ""; $("anConfidence").value = lab.confidence || ""; $("anRationale").value = lab.rationale || "";
+  }
+  function fillMoment() {
+    var m = curMoment(), q = $("anQuestion"); q.textContent = "";
+    if (!m) return;
+    (m.asks || []).forEach(function (k) { var o = document.createElement("option"); o.value = k; o.textContent = k.replace(/_/g, " ") + ((m.labels || {})[k] ? " (labelled)" : ""); q.appendChild(o); });
+    fillQuestion();
+  }
+  $("anSheetFile").addEventListener("change", function () { readFile(this, function (t) {
+    try { var d = JSON.parse(t), who = $("vrOperator").value.trim(), chk = V.sheetCheck(d, who);
+      if (!chk.ok) { sheet = null; anStatus("Not loaded: " + chk.problem + ".", "#ef4444"); return; }
+      sheet = d; sheet.reviewer = who; var sel = $("anMoment"); sel.textContent = "";
+      sheet.moments.forEach(function (m) { var o = document.createElement("option"); o.value = m.id; o.textContent = m.id + " · " + m.athlete_id + " · frames " + m.from_frame + "-" + m.to_frame; sel.appendChild(o); });
+      fillMoment(); var p = V.sheetProgress(sheet); anStatus("Sheet loaded for " + who + (sheet.fictional ? " (FICTIONAL moments)" : "") + ": " + p.labelled + " of " + p.asked + " questions labelled.", "#22c55e");
+    } catch (e) { anStatus("Not loaded: " + e.message, "#ef4444"); } }); });
+  $("anMoment").addEventListener("change", fillMoment);
+  $("anQuestion").addEventListener("change", fillQuestion);
+  $("anGo").addEventListener("click", function () { var m = curMoment(); if (m && data) seek(m.from_frame); else anStatus("Load the observations or video and a sheet first.", "#f59e0b"); });
+  $("anSave").addEventListener("click", function () {
+    var m = curMoment(); if (!m) return;
+    try {
+      V.setLabel(sheet, m.id, $("anQuestion").value, { assessment: $("anAssessment").value, judgement: $("anJudgement").value, attempts: Number($("anAttempts").value), completions: Number($("anCompleted").value),
+                                                       unable_reason: $("anUnable").value || null, confidence: $("anConfidence").value || null, rationale: $("anRationale").value.trim() || null });
+      var p = V.sheetProgress(sheet); var keep = $("anQuestion").value; fillMoment(); $("anQuestion").value = keep;
+      anStatus("Saved " + m.id + " " + keep + ". " + p.labelled + " of " + p.asked + " questions labelled (kept in this tab until you download).", "#22c55e");
+    } catch (e) { anStatus("Not saved: " + e.message, "#ef4444"); }
+  });
+  $("anDownload").addEventListener("click", function () {
+    if (!sheet) return;
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(sheet, null, 2)], { type: "application/json" }));
+    a.download = "annotation-" + (sheet.reviewer || "reviewer").replace(/[^A-Za-z0-9_-]+/g, "-") + ".json"; a.click();
+  });
   setInterval(function () { if (data && document.visibilityState === "visible") { state.work.seconds_spent += 1; renderWork(true); } }, 1000);
-  window.__vr = { state: function () { return state; }, seek: seek, data: function () { return data; } };
+  window.__vr = { state: function () { return state; }, seek: seek, data: function () { return data; }, sheet: function () { return sheet; } };
 })();
 </script>
 </body>

@@ -124,6 +124,26 @@
     assert.equal(doc.operator_work.confirmation_tasks.tasks, 12);
   });
 
+  test("annotation sheet: a copy holding another reviewer's labels is refused; labels keep questions apart and are validated", function () {
+    var sheet = { format: "athletrix-annotation-sheet", format_version: 1, reviewer: "", moments: [
+      { id: "m1", athlete_id: "f01", from_frame: 0, to_frame: 10, asks: ["execution_pass", "decision"], criterion: { decision: "kept possession" }, labels: {} }] };
+    assert.equal(V.sheetCheck(sheet, "").ok, false, "a reviewer name is required");
+    assert.ok(V.sheetCheck(sheet, "fictional reviewer A").ok);
+    V.setLabel(sheet, "m1", "execution_pass", { assessment: "assessed", attempts: 1, completions: 1, confidence: "high" });
+    V.setLabel(sheet, "m1", "decision", { assessment: "assessed", judgement: "poor", rationale: "receiver pressed" });
+    assert.deepEqual(sheet.moments[0].labels, { execution_pass: { assessment: "assessed", attempts: 1, completions: 1, confidence: "high" }, decision: { assessment: "assessed", judgement: "poor", rationale: "receiver pressed" } },
+                     "a completed pass can still be a poor choice");
+    sheet.reviewer = "fictional reviewer A";
+    var c = V.sheetCheck(sheet, "fictional reviewer B");
+    assert.ok(!c.ok && /already holds labels by fictional reviewer A/.test(c.problem), "blind: B never sees A's labels in this page");
+    var bad = function (q, lab) { try { V.setLabel(sheet, "m1", q, lab); return false; } catch (e) { return true; } };
+    assert.ok(bad("positioning", { assessment: "assessed", judgement: "good" }), "a question that was not asked");
+    assert.ok(bad("execution_pass", { assessment: "assessed", attempts: 1, completions: 2 }));
+    assert.ok(bad("decision", { assessment: "unable_to_assess" }), "a reason is required");
+    V.setLabel(sheet, "m1", "decision", { assessment: "unable_to_assess", unable_reason: "off_camera" });
+    assert.deepEqual(V.sheetProgress(sheet), { asked: 2, labelled: 2 });
+  });
+
   tests.forEach(function (t) { var li = document.createElement("li"); try { t.fn(); results.push({ name: t.name, ok: true }); li.className = "pass"; li.textContent = "PASS " + t.name; }
     catch (e) { results.push({ name: t.name, ok: false, error: String(e.message) }); li.className = "fail"; li.textContent = "FAIL " + t.name + ": " + e.message; } document.getElementById("results").appendChild(li); });
   var failed = results.filter(function (r) { return !r.ok; }).length;
