@@ -47,7 +47,7 @@
     assert.equal(V.unassignedSeconds(data, s.assignments), 3.0, "trk-1's 30 frames at 10 fps are not usable");
     var doc = V.exportDoc(Object.assign(s, { video: { name: "v.mp4", sha256: new Array(65).join("a") } }), data);
     assert.equal(doc.format_version, 2);
-    assert.deepEqual(Object.keys(doc.operator_work), ["seconds_spent", "confirmations", "corrections", "uncertain_marks", "unassigned_seconds", "tool"]);
+    assert.deepEqual(Object.keys(doc.operator_work), ["seconds_spent", "confirmations", "corrections", "uncertain_marks", "unassigned_seconds", "tool", "confirmation_tasks"]);
     assert.ok(doc.assignments.every(function (a) { return a.confirmed_by === "person"; }) && doc.video.sha256.length === 64);
     assert.ok(V.endAssignment(s, "trk-2", 20) && s.assignments.filter(function (a) { return a.track_id === "trk-2"; }).pop().to_frame === 19);
   });
@@ -61,6 +61,67 @@
     var threw = false; try { V.observationBody({ fps: 10, anchorUtc: "2026-11-03T10:00:00Z", fromFrame: 5, toFrame: 5, kind: "pass", assessment: "assessed" }); } catch (e) { threw = true; }
     assert.ok(threw, "an empty interval is refused");
     assert.deepEqual(["127.0.0.1", "localhost", "example.com", "assistantcoachai.net"].map(V.isLoopback), [true, true, false, false]);
+  });
+
+  // five distinct cases on one synthetic fixture (10 fps): a crossing, a prolonged occlusion, a referee near a player,
+  // a track restart, and a mistaken assignment later corrected
+  function caseData() {
+    var r = [], f;
+    for (f = 0; f < 40; f++) { r.push({ frame: f, track_id: "trk-A", u_px: 10 + f, v_px: 50, near_other_track: f >= 10 && f <= 14 ? true : undefined });
+                               r.push({ frame: f, track_id: "trk-B", u_px: 50 - f, v_px: 50, near_other_track: f >= 10 && f <= 14 ? true : undefined }); }
+    for (f = 0; f < 80; f++) if (f < 30 || f >= 50) r.push({ frame: f, track_id: "trk-C", u_px: 80, v_px: 20 });               // unseen 3.0-4.9 s
+    for (f = 55; f < 70; f++) { r.push({ frame: f, track_id: "trk-D", u_px: 95, v_px: 95, near_other_track: f >= 60 && f <= 62 ? true : undefined });
+                                r.push({ frame: f, track_id: "trk-R", u_px: 97, v_px: 97, near_other_track: f >= 60 && f <= 62 ? true : undefined }); }
+    for (f = 0; f <= 70; f++) r.push({ frame: f, track_id: "trk-E", u_px: 50, v_px: 90 });
+    for (f = 75; f < 90; f++) r.push({ frame: f, track_id: "trk-F", u_px: 55, v_px: 92 });                                       // a new id near where trk-E was lost
+    return V.parseObservations(file(r));
+  }
+
+  test("confirmation queue: crossing, prolonged occlusion, referee nearby, track restart; reaching the end of the hold is not identification", function () {
+    var d = caseData(), s = V.newState("op");
+    var q = V.confirmationQueue(d, s), kinds = function (t) { return q.filter(function (k) { return k.track_id === t; }).map(function (k) { return k.kind + "@" + k.eligible_frame; }); };
+    assert.deepEqual(kinds("trk-A"), ["track_start@0", "after_encounter@15"]);
+    assert.deepEqual(kinds("trk-C"), ["track_start@0", "after_gap@50"]);
+    assert.deepEqual(kinds("trk-R"), ["track_start@55", "after_encounter@63"]);
+    assert.deepEqual(kinds("trk-F"), ["track_restart@75"], "a new id where another was lost is flagged as a possible restart, not merged");
+    var enc = q.filter(function (k) { return k.track_id === "trk-D" && k.kind === "after_encounter"; })[0];
+    assert.deepEqual([enc.encounter_from, enc.encounter_to, enc.near], [60, 62, ["trk-R"]]);
+    assert.ok(/does not identify the player/.test(enc.note));
+    assert.ok(q.every(function (k) { return k.status === "open"; }), "nothing is resolved by itself");
+    var holey = V.parseObservations(file([0, 1, 2, 3, 5, 6, 8, 9].map(function (f) { return { frame: f, track_id: "trk-H", near_other_track: f >= 2 && f <= 6 ? true : undefined }; })));
+    assert.deepEqual(V.confirmationQueue(holey, V.newState("op")).map(function (k) { return k.kind + "@" + k.eligible_frame; }), ["track_start@0", "after_encounter@8"],
+                     "a missed detection inside the hold does not split the encounter (found on the drawn-figure clip)");
+    V.assign(s, "trk-C", "ath-C", 0, "confirmed");
+    assert.equal(V.trackState(d, s.assignments, "trk-C", 29).state, "assigned");
+    var st = V.trackState(d, s.assignments, "trk-C", 60);
+    assert.deepEqual([st.state, st.reason, st.gap_frame], ["needs_reconfirmation", "gap", 50], "a prolonged occlusion lapses the assignment");
+    V.assign(s, "trk-D", "ath-D", 63, "confirmed");
+    V.leaveUnassigned(s, "trk-R@after_encounter@63", "referee: not a player");
+    V.leaveUnassigned(s, "trk-R@track_start@55", "referee: not a player");
+    q = V.confirmationQueue(d, s);
+    var byId = {}; q.forEach(function (k) { byId[k.id] = k; });
+    assert.equal(byId["trk-D@after_encounter@63"].status, "confirmed");
+    assert.equal(byId["trk-D@track_start@55"].status, "open", "a confirmation after the encounter does not cover the time before it");
+    assert.deepEqual([byId["trk-R@after_encounter@63"].status, byId["trk-R@after_encounter@63"].reason_left], ["left_unassigned", "referee: not a player"]);
+    assert.equal(V.trackState(d, s.assignments, "trk-R", 65).state, "unassigned", "the referee's track never feeds a player");
+  });
+
+  test("a mistaken assignment later corrected is counted; the report says who confirmed and how much stays unassigned", function () {
+    var d = caseData(), s = V.newState("op");
+    V.assign(s, "trk-A", "ath-B", 15, "confirmed");      // mistaken
+    V.assign(s, "trk-A", "ath-A", 15, "confirmed");      // corrected at the same frame
+    V.assign(s, "trk-B", "ath-B", 15, "uncertain");
+    assert.deepEqual(s.assignments.filter(function (a) { return a.track_id === "trk-A"; }).map(function (a) { return [a.athlete_id, a.from_frame]; }), [["ath-A", 15]], "the correction replaces it, no overlap");
+    s.work.seconds_spent = 42;
+    var sum = V.queueSummary(d, s);
+    assert.equal(sum.corrections, 1);
+    assert.deepEqual([sum.confirmed, sum.marked_uncertain, sum.operator_seconds, sum.assignments_from], [1, 1, 42, ["person"]]);
+    assert.ok(sum.tasks === 12 && sum.open === 10, "12 tasks in this fixture: " + JSON.stringify(sum.kinds));
+    assert.ok(sum.coverage > 0 && sum.coverage < 0.2 && sum.unassigned_seconds > 0, "coverage " + sum.coverage);
+    s.assignments.push({ track_id: "trk-E", athlete_id: "ath-E", from_frame: 0, to_frame: null, identity: "confirmed", confirmed_by: "simulated_oracle", assigned_by: "oracle" });
+    assert.deepEqual(V.queueSummary(d, s).assignments_from, ["person", "simulated_oracle"], "a simulated oracle is named, never reported as a person");
+    var doc = V.exportDoc(s, d);
+    assert.equal(doc.operator_work.confirmation_tasks.tasks, 12);
   });
 
   tests.forEach(function (t) { var li = document.createElement("li"); try { t.fn(); results.push({ name: t.name, ok: true }); li.className = "pass"; li.textContent = "PASS " + t.name; }

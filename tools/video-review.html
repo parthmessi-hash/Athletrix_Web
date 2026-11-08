@@ -53,6 +53,17 @@
   <div id="vrTrackState" class="mono"></div>
 </div>
 <div class="panel">
+  <div>Confirmation queue: intervals a person must look at (a track's start or a possible restart, the end of an encounter's release hold, the end of a long gap). Reaching the end of a hold makes a track <em>eligible</em> for confirmation; it never identifies anyone. Nothing here is filled in by guessing.</div>
+  <div class="row">
+    <label>Show<br><select id="vrQueueFilter"><option value="open">open tasks</option><option value="all">all tasks</option></select></label>
+    <button type="button" id="vrContext">Go to the frames before this task</button>
+    <label>Reason for leaving unassigned<br><input id="vrLeaveReason" type="text" maxlength="120" style="width:220px" placeholder="e.g. referee, not a player"></label>
+    <button type="button" id="vrLeave">Leave this task unassigned</button>
+  </div>
+  <div id="vrQueueSummary" class="mono"></div>
+  <div id="vrQueue" class="tracks" style="max-height:220px;overflow:auto"></div>
+</div>
+<div class="panel">
   <div>Assignments and operator work</div>
   <div id="vrWork" class="mono"></div>
   <div id="vrAssignments" class="mono"></div>
@@ -82,7 +93,7 @@
 (function () {
   "use strict";
   var V = window.AthletrixVideoReview, $ = function (id) { return document.getElementById(id); };
-  var data = null, state = V.newState(""), frame = 0, selected = null, sending = false;
+  var data = null, state = V.newState(""), frame = 0, selected = null, sending = false, task = null;
   var video = $("vrVideo"), canvas = $("vrCanvas"), ctx = canvas.getContext("2d");
   var COLORS = { assigned: "#22c55e", uncertain: "#f59e0b", needs_reconfirmation: "#ef4444", unassigned: "#9ca3af" };
   function status(t, c) { $("status").textContent = t; $("status").style.color = c || "#9ca3af"; }
@@ -105,7 +116,7 @@
       var st = V.trackState(data, state.assignments, o.track_id, frame);
       ctx.strokeStyle = ctx.fillStyle = COLORS[st.state]; ctx.lineWidth = o.track_id === selected ? 4 : 2;
       ctx.beginPath(); ctx.arc(o.u_px, o.v_px, 9, 0, 2 * Math.PI); ctx.stroke();
-      ctx.font = "16px system-ui"; ctx.fillText(o.track_id + (st.athlete_id ? " → " + st.athlete_id : "") + (o.near_other_track ? " (encounter)" : ""), o.u_px + 12, o.v_px - 10);
+      ctx.font = "16px system-ui"; ctx.fillText(o.track_id + (st.athlete_id ? " → " + st.athlete_id : "") + (o.near_other_track ? " (encounter or release hold)" : ""), o.u_px + 12, o.v_px - 10);
       var b = document.createElement("button"); b.type = "button"; b.textContent = o.track_id + " · " + st.state.replace("_", " ") + (st.athlete_id ? " · " + st.athlete_id : "");
       b.addEventListener("click", function () { selected = o.track_id; $("vrTrack").value = o.track_id; if (st.athlete_id) $("vrAthlete").value = st.athlete_id; draw(); });
       tracks.appendChild(b);
@@ -118,7 +129,25 @@
     }
     renderWork();
   }
-  function renderWork() {
+  var KIND = { track_start: "track starts", track_restart: "possible restart", after_encounter: "after encounter", after_gap: "after a long gap" };
+  function renderQueue() {
+    if (!data) return;
+    var q = V.confirmationQueue(data, state), sum = V.queueSummary(data, state), show = $("vrQueueFilter").value;
+    text($("vrQueueSummary"), [sum.tasks + " tasks · open " + sum.open + " · confirmed " + sum.confirmed + " · uncertain " + sum.marked_uncertain + " · left unassigned " + sum.left_unassigned +
+                               " · corrections " + sum.corrections + " · usable coverage " + (sum.coverage === null ? "n/a" : Math.round(sum.coverage * 1000) / 10 + "%") + " (" + sum.unassigned_seconds + " of " + sum.observed_seconds +
+                               " observation-seconds not usable) · assignments from: " + (sum.assignments_from.join(", ") || "none") + (sum.assignments_from.indexOf("simulated_oracle") >= 0 ? " (SIMULATED oracle: not a person)" : "")]);
+    var box = $("vrQueue"); box.textContent = "";
+    q.filter(function (k) { return show === "all" || k.status === "open"; }).forEach(function (k) {
+      var b = document.createElement("button"); b.type = "button";
+      b.textContent = k.track_id + " · " + KIND[k.kind] + " · frame " + (k.eligible_frame === null ? "none" : k.eligible_frame) + " · " + k.status.replace(/_/g, " ") + (k.athlete_id ? " (" + k.athlete_id + ")" : "");
+      b.title = k.note; if (task && task.id === k.id) b.style.borderColor = "#f59e0b";
+      b.addEventListener("click", function () { task = k; selected = k.track_id; $("vrTrack").value = k.track_id; if (k.eligible_frame !== null) seek(k.eligible_frame); status(k.note + (k.near && k.near.length ? " · near: " + k.near.join(", ") : ""), "#cbd5e1"); });
+      box.appendChild(b);
+    });
+    if (!box.children.length) box.textContent = show === "open" ? "no open tasks" : "no tasks";
+  }
+  function renderWork(timerOnly) {
+    if (!timerOnly) renderQueue();
     var doc = V.exportDoc(state, data);
     text($("vrWork"), ["confirmations " + doc.operator_work.confirmations + " · corrections " + doc.operator_work.corrections + " · uncertain marks " + doc.operator_work.uncertain_marks +
                        " · observation-seconds without a usable assignment " + doc.operator_work.unassigned_seconds + " · time spent " + doc.operator_work.seconds_spent + " s (counted while this tab is visible and files are open)"]);
@@ -157,6 +186,13 @@
   $("vrConfirm").addEventListener("click", function () { act("confirmed"); });
   $("vrUncertain").addEventListener("click", function () { act("uncertain"); });
   $("vrEnd").addEventListener("click", function () { if (selected && V.endAssignment(state, selected, frame)) { status("Ended " + selected + "'s assignment before frame " + frame + ".", "#22c55e"); draw(); } });
+  $("vrQueueFilter").addEventListener("change", renderQueue);
+  $("vrContext").addEventListener("click", function () { if (task) { seek(Math.max(0, task.context_from - Math.round(data.fps))); status("Showing one second before " + task.track_id + "'s " + KIND[task.kind] + "; step forward frame by frame.", "#cbd5e1"); } });
+  $("vrLeave").addEventListener("click", function () {
+    if (!task) { status("Choose a task in the queue first.", "#f59e0b"); return; }
+    V.leaveUnassigned(state, task.id, $("vrLeaveReason").value.trim() || "left unassigned");
+    status("Left unassigned: " + task.id + ". Its frames stay unusable for any player.", "#22c55e"); task = null; draw();
+  });
   $("vrExport").addEventListener("click", function () {
     var blob = new Blob([JSON.stringify(V.exportDoc(state, data), null, 2)], { type: "application/json" });
     var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "assignments.json"; a.click();
@@ -180,7 +216,7 @@
       .catch(function () { $("vrSendStatus").textContent = "Not stored: the engine could not be reached."; })
       .then(function () { sending = false; });
   });
-  setInterval(function () { if (data && document.visibilityState === "visible") { state.work.seconds_spent += 1; renderWork(); } }, 1000);
+  setInterval(function () { if (data && document.visibilityState === "visible") { state.work.seconds_spent += 1; renderWork(true); } }, 1000);
   window.__vr = { state: function () { return state; }, seek: seek, data: function () { return data; } };
 })();
 </script>
