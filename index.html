@@ -3653,6 +3653,22 @@
           </div>
           <div id="axRecList" style="display:flex;flex-direction:column;gap:6px;font-size:0.82rem;color:#e5e7eb;"></div>
         </div>
+        <div class="card" id="axPiCard" style="margin-bottom:18px;border-left:4px solid #a855f7;">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
+            <div style="flex:1 1 240px;min-width:0;">
+              <div class="card-title">Fatigue pilot &middot; <span id="axPiWho">no active wearer</span></div>
+              <div class="card-sub">Experimental estimate for the current vest wearer, relative to their own baseline (0 = at their own reference, 100 = at the profile's bound, &ldquo;not available&rdquo; is never 0). No substitution advice: the coach decides.</div>
+            </div>
+            <span id="axPiMode" class="card-sub" style="font-weight:600;">&mdash;</span>
+            <button type="button" id="axPiRefresh" class="btn btn-ghost" style="padding:4px 10px;font-size:0.78rem;">Refresh</button>
+          </div>
+          <div id="axPiMain" style="display:flex;flex-wrap:wrap;gap:8px;font-size:0.8rem;">&mdash;</div>
+          <div id="axPiTrend" aria-label="Recent trend" style="display:flex;align-items:flex-end;gap:2px;height:48px;margin-top:8px;max-width:100%;overflow:hidden;"></div>
+          <div class="card-sub" id="axPiFactors" style="margin-top:6px;font-size:0.78rem;line-height:1.5;color:#e5e7eb;"></div>
+          <div class="card-sub" id="axPiMissing" style="margin-top:4px;font-size:0.76rem;line-height:1.5;color:#fbbf24;overflow-wrap:anywhere;"></div>
+          <details style="margin-top:6px;font-size:0.74rem;"><summary class="card-sub" style="cursor:pointer;">Technical detail (features, windows, references, exclusions, display delay)</summary><div class="card-sub" id="axPiTech" style="line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div></details>
+          <div class="card-sub" id="axPiStatus" style="margin-top:6px;font-size:0.76rem;"></div>
+        </div>
         <div class="card" id="axSuCard" style="margin-bottom:18px;border-left:4px solid #22c55e;">
           <div class="card-header" style="flex-wrap:wrap;gap:8px 12px;">
             <div style="flex:1 1 240px;min-width:0;">
@@ -10548,7 +10564,7 @@ function initializePlayerFatigue(team) {
   })();
 
   if (ENGINE_MODE !== "engine") {
-    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axSuCard", "axTrCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axPerfCard", "axSubCard", "axBlCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
+    ["axAthleteBar", "axReviewBar", "axRecordingCard", "axTeamCard", "axPiCard", "axSuCard", "axTrCard", "axLiveCards", "axLiveSum", "axLiveTl", "axCamCard", "axCtxCard", "axPerfCard", "axSubCard", "axBlCard", "axEffortCard", "axCompareCard"].forEach(function(id){ var el = byId(id); if (el) el.style.display = "none"; });
     var notice = byId("axEngineNotice"); if (notice) notice.style.display = "block";
     return; // public mode: no roster load, no pollers, no requests to the engine
   }
@@ -12922,6 +12938,107 @@ function initializePlayerFatigue(team) {
     setInterval(function() { if (!reviewing() && !el.axSubAt.value.trim()) load(); }, SUB_MS); // created once; recorded reviews refresh on demand
   })();
 
+  // ---- Fatigue pilot card: the current wearer's experimental estimate, trend, factors and missing-data reasons ----
+  // One request per second (GET .../study/pilot). A failure clears the view. Display timing: after each visible update,
+  // the next animation frame records the browser time, mapped onto the engine clock with an offset measured against
+  // GET /api/v1/clock (backend_time) (uncertainty = half the probe's round trip), next to the newest receipt time the response covered.
+  // window.__athletrixPilotDisplay holds [display time on the engine clock (ms), newest receipt covered (ms), offset uncertainty (ms)].
+  (function(){
+    var PI_MS = 1000, PROBE_MS = 30000;
+    var ids = ["axPiCard", "axPiWho", "axPiMode", "axPiRefresh", "axPiMain", "axPiTrend", "axPiFactors", "axPiMissing", "axPiTech", "axPiStatus"];
+    var el = {};
+    for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
+    var pi = { seq: 0, offset: null, probes: [] };
+    var NAMES = { vest_only: "Vest only", camera_only: "Camera only", combined: "Combined" };
+    var log = window.__athletrixPilotDisplay = [];
+    function setStatus(text, color) { el.axPiStatus.textContent = text; el.axPiStatus.style.color = color; }
+    function lines(target, rows) { target.textContent = ""; rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; target.appendChild(d); }); }
+    function clear(text) { el.axPiMain.textContent = text; el.axPiTrend.textContent = ""; el.axPiFactors.textContent = ""; el.axPiMissing.textContent = ""; el.axPiTech.textContent = ""; el.axPiWho.textContent = "no active wearer"; el.axPiMode.textContent = DASH; }
+    function probe() {
+      var t0 = Date.now();
+      return fetch(API_BASE + "/api/v1/clock", { cache: "no-store" }).then(function(res) { return res.json(); }).then(function(b) {
+        var t1 = Date.now(), eng = Date.parse(b.backend_time), rtt = t1 - t0;
+        pi.probes.push({ offset: eng - (t0 + t1) / 2, unc: rtt / 2 });
+        if (pi.probes.length > 5) pi.probes.shift();
+        pi.offset = pi.probes.reduce(function(a, b) { return !a || b.unc < a.unc ? b : a; }, null);
+      }).catch(function() {});
+    }
+    function target() {
+      if (sessionReview() && selection.session) return Promise.resolve(selection.session);
+      return fetch(API_BASE + "/api/v1/recordings/active", { cache: "no-store" }).then(function(res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+        .then(function(b) { return b && b.recording && typeof b.recording === "object" ? b.recording : null; });
+    }
+    function box(name, c) {
+      var d = document.createElement("div");
+      d.style.flex = "1 1 140px"; d.style.minWidth = "0"; d.style.padding = "6px 8px"; d.style.borderRadius = "6px"; d.style.background = name === "combined" ? "rgba(168,85,247,0.15)" : "rgba(255,255,255,0.04)";
+      var h = document.createElement("div"); h.className = "card-sub"; h.textContent = NAMES[name]; d.appendChild(h);
+      var v = document.createElement("div"); v.style.fontSize = "1.3rem"; v.style.fontWeight = "700"; v.style.color = "#fff";
+      v.textContent = c && c.available ? String(Math.round(c.value)) : NA; d.appendChild(v);
+      if (c && !c.available) { var w = document.createElement("div"); w.className = "card-sub"; w.style.fontSize = "0.72rem"; w.textContent = (c.reasons || [])[0] || "unavailable"; d.appendChild(w); }
+      return d;
+    }
+    function render(r) {
+      el.axPiMode.textContent = (r.mode === "live" ? "LIVE" : "RECORDED") + (r.fictional ? " · FICTIONAL" : "") + " · recording " + r.recording_status;
+      el.axPiMode.style.color = r.fictional ? COLORS.warn : COLORS.muted;
+      if (!r.wearer) { clear("No active wearer at " + availUtc(r.at) + "."); el.axPiMode.textContent = (r.mode === "live" ? "LIVE" : "RECORDED") + (r.fictional ? " · FICTIONAL" : ""); return; }
+      el.axPiWho.textContent = r.wearer.participant_code + " (vest " + r.wearer.device_id + ", since " + availUtc(r.wearer.since) + ")";
+      var e = r.estimate || {}, cs = e.candidates || {};
+      el.axPiMain.textContent = "";
+      ["combined", "vest_only", "camera_only"].forEach(function(k) { el.axPiMain.appendChild(box(k, cs[k])); });
+      el.axPiTrend.textContent = "";
+      (r.trend || []).forEach(function(p) {
+        var b = document.createElement("div"); var v = p.combined;
+        b.style.flex = "1 1 0"; b.style.minWidth = "3px"; b.style.background = v === null || v === undefined ? "transparent" : "#a855f7";
+        b.style.border = v === null || v === undefined ? "1px dashed rgba(255,255,255,0.25)" : "none";
+        b.style.height = (v === null || v === undefined ? 100 : Math.max(2, v)) + "%"; b.title = availUtc(p.at) + " combined " + (v === null || v === undefined ? "not available" : v);
+        el.axPiTrend.appendChild(b);
+      });
+      var main = cs.combined && cs.combined.available ? cs.combined : (cs.vest_only && cs.vest_only.available ? cs.vest_only : cs.camera_only);
+      var top = ((main && main.contributions) || []).slice().sort(function(a, b) { return b.contribution - a.contribution; }).slice(0, 3);
+      lines(el.axPiFactors, top.length ? ["Main factors (" + NAMES[main === cs.combined ? "combined" : main === cs.vest_only ? "vest_only" : "camera_only"] + "): " +
+        top.map(function(t) { return t.feature.replace(/_/g, " ") + " " + Math.round(t.score) + " (weight " + Math.round(t.weight * 100) + "%)"; }).join(" · ")] : ["No estimate is available, so no factors are shown."]);
+      var miss = [];
+      ["combined", "vest_only", "camera_only"].forEach(function(k) { if (cs[k] && !cs[k].available) miss.push(NAMES[k] + " not available: " + (cs[k].reasons || []).join("; ")); });
+      lines(el.axPiMissing, miss);
+      var tech = [e.display || "", "Profile " + (e.profile ? e.profile.version + " (" + e.profile.sha256.slice(0, 12) + (e.profile.fictional ? ", FICTIONAL" : "") + ")" : "none")];
+      Object.keys(e.features || {}).forEach(function(f) { var x = e.features[f];
+        tech.push(f.replace(/_/g, " ") + " [" + (x.inputs || []).join("+") + "]: " + (x.available ? x.value + " · " + JSON.stringify(x.measure) : "unavailable: " + x.reason) +
+                  (x.window ? " · window " + availUtc(x.window.start) + " to " + availUtc(x.window.end) : "") + (x.reference ? " · reference " + JSON.stringify(x.reference) : "")); });
+      if (e.inputs) tech.push("Inputs: wearable " + e.inputs.wearable_samples + ", camera " + e.inputs.camera_samples + " samples; left out " + JSON.stringify(e.inputs.excluded));
+      if (pi.offset) tech.push("Engine clock offset " + Math.round(pi.offset.offset) + " ms ± " + Math.round(pi.offset.unc) + " ms (browser mapped to engine clock for display timing)");
+      if (r.profile_differs_from_configured) tech.push("Note: the engine's configured profile differs from the one this session froze; the frozen one is used.");
+      lines(el.axPiTech, tech);
+    }
+    function stamp(r) {
+      var mark = function() {
+        if (!pi.offset || !r.newest_receipt) return;
+        log.push([Date.now() + pi.offset.offset, Date.parse(r.newest_receipt), pi.offset.unc]);
+        if (log.length > 20000) log.shift();
+      };
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(mark); else mark();
+    }
+    function load() {
+      if (!dashboardVisible()) return;
+      var my = ++pi.seq, stale = function() { return my !== pi.seq; };
+      if (!pi.offset) probe();
+      target().then(function(rec) {
+        if (stale()) return;
+        if (!rec) { clear("No recording is active and none is under review."); setStatus("", COLORS.muted); return; }
+        var url = API_BASE + "/api/v1/recordings/" + encodeURIComponent(rec.id) + "/study/pilot?trend_span_s=300&trend_step_s=15";
+        return fetch(url, { cache: "no-store" }).then(function(res) { if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); }); return res.json(); })
+          .then(function(r) { if (stale()) return; render(r); stamp(r); setStatus("Updated " + availUtc(r.captured_at) + " · " + r.note, COLORS.muted); });
+      }).catch(function(err) {
+        if (stale()) return;
+        clear("Not available.");
+        setStatus("The pilot view could not be read from " + API_BASE + " (" + err.message + "); nothing earlier is shown as current.", COLORS.error);
+      });
+    }
+    el.axPiRefresh.addEventListener("click", load);
+    cards.push({ reset: function() {}, poll: load, setWho: function() {} });
+    setInterval(function() { if (!reviewing()) load(); }, PI_MS);
+    setInterval(function() { if (!reviewing()) probe(); }, PROBE_MS);
+  })();
+
   // ---- Session setup card: engine preflight (three readiness areas) and, while recording, what is arriving or missing ----
   // Two requests per refresh (preflight, and the active recording's evidence); every failure clears the view.
   (function(){
@@ -12930,7 +13047,7 @@ function initializePlayerFatigue(team) {
     var el = {};
     for (var i = 0; i < ids.length; i++) { el[ids[i]] = byId(ids[i]); if (!el[ids[i]]) return; }
     var su = { seq: 0 };
-    var AREAS = [["raw_recording", "Raw recording"], ["camera_review", "Camera tracking review"], ["experimental_recommendation", "Experimental recommendation"]];
+    var AREAS = [["raw_recording", "Raw recording"], ["camera_review", "Camera tracking review"], ["fatigue_pilot", "Fatigue pilot estimate"], ["experimental_recommendation", "Experimental substitution review (not needed for the pilot)"]];
     var VERDICT = { ready: "Ready", ready_with_warnings: "Ready, with warnings", blocked: "Blocked" };
     var TONE = { ready: COLORS.live, ready_with_warnings: COLORS.warn, blocked: COLORS.error };
     function getJson(url) { return fetch(url, { cache: "no-store" }).then(function(res) { if (!res.ok) return rejectionText(res).then(function(why) { throw new Error(why); }); return res.json(); }); }
@@ -12939,7 +13056,7 @@ function initializePlayerFatigue(team) {
     function render(pf, ev) {
       el.axSuAreas.textContent = "";
       AREAS.forEach(function(a) {
-        var r = pf.readiness[a[0]], box = document.createElement("div");
+        var r = pf.readiness[a[0]]; if (!r) return; var box = document.createElement("div");
         box.style.flex = "1 1 220px"; box.style.minWidth = "0"; box.style.padding = "6px 8px"; box.style.borderRadius = "6px"; box.style.background = "rgba(255,255,255,0.04)";
         var head = document.createElement("div"); head.style.fontWeight = "600"; head.style.color = TONE[r.verdict] || COLORS.muted; head.textContent = a[1] + ": " + (VERDICT[r.verdict] || r.verdict);
         box.appendChild(head);

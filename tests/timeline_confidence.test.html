@@ -2238,6 +2238,62 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.equal(row.children[2].textContent, " reproducing…", "a1's late answer is not written after the switch");
   });
 
+  // ---- fatigue pilot card ----
+  const PI_IDS = ["axPiCard", "axPiWho", "axPiMode", "axPiRefresh", "axPiMain", "axPiTrend", "axPiFactors", "axPiMissing", "axPiTech", "axPiStatus"];
+  const cand = (v, reasons) => v === null ? { available: false, value: null, reasons: reasons || ["wearable stream: newest wearable sample is 20 s old (stale after 10 s)"], contributions: [] }
+    : { available: true, value: v, reasons: [], contributions: [{ feature: "hr_strain", weight: 0.5, score: 40, contribution: 20 }, { feature: "hr_per_speed", weight: 0.3, score: 30, contribution: 9 }] };
+  const piBody = (o) => Object.assign({ recording_id: "rec-1", recording_status: "active", mode: "live", fictional: true, at: iso(0), captured_at: iso(0), note: "Experimental estimate. No substitution advice; the coach decides.",
+    wearer: { participant_code: "P1", device_id: "fictional-vest-1", since: iso(-300), athlete_id: "px1" }, newest_receipt: iso(-1),
+    estimate: { display: "0-100", profile: { version: "fictional-development-1", sha256: "a".repeat(64), fictional: true }, candidates: { combined: cand(29), vest_only: cand(40), camera_only: cand(0) },
+                features: { hr_strain: { inputs: ["wearable"], available: true, value: 40, measure: { mean_hr_bpm: 150 } }, recovery: { inputs: ["wearable"], available: false, reason: "no qualifying effort" } },
+                inputs: { wearable_samples: 30, camera_samples: 300, excluded: { test_effort: 0 } } },
+    trend: [{ at: iso(-30), combined: 20 }, { at: iso(-15), combined: null }, { at: iso(0), combined: 29 }] }, o || {});
+
+  test("fatigue pilot: no request in public mode; live and fictional labels; a real zero, unavailable shown as not available; factors and reasons", async () => {
+    const pub = boot({ hostname: "assistantcoachai.net", extra: PI_IDS });
+    await pub.flush();
+    assert.equal(pub.pending.length, 0, "public mode makes no engine request");
+    assert.equal(pub.els.axPiCard.style.display, "none");
+    const ctx = boot({ extra: PI_IDS });
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody());
+    assert.equal(ctx.els.axPiMode.textContent, "LIVE · FICTIONAL · recording active");
+    assert.match(ctx.els.axPiWho.textContent, /^P1 \(vest fictional-vest-1/);
+    const boxes = ctx.els.axPiMain.children.map(b => texts(b).join(" | "));
+    assert.deepEqual(boxes, ["Combined | 29", "Vest only | 40", "Camera only | 0"], "0 is a value");
+    assert.equal(ctx.els.axPiTrend.children.length, 3);
+    assert.equal(ctx.els.axPiTrend.children[1].style.background, "transparent", "a missing point is a gap, not a zero bar");
+    assert.match(texts(ctx.els.axPiFactors)[0], /^Main factors \(Combined\): hr strain 40 \(weight 50%\) · hr per speed 30/);
+    assert.ok(texts(ctx.els.axPiTech).some(t => /^recovery \[wearable\]: unavailable: no qualifying effort/.test(t)));
+    await click(ctx, "axPiRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody({ mode: "recorded", fictional: false, estimate: Object.assign({}, piBody().estimate, { candidates: { combined: cand(null), vest_only: cand(null), camera_only: cand(12) } }) }));
+    assert.equal(ctx.els.axPiMode.textContent, "RECORDED · recording active");
+    assert.deepEqual(ctx.els.axPiMain.children.map(b => texts(b)[1]), ["Not available", "Not available", "12"]);
+    assert.match(texts(ctx.els.axPiMissing)[0], /^Combined not available: wearable stream: newest wearable sample is 20 s old/);
+    assert.ok(!/replace|substitut(e|ion) (now|him|her)/i.test(texts(ctx.els.axPiFactors).join(" ") + texts(ctx.els.axPiMissing).join(" ")), "no substitution advice");
+  });
+
+  test("fatigue pilot: a failure clears the view; an older success after a newer failure is ignored", async () => {
+    const ctx = boot({ extra: PI_IDS });
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const first = ctx.pending.find(p => p.url.includes("/study/pilot"));
+    await click(ctx, "axPiRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    const second = ctx.pending.filter(p => p.url.includes("/study/pilot")).pop();
+    await ctx.resolveLateRaw(second, { ok: false, status: 503, json: async () => ({ detail: "engine restarting" }) });
+    assert.equal(ctx.els.axPiMain.textContent, "Not available.");
+    await ctx.resolveLate(first, piBody());
+    assert.equal(ctx.els.axPiMain.textContent, "Not available.", "the older answer never replaces the newer failure");
+    assert.match(ctx.els.axPiStatus.textContent, /nothing earlier is shown as current/);
+    await click(ctx, "axPiRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody({ wearer: null, estimate: null, trend: [] }));
+    assert.match(ctx.els.axPiMain.textContent, /^No active wearer/);
+  });
+
   // ---- session setup card ----
   const SU_IDS = ["axSuCard", "axSuRefresh", "axSuAreas", "axSuRecording", "axSuStatus"];
   const pfBody = (active) => ({ checked_at: iso(0), engine: { version: "0.1.0" }, free_storage_mb: 12000, active_recording: active || null,
@@ -2259,7 +2315,7 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
       { athlete: { id: "f04", name: "Fictional f04", jersey_number: 7 }, evidence: { sources: { wearable: { status: "not_used" } } } }] });
     const areas = ctx.els.axSuAreas.children.map(b => texts(b).join(" | "));
     assert.match(areas[0], /^Raw recording: Ready, with warnings \| Note: f01: no wearable reading/);
-    assert.match(areas[2], /^Experimental recommendation: Blocked \| Blocked: no performance rubric/);
+    assert.match(areas[2], /^Experimental substitution review \(not needed for the pilot\): Blocked \| Blocked: no performance rubric/);
     const rec = texts(ctx.els.axSuRecording);
     assert.ok(rec.includes("  unavailable (1): Fictional f02 #4") && rec.includes("  not used (1): Fictional f04 #7") && rec.includes("  present (1): Fictional f01 #8"), rec.join("\n"));
     await click(ctx, "axSuRefresh");
