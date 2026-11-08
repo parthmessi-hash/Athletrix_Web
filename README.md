@@ -161,7 +161,18 @@ four performance areas, role and instructions, reasons, tradeoffs, constraints, 
 missing evidence) and lets you record a response (acknowledge, keep, review later, dismiss with a reason: the review
 is saved first so the recommendation stays pinned) or a lineup change (incoming bench player, role, effective time).
 Each action carries a token, so a retry or double click is stored once. A failed refresh clears the rows; an earlier
-result is never shown as current.
+result is never shown as current, and an older answer arriving after a newer failure is dropped. Each row ends with
+the engine's short evidence summary (for example "Wearable stale"), and "Evidence details (technical)" in the detail
+panel lists, per source, observed and received times, age, window counts (an expected count only when the session plan
+states a sampling interval), retries, replacements, rejected writes, exclusions, device reports, camera gaps and which
+inputs the review used. Since the engine's decision rules version 2, a player whose required input is missing shows
+"Insufficient evidence", never an earlier "Keep". A performance-only route and a context-only observation are labelled
+as such.
+
+**Session setup and readiness** (engine mode, above Team review) shows the engine's preflight as three separate areas
+(raw recording, camera tracking review, experimental recommendation) and, while a recording is active, each player's
+wearable status (present, delayed, stale, disconnected, unavailable, not used, unknown). It is read-only. Plan, start
+and stop with the engine's `scripts/sideline_session.py`. Two requests per refresh; a failure clears the view.
 
 **Baselines and profiles** (engine mode) lists the configured experimental profiles (none by default; version, hash,
 FICTIONAL flag, warnings, compatibility problems) and the selected athlete's baselines with their statistics, decisions
@@ -174,7 +185,15 @@ frame on, mark an identity uncertain, end an assignment, and export assignments 
 the operator's work (confirmations, corrections, uncertain marks, observation-seconds without a usable assignment,
 time spent). After a close encounter a track needs confirming again; being visible after the release period is not
 confirmation. From a loopback copy only, an observation can be sent to a local engine linked to frames and the file
-hash. Logic tests: `tests/video_review.test.html` (expect "3 tests, 3 passed").
+hash. A **confirmation queue** lists every interval a person must look at: a track's start or a possible restart, the
+end of an encounter's release hold, and the end of a gap longer than 1 s (an assignment also lapses after such a gap).
+Each task can be jumped to, inspected from one second before, confirmed, marked uncertain or left unassigned with a
+reason (for example a referee). Reaching the end of a hold makes a track eligible, not identified. The summary reports
+tasks, corrections, usable coverage, time spent and whether assignments came from a person or a simulated oracle; it
+is exported in `operator_work.confirmation_tasks`. The **Annotation sheet** panel loads a reviewer's own blank sheet
+(from the engine's `scripts/annotate.py blank`) and records execution, decision, positioning and tactical judgements
+with confidence and rationale. It refuses a copy holding another reviewer's labels and shows no Athletrix output.
+Logic tests: `tests/video_review.test.html` (expect "6 tests, 6 passed").
 
 **Experimental review** (below Performance evidence) asks the engine for its experimental substitution review of the
 selected athlete at a chosen time (empty = the recording's end, or now) and shows, as reported: the output (keep,
@@ -791,7 +810,7 @@ plus recording navigation (per-stream bounds, First/Previous/Next/Last,
 empty windows stated, late bounds dropped) and saved periods (validation,
 request body, refusals, open at exact bounds with the labelled result,
 clearing on changes, Enter to save, hidden for active recordings).
-Expect "87 tests, 87 passed" (team review: rows, unavailable values, unreviewed players, failure clears rows, late responses, responses saved once, lineup body; baselines and profiles: unconfigured profiles, decisions need a reason and a name, preview body; experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
+Expect "89 tests, 89 passed" (session setup: three readiness areas, wearable status per player, failure clears the view, no request in public mode; team review: an older success after a newer failure, evidence lines and details, context-only observations, rows, unavailable values, unreviewed players, failure clears rows, late responses, responses saved once, lineup body; baselines and profiles: unconfigured profiles, decisions need a reason and a name, preview body; experimental review: retrospective and as-entered labels, saving a review, reproduction results and late reproduction answers; outcome, fictional banner, replacements without physiology,
 missing evidence, measurements apart from interpretation, history and cooldown holds, the chosen review time, refusals,
 an unconfigured engine, late replies; performance evidence: decision and positioning counts, corrections and statuses; counts, states, sources, linked instructions, unavailable composite, request bodies, refusals, late replies, hidden in public mode; coach context default effective time with a microsecond start and a sub-second recording; camera review: segments, gaps, breaks, stale and failed windows, late replies, the local track file; coach context: entries in force, request bodies, refusals, no recording; inventory counts and package download; the saved-period review table, CSV, errors and late replies; markup-looking names and labels rendered as inert text; the opt-in developer timing panel). The
 runner fails a test that does not finish within 10 s and yields through a
