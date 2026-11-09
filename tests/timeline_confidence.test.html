@@ -2302,6 +2302,32 @@ exposed as <code>window.__results</code>. All sample data is fictional.</p>
     assert.match(texts(ctx.els.axPiExplain)[0], /^No combined estimate for P1: the player's reference does not include this kind of movement, so there is no confident comparison\.$/);
   });
 
+  test("fatigue estimate: the reference coverage summary shows comparable bands, what was lost and what to check, and stays hidden without the experimental feature", async () => {
+    const ctx = boot({ extra: PI_IDS.concat(["axPiExplain", "axPiCoverage"]) });
+    await start(ctx);
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody({ reference_coverage: null }));
+    assert.equal(ctx.els.axPiCoverage.style.display, "none", "the default profile has no movement-matched feature: nothing shown");
+    const cov = { athlete_id: "px1", status: "not_comparable", feature_available: false, caution: null,
+      headline: "The reference does not include this kind of movement, so heart rate is not compared (not read as fatigue or freshness).",
+      next_check: "Look at the bands marked 'reference lacks this range': the player's reference period did not include that speed.",
+      thresholds: { min_matched_share: 0.6, min_pairs_per_band: 5 }, recent_share_in_comparable_bands: 0.16,
+      bands: [{ label: "2.5-3.5 m/s", note: "comparable (98 reference, 19 recent pairs)" }, { label: "3.5-5 m/s", note: "reference lacks this range (0 reference pairs, 101 recent)" }],
+      lost: { reference: { paired: 102, heart_rate_samples: 120, lost: [{ samples: 18, why: "no camera tracking (gap)" }] }, recent: { paired: 120, heart_rate_samples: 120, lost: [] } } };
+    await click(ctx, "axPiRefresh");
+    await respondAll(ctx, "/recordings/active", { recording: CTX_REC });
+    await ctx.respond("/study/pilot", piBody({ reference_coverage: cov, estimate: Object.assign({}, piBody().estimate, { candidates: { combined: cand(null,
+      ["required feature hr_speed_matched unavailable: heart rate is missing in the recent window (covered 20 of 120 s, 4 samples); too few recent heart-rate samples"]), vest_only: cand(40), camera_only: cand(10) } }) }));
+    const L = texts(ctx.els.axPiCoverage);
+    assert.equal(ctx.els.axPiCoverage.style.display, "block");
+    assert.match(L[0], /^Reference coverage \(research · experimental heart rate at similar movement\): REFERENCE LACKS THIS MOVEMENT\./);
+    assert.equal(L[1], "Recent samples in speed bands the reference also has: 16% (the estimate needs 60%).");
+    assert.match(L[2], /3\.5-5 m\/s reference lacks this range \(0 reference pairs, 101 recent\)/);
+    assert.match(L[3], /reference window: 102 of 120 heart-rate samples paired; left out: 18 no camera tracking \(gap\) · recent window: 120 of 120 heart-rate samples paired\./);
+    assert.match(L[4], /^Check next: Look at the bands/);
+    assert.match(texts(ctx.els.axPiExplain)[0], /^No combined estimate for P1: heart rate is missing for part of the time \(/, "missing heart rate is not explained as a reference gap");
+  });
+
   test("fatigue pilot: save score, then start the sprint; double clicks, a wearer change and a round change block a stale confirmation", async () => {
     const ctx = boot({ extra: PI_IDS });
     await start(ctx);

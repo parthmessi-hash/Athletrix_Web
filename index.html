@@ -3642,6 +3642,7 @@
           <div id="axPiTrend" aria-label="Recent trend" style="display:flex;align-items:flex-end;gap:2px;height:48px;margin-top:8px;max-width:100%;overflow:hidden;"></div>
           <div class="card-sub" id="axPiFactors" style="margin-top:6px;font-size:0.78rem;line-height:1.5;color:#e5e7eb;"></div>
           <div class="card-sub" id="axPiMissing" style="margin-top:4px;font-size:0.76rem;line-height:1.5;color:#fbbf24;overflow-wrap:anywhere;"></div>
+          <div class="card-sub" id="axPiCoverage" aria-label="Reference coverage" style="display:none;margin-top:6px;padding:6px 8px;border:1px dashed rgba(255,255,255,0.2);border-radius:6px;font-size:0.76rem;line-height:1.5;color:#e5e7eb;overflow-wrap:anywhere;"></div>
           <div id="axPiFlowBox" style="margin-top:8px;padding:6px 8px;border:1px solid rgba(168,85,247,0.4);border-radius:6px;font-size:0.78rem;">
             <div id="axPiNext" aria-live="polite" style="font-weight:600;margin-bottom:4px;line-height:1.5;overflow-wrap:anywhere;">Next: &mdash;</div>
             <div class="card-sub" style="margin-bottom:4px;">Round: start it when Next says both streams are usable &rarr; 1. save the score &rarr; 2. after the confirmation, start the sprint &rarr; 3. the timer enters the time separately.</div>
@@ -4290,8 +4291,8 @@
         <div class="slide-panel" id="slidePanel">
           <div class="slide-header">
             <div>
-              <div class="slide-title" id="slideTitle">Make Sub</div>
-              <div class="slide-sub" id="slideSub">Confirm AI suggestion or pick manually.</div>
+              <div class="slide-title" id="slideTitle">Players</div>
+              <div class="slide-sub" id="slideSub">Fictional demo roster.</div>
             </div>
             <button class="btn btn-ghost" id="closeSlideBtn">✕</button>
           </div>
@@ -9427,17 +9428,7 @@ function initializePlayerFatigue(team) {
       m.addEventListener("click",e=>{ if(e.target===m) m.classList.remove("show"); });
       m.querySelector("#axGraphX").addEventListener("click",()=>m.classList.remove("show"));
     }
-    if(!document.getElementById("axSubModal")){
-      const m=document.createElement("div"); m.className="ax-modal-bd"; m.id="axSubModal";
-      m.innerHTML=`<div class="ax-modal" style="max-width:560px;"><button class="ax-modal-x" id="axSubX">✕</button>
-        <div class="ax-h" style="font-size:1.4rem;margin-bottom:4px;">Make Substitution</div>
-        <div class="ax-muted" style="font-size:0.85rem;margin-bottom:18px;">AI suggestion pre-selected — adjust if you want.</div>
-        <div id="axSubBody"></div>
-        <button class="ax-btn ax-btn-primary" id="axSubConfirm" style="width:100%;margin-top:16px;">Confirm Substitution</button></div>`;
-      document.body.appendChild(m);
-      m.addEventListener("click",e=>{ if(e.target===m) m.classList.remove("show"); });
-      m.querySelector("#axSubX").addEventListener("click",()=>m.classList.remove("show"));
-    }
+    // the substitution modal was removed (fatigue-only scope, 2026-11-09)
     if(!document.getElementById("axReportModal")){
       const m=document.createElement("div"); m.className="ax-modal-bd"; m.id="axReportModal";
       m.innerHTML=`<div class="ax-modal"><button class="ax-modal-x" id="axReportX">✕</button><div id="axReportBody"></div></div>`;
@@ -9776,7 +9767,6 @@ function initializePlayerFatigue(team) {
   window._axPostGameHTML = postGameHTML;
 
   // expose for part C
-  window.axOpenSub = openSubPanel2;
   window.axEnsureModals = ensureModals;
   window._AXI2 = { loadInj, saveInj, isInjured, injKey, startMatch2, stopMatch2, axLine, histVals };
 })();
@@ -12738,6 +12728,8 @@ function initializePlayerFatigue(team) {
       if (/^camera stream/.test(r)) return "the camera track is stale or missing (" + r.replace(/^camera stream: /, "") + ")";
       if (/low-confidence|predicted|identity/.test(r)) return "the camera track is uncertain (" + r + ")";
       if (/baseline/.test(r)) return "the player's baseline is not ready (" + r + ")";
+      if (/heart rate is missing/.test(r)) return "heart rate is missing for part of the time (" + r.split(";")[0] + ")";
+      if (/no camera tracking \(gap\)/.test(r)) return "the camera lost the player for part of the time (" + r.split(";")[0] + ")";
       if (/does not cover this kind of movement/.test(r)) return "the player's reference does not include this kind of movement, so there is no confident comparison";
       if (/reference window|camera reference|not complete at the cutoff|overlaps the reference/.test(r)) return "the player's reference period is still building (" + r + ")";
       if (/clock/.test(r)) return "the camera and wearable clocks cannot be paired (" + r + ")";
@@ -12757,11 +12749,30 @@ function initializePlayerFatigue(team) {
       if (left.length) L.push("Left out of this estimate: " + left.join("; ") + ".");
       return L;
     }
+    var COV = { covered: "COVERED", not_comparable: "REFERENCE LACKS THIS MOVEMENT", too_few_recent: "TOO FEW RECENT SAMPLES", missing_heart_rate: "HEART RATE MISSING",
+                camera_identity_uncertain: "CAMERA IDENTITY UNCERTAIN", camera_gap: "CAMERA GAP", near_test_sprint: "NEXT TO A TEST SPRINT", clock_alignment: "CLOCK ALIGNMENT",
+                reference_incomplete: "REFERENCE INCOMPLETE", wearer_or_baseline: "WEARER OR BASELINE" };
+    // the engine's summary of the player's own reference for the EXPERIMENTAL heart-rate-at-similar-movement feature;
+    // shown only when the session's frozen profile uses it (built from the score's own counts; it decides nothing)
+    function coverageLines(cv) {
+      if (!cv) return [];
+      var L = ["Reference coverage (research · experimental heart rate at similar movement): " + (COV[cv.status] || cv.status) + ". " + cv.headline];
+      if (typeof cv.recent_share_in_comparable_bands === "number") L.push("Recent samples in speed bands the reference also has: " + Math.round(100 * cv.recent_share_in_comparable_bands) +
+        "% (the estimate needs " + Math.round(100 * cv.thresholds.min_matched_share) + "%).");
+      if ((cv.bands || []).length) L.push("Speed bands: " + cv.bands.map(function(b) { return b.label + " " + b.note; }).join("; ") + ".");
+      var lost = [];
+      Object.keys(cv.lost || {}).forEach(function(w) { var a = cv.lost[w]; var x = (a.lost || []).map(function(l) { return l.samples + " " + l.why; });
+        lost.push(w + " window: " + a.paired + " of " + a.heart_rate_samples + " heart-rate samples paired" + (x.length ? "; left out: " + x.join(", ") : "")); });
+      if (lost.length) L.push(lost.join(" · ") + ".");
+      if (cv.caution) L.push("Caution: " + cv.caution + " (the estimate stands, on fewer samples).");
+      if (cv.next_check) L.push("Check next: " + cv.next_check);
+      return L;
+    }
     var log = window.__athletrixPilotDisplay = [];
     function setStatus(text, color) { el.axPiStatus.textContent = text; el.axPiStatus.style.color = color; }
     function texts(target) { return (target.children ? Array.prototype.map.call(target.children, function(c) { return c.textContent; }) : []); }
     function lines(target, rows) { target.textContent = ""; rows.forEach(function(r) { var d = document.createElement("div"); d.textContent = r; target.appendChild(d); }); }
-    function clear(text) { var ex = byId("axPiExplain"); if (ex) ex.textContent = ""; el.axPiMain.textContent = text; el.axPiTrend.textContent = ""; el.axPiFactors.textContent = ""; el.axPiMissing.textContent = ""; el.axPiTech.textContent = ""; el.axPiWho.textContent = "no active wearer"; el.axPiMode.textContent = DASH; }
+    function clear(text) { var ex = byId("axPiExplain"); if (ex) ex.textContent = ""; var cvx = byId("axPiCoverage"); if (cvx) { cvx.textContent = ""; cvx.style.display = "none"; } el.axPiMain.textContent = text; el.axPiTrend.textContent = ""; el.axPiFactors.textContent = ""; el.axPiMissing.textContent = ""; el.axPiTech.textContent = ""; el.axPiWho.textContent = "no active wearer"; el.axPiMode.textContent = DASH; }
     function probe() {
       var t0 = Date.now();
       return fetch(API_BASE + "/api/v1/clock", { cache: "no-store" }).then(function(res) { return res.json(); }).then(function(b) {
@@ -12831,6 +12842,8 @@ function initializePlayerFatigue(team) {
       var miss = [];
       ["combined", "vest_only", "camera_only"].forEach(function(k) { if (cs[k] && !cs[k].available) miss.push(SHORT[k] + " not available: " + (cs[k].reasons || []).join("; ")); });
       lines(el.axPiMissing, miss);
+      var covEl = byId("axPiCoverage");
+      if (covEl) { var cl = coverageLines(r.reference_coverage); lines(covEl, cl); covEl.style.display = cl.length ? "block" : "none"; }
       lines(el.axPiFactors, texts(el.axPiFactors).concat(info));
       var tech = [e.display || "", "Profile " + (e.profile ? e.profile.version + " (" + e.profile.sha256.slice(0, 12) + (e.profile.fictional ? ", FICTIONAL" : "") + ")" : "none")];
       Object.keys(e.features || {}).forEach(function(f) { var x = e.features[f];
